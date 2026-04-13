@@ -70,7 +70,7 @@
       "新北市": ["207 萬里區", "208 金山區", "220 板橋區", "221 汐止區", "222 深坑區", "223 石碇區", "224 瑞芳區", "226 平溪區", "227 雙溪區", "228 貢寮區", "231 新店區", "232 坪林區", "233 烏來區", "234 永和區", "235 中和區", "236 土城區", "237 三峽區", "238 樹林區", "239 鶯歌區", "241 三重區", "242 新莊區", "243 泰山區", "244 林口區", "247 蘆洲區", "248 五股區", "249 八里區", "251 淡水區", "252 三芝區", "253 石門區"],
       "桃園市": ["320 中壢區", "324 平鎮區", "325 龍潭區", "326 楊梅區", "327 新屋區", "328 觀音區", "330 桃園區", "333 龜山區", "334 八德區", "338 蘆竹區", "337 大園區", "335 大溪區", "336 復興區"],
       "新竹市": ["300 東區", "300 北區", "300 香山區"],
-      "新竹縣": ["302 竹北市", "303 湖口鄉", "304 新豐鄉", "305 新埔鎮", "306 關西鎮", "307 芎林鄉", "308 宝山鄉", "310 竹東鎮", "311 五峰鄉", "312 橫山鄉", "313 尖石鄉", "314 北埔鄉", "315 峨眉鄉"]
+      "新竹縣": ["302 竹北市", "303 湖口鄉", "304 新豐鄉", "305 新埔鎮", "306 關西鎮", "307 芎林鄉", "308 寶山鄉", "310 竹東鎮", "311 五峰鄉", "312 橫山鄉", "313 尖石鄉", "314 北埔鄉", "315 峨眉鄉"]
     };
 
     const generateReservationId = () => {
@@ -255,12 +255,12 @@
                 const components = place.address_components || [];
                 const fullAddr = place.formatted_address;
 
-                // 抓取郵遞區號邏輯優化
+                // 抓取郵遞區號邏輯優化：優先結構化，其次字串匹配
                 const postCodeObj = components.find(c => c.types.includes('postal_code'));
                 let zipCode = postCodeObj ? postCodeObj.long_name.substring(0, 3) : '';
                 
-                // 備援：若結構化資料沒有，從 formatted_address 正則抓取前三碼
                 if (!zipCode) {
+                  // 增強型備援：匹配台灣常見 3 或 5 碼郵遞區號
                   const zipMatch = fullAddr.match(/(\d{3,5})/);
                   if (zipMatch) zipCode = zipMatch[1].substring(0, 3);
                 }
@@ -272,16 +272,16 @@
                 const areaName = areaObj ? areaObj.long_name : '';
                 const isHsinchuCity = cityName.includes('新竹市') || fullAddr.includes('新竹市');
                 
-                let formatted = fullAddr.replace(/^台灣\d{3,5}\s*/, '').replace(/^台灣/, '');
+                let formatted = fullAddr.replace(/^台灣\d{3,5}\s*/, '').replace(/^台灣/, '').trim();
                 const matchedArea = findMatchingDistrict(components, fullAddr);
 
                 if (isHsinchuCity) {
                   distSetter(matchedArea || '300 新竹市');
                   addrSetter(formatted);
                 } else {
-                  // 其他地區 (包含苗栗頭份等)
-                  const displayDistrict = zipCode ? `${zipCode} ${areaName || cityName}` : (areaName || cityName);
-                  distSetter(displayDistrict || matchedArea || '');
+                  // 針對苗栗頭份等地區處理
+                  const displayDistrict = zipCode ? `${zipCode} ${areaName || cityName || matchedArea || ''}` : (areaName || cityName || matchedArea || '');
+                  distSetter(displayDistrict.trim());
                   
                   if (zipCode && !formatted.startsWith(zipCode)) {
                     addrSetter(`${zipCode} ${formatted}`);
@@ -382,6 +382,7 @@
         setIsSubmitting(true);
         
         try {
+          // 先行同步發送至 GAS
           const gasTask = fetch(GAS_WEBAPP_URL, { 
             method: 'POST', 
             mode: 'no-cors', 
@@ -394,7 +395,10 @@
 
           if (window.liff) {
             try {
+              // 強制執行 init 並等待，確保 SDK 環境判定就緒
               await window.liff.init({ liffId: LINE_LIFF_ID });
+              
+              // 雙重檢查環境：SDK 判斷 + 瀏覽器特徵判定
               isInLine = window.liff.isInClient() || /Line/i.test(navigator.userAgent);
               
               if (isInLine) {
@@ -402,7 +406,7 @@
               }
             } catch (err) {
               liffError = err;
-              console.error('LIFF Error:', err);
+              console.error('LIFF 傳送明細異常:', err);
             }
           }
 
@@ -410,7 +414,7 @@
 
           if (isInLine) {
             if (liffError) {
-              showAlert(`🌟 預約資料已成功錄入。\n\n⚠️ 但 LINE 明細回傳失敗：${liffError.message || '許可權不足'}\n請手動截圖保存。`, '部分成功', 'info', () => {
+              showAlert(`🌟 預約資料已成功錄入。\n\n⚠️ 但 LINE 明細回傳失敗：${liffError.message || '許可權不足'}\n請手動截圖保存明細。`, '部分成功', 'info', () => {
                 window.liff.closeWindow();
               });
             } else {
@@ -419,11 +423,11 @@
               });
             }
           } else {
-            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請截圖保存)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請手動截圖保存以下明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
 
         } catch (err) { 
-          showAlert('資料傳送過程中發生錯誤，請檢查網路連線或稍後再試。', '系統錯誤', 'error'); 
+          showAlert('資料傳送過程中發生錯誤，請檢查網路連線。', '系統錯誤', 'error'); 
         } finally { 
           setIsSubmitting(false); 
           setConfirmData(null);
@@ -481,7 +485,7 @@
 接送地址：${district} ${address}
 ${hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``}車型：${carType}
 乘車人數：大人${adults}, 小孩(4-12歲)${children}, 幼童(4歲以下)${infants}
-行李件數：登機箱${carryOn}, 託運${checkedBag}
+行李件數：登機箱${carryOn}, 託運（21~29吋）${checkedBag}
 預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})
 ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
 
