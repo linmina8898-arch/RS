@@ -92,19 +92,19 @@
       if (!isOpen) return null;
       return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center">
-          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[75vh]">
             <div className="bg-black p-4 flex justify-between items-center text-white shrink-0">
               <div className="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
                 {type === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}
                 {title}
               </div>
-              <button onClick={onClose}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
+              <button type="button" onClick={onClose}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
             </div>
             <div className="p-6 flex-1 overflow-y-auto text-left">
               <p className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap text-sm">{message}</p>
             </div>
             <div className="p-4 bg-white border-t border-gray-100 shrink-0">
-              <button onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
+              <button type="button" onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
             </div>
           </div>
         </div>
@@ -402,12 +402,23 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
           if (window.liff && window.liff.isInClient()) {
             try {
               await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-              showAlert(`🌟 預約已成功送出！\n明細已同步回傳至 LINE 聊天室。\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+              showAlert(`🌟 預約已成功送出！\n\n✅ 明細已同步回傳至 LINE 聊天室。\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
                 window.liff.closeWindow();
               });
             } catch (err) {
               console.error('LINE 傳送失敗:', err);
-              showAlert(`🌟 預約已成功送出！\n\n(但 LINE 系統回傳失敗，請自行截圖保存以下明細)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
+              
+              // 剪貼簿備用方案，嘗試幫使用者自動複製明細
+              try {
+                const ta = document.createElement('textarea');
+                ta.value = lineText;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+              } catch(e){}
+
+              showAlert(`🌟 預約已成功送出！\n\n⚠️ 系統無法自動回傳明細至 LINE。\n(因 LINE 權限未開啟 chat_message.write)\n\n✅ 系統已自動「複製」您的預約明細！\n👉 請點擊下方確定，回到對話框直接「貼上」即可。\n\n⬇️ 以下為您的明細 ⬇️\n\n${lineText}`, '請手動貼上明細', 'error', () => {
                 window.liff.closeWindow();
               });
             }
@@ -444,11 +455,13 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
             type={modal.type} 
             onClose={() => {
               const confirmAction = modal.onConfirm;
-              // 確保狀態清空
+              // 確保 React 狀態清空，彈窗瞬間關閉
               setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
-              // 執行關閉視窗的後續動作
+              // 延遲 50ms 執行後續動作 (如關閉視窗)，避免阻塞 UI 更新
               if (typeof confirmAction === 'function') {
-                try { confirmAction(); } catch(e) { console.error(e); }
+                setTimeout(() => {
+                  try { confirmAction(); } catch(e) { console.error(e); }
+                }, 50);
               }
             }} 
           />
