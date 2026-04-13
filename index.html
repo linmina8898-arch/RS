@@ -218,6 +218,40 @@
         }
       }, [date, timeHour, timeMinute, showAlert]);
 
+      // 優化後的地址解析邏輯
+      const parsePlaceToDistrictAndAddress = (place, distSetter, addrSetter) => {
+        const components = place.address_components || [];
+        const fullAddr = place.formatted_address || "";
+        
+        // 1. 抓取 3 碼郵遞區號 (包含苗栗 351 備援)
+        const postCodeObj = components.find(c => c.types.includes('postal_code'));
+        let zipCode = postCodeObj ? postCodeObj.long_name.substring(0, 3) : '';
+        if (!zipCode) {
+          const match = fullAddr.match(/(\d{3,5})/);
+          if (match) zipCode = match[1].substring(0, 3);
+        }
+
+        // 2. 抓取縣市與區域，並清理數字，防止重複
+        const cityObj = components.find(c => c.types.includes('administrative_area_level_1'));
+        const areaObj = components.find(c => c.types.includes('sublocality_level_1')) || 
+                        components.find(c => c.types.includes('locality'));
+        
+        const cityName = (cityObj ? cityObj.long_name : '').replace(/\d+/g, '').trim();
+        const areaName = (areaObj ? areaObj.long_name : '').replace(/\d+/g, '').trim();
+        
+        // 3. 組合格式：100 台北市 中正區 (價目表標準格式)
+        const priceListFormat = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
+        distSetter(priceListFormat);
+        
+        // 4. 清理詳細地址 (移除開頭區號與台灣字樣)
+        let cleanAddr = fullAddr
+          .replace(/^\d{3,5}/, '')   // 移除開頭區號
+          .replace(/^台灣/, '')      // 移除台灣
+          .replace(/^\d{3,5}/, '')   // 若區號在台灣後面則再移除一次
+          .trim();
+        addrSetter(cleanAddr);
+      };
+
       useEffect(() => {
         const initAutocomplete = (ref, addrSetter, distSetter) => {
           if (ref.current && window.google?.maps?.places) {
@@ -228,33 +262,7 @@
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
               if (place.formatted_address) {
-                const components = place.address_components || [];
-                const fullAddr = place.formatted_address;
-                
-                // 1. 抓取 3 碼郵遞區號
-                const postCodeObj = components.find(c => c.types.includes('postal_code'));
-                let zipCode = postCodeObj ? postCodeObj.long_name.substring(0, 3) : '';
-                if (!zipCode) {
-                  const match = fullAddr.match(/(\d{3,5})/);
-                  if (match) zipCode = match[1].substring(0, 3);
-                }
-
-                // 2. 抓取縣市與區域
-                const cityObj = components.find(c => c.types.includes('administrative_area_level_1'));
-                const areaObj = components.find(c => c.types.includes('sublocality_level_1')) || 
-                                components.find(c => c.types.includes('locality'));
-                
-                const cityName = cityObj ? cityObj.long_name : '';
-                const areaName = areaObj ? areaObj.long_name : '';
-                
-                // 3. 組合格式：100 台北市 中正區
-                const priceListFormat = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
-                
-                distSetter(priceListFormat);
-                
-                // 4. 設定詳細地址 (移除前綴字樣)
-                let formattedAddress = fullAddr.replace(/^台灣\d{3,5}\s*/, '').replace(/^台灣/, '').trim();
-                addrSetter(formattedAddress);
+                parsePlaceToDistrictAndAddress(place, distSetter, addrSetter);
               }
             });
           }
