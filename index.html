@@ -171,8 +171,30 @@
         };
       }, []);
 
+      // 解析地址組成，尋找郵遞區號與地區
+      const findMatchingDistrict = (components) => {
+        let postCode = "";
+        let subLocality = "";
+        components.forEach(c => {
+          if (c.types.includes("postal_code")) postCode = c.long_name;
+          if (c.types.includes("sublocality_level_1")) subLocality = c.long_name;
+        });
+        if (!postCode && !subLocality) return null;
+        const dynamicDists = Object.keys(priceMap).filter(key => key.startsWith(airport + '_')).map(key => key.split('_')[1]);
+        const allOptions = dynamicDists.length > 0 ? dynamicDists : Object.values(DISTRICTS_FALLBACK).flat();
+        if (postCode) {
+          const match = allOptions.find(opt => opt.startsWith(postCode.substring(0, 3)));
+          if (match) return match;
+        }
+        if (subLocality) {
+          const match = allOptions.find(opt => opt.includes(subLocality));
+          if (match) return match;
+        }
+        return null;
+      };
+
       useEffect(() => {
-        const initAutocomplete = (ref, setter) => {
+        const initAutocomplete = (ref, addrSetter, distSetter) => {
           if (ref.current && window.google && window.google.maps && window.google.maps.places) {
             const autocomplete = new window.google.maps.places.Autocomplete(ref.current, {
               types: ['geocode', 'establishment'],
@@ -180,7 +202,11 @@
             });
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
-              if (place.formatted_address) setter(place.formatted_address.replace(/^台灣\d{3,5}\s*/, ''));
+              if (place.formatted_address) addrSetter(place.formatted_address.replace(/^台灣\d{3,5}\s*/, ''));
+              if (place.address_components) {
+                const matched = findMatchingDistrict(place.address_components);
+                if (matched) distSetter(matched);
+              }
             });
           }
         };
@@ -189,15 +215,15 @@
           script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-TW`;
           script.async = true; script.defer = true;
           script.onload = () => {
-            initAutocomplete(addressInputRef, setAddress);
-            if (hasExtraPoint) initAutocomplete(extraAddressInputRef, setExtraAddress);
+            initAutocomplete(addressInputRef, setAddress, setDistrict);
+            if (hasExtraPoint) initAutocomplete(extraAddressInputRef, setExtraAddress, setExtraDistrict);
           };
           document.head.appendChild(script);
         } else {
-          initAutocomplete(addressInputRef, setAddress);
-          if (hasExtraPoint) initAutocomplete(extraAddressInputRef, setExtraAddress);
+          initAutocomplete(addressInputRef, setAddress, setDistrict);
+          if (hasExtraPoint) initAutocomplete(extraAddressInputRef, setExtraAddress, setExtraDistrict);
         }
-      }, [hasExtraPoint]);
+      }, [hasExtraPoint, airport, priceMap]);
 
       useEffect(() => { fetchPrices(); }, []);
 
@@ -226,23 +252,33 @@
         return carType === '大車' ? priceData.large : priceData.small;
       }, [priceMap, airport, district, carType]);
 
+      // --- 加價細項與計費邏輯 (含香山區特殊邏輯) ---
+      const extraPointInfo = useMemo(() => {
+        if (!hasExtraPoint || !district || !extraDistrict) return { fee: 0, label: '' };
+
+        const isMainXiangshan = district.includes("香山區");
+        const isExtraXiangshan = extraDistrict.includes("香山區");
+
+        // 香山區加點香山區 +100
+        if (isMainXiangshan && isExtraXiangshan) return { fee: 100, label: '（同區）' };
+        // 香山區加點非香山區 (或反向) +200
+        if (isMainXiangshan || isExtraXiangshan) return { fee: 200, label: '（跨區）' };
+
+        // 一般同區 (+100) 與跨區 (+200) 判斷
+        const zip1 = district.substring(0, 3);
+        const zip2 = extraDistrict.substring(0, 3);
+        return zip1 === zip2 ? { fee: 100, label: '（同區）' } : { fee: 200, label: '（跨區）' };
+      }, [hasExtraPoint, district, extraDistrict]);
+
       const fees = useMemo(() => {
         const pickupFee = serviceType === '接機' ? 200 : 0;
         const hour = parseInt(timeHour);
         const nightFee = (hour >= 22 || hour < 6) ? 200 : 0;
         const infantSeatFee = infants * 200;
         const signboardFee = extraSignboard ? 200 : 0;
-        
-        let extraPointFee = 0;
-        if (hasExtraPoint && district && extraDistrict) {
-          const zip1 = district.substring(0, 3);
-          const zip2 = extraDistrict.substring(0, 3);
-          if (extraDistrict.includes("香山區")) extraPointFee = 200;
-          else extraPointFee = (zip1 === zip2) ? 100 : 200;
-        }
-
+        const extraPointFee = extraPointInfo.fee;
         return { pickupFee, nightFee, infantSeatFee, signboardFee, extraPointFee };
-      }, [serviceType, timeHour, infants, extraSignboard, hasExtraPoint, district, extraDistrict]);
+      }, [serviceType, timeHour, infants, extraSignboard, extraPointInfo]);
 
       const estimatedTotal = useMemo(() => {
         const sumExtra = Object.values(fees).reduce((a, b) => a + b, 0);
@@ -257,36 +293,30 @@
           showAlert('請輸入 09 開頭的完整 10 碼電話！', '格式錯誤', 'error');
           return;
         }
-
         setIsSubmitting(true);
         const finalRemarks = extraSignboard && signboardText ? `【舉牌內容：${signboardText}】\n${remarks}` : remarks;
         const payload = {
           action: 'addReservation',
           data: {
             reservationId, name: `${name} ${title}`, phone, email, dateTime: `${date} ${timeHour}:${timeMinute}`,
-            serviceType, airport, flightNumber, 
-            location: `${district} ${address}`, 
+            serviceType, airport, flightNumber, location: `${district} ${address}`, 
             extraLocation: hasExtraPoint ? `${extraDistrict} ${extraAddress}` : '無',
-            carType,
-            passengers: `成人:${adults}, 小孩:${children}, 幼童:${infants}`,
-            luggage: `登機箱:${carryOn}, 託運:${checkedBag}`,
-            payment, totalFee: estimatedTotal || '待報價', remarks: finalRemarks,
-            timestamp: new Date().toLocaleString('zh-TW')
+            carType, passengers: `成人:${adults}, 小孩:${children}, 幼童:${infants}`, luggage: `登機箱:${carryOn}, 託運:${checkedBag}`,
+            payment, totalFee: estimatedTotal || '待報價', remarks: finalRemarks, timestamp: new Date().toLocaleString('zh-TW')
           }
         };
-
         try {
           await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           if (window.liff && window.liff.isInClient()) {
             await window.liff.sendMessages([{
               type: 'text',
-              text: `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n聯絡電話：${phone}\nMAIL：${email}\n乘車時間：${date} ${timeHour}:${timeMinute}\n服務類型：${serviceType}\n機場/航班：${airport} / ${flightNumber}\n接送地址：${district} ${address}\n${hasExtraPoint ? '加點地址：' + extraDistrict + ' ' + extraAddress + '\n' : ''}車型：${carType}\n預估總額：${estimatedTotal ? '$' + estimatedTotal : '待報價'} (${payment})\n${finalRemarks ? '備註：\n' + finalRemarks : ''}`
+              text: `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n聯絡電話：${phone}\nMAIL：${email}\n乘車時間：${date} ${timeHour}:${timeMinute}\n服務類型：${serviceType}\n機場/航班：${airport} / ${flightNumber}\n接送地址：${district} ${address}\n${hasExtraPoint ? '加點地址：' + extraDistrict + ' ' + extraAddress + '\n加點費用：$' + extraPointInfo.fee + extraPointInfo.label + '\n' : ''}車型：${carType}\n預估總額：${estimatedTotal ? '$' + estimatedTotal : '待報價'} (${payment})\n${finalRemarks ? '備註：\n' + finalRemarks : ''}`
             }]);
             window.liff.closeWindow();
           } else {
             showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}`, '提交成功', 'info');
           }
-        } catch (err) { showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); } finally { setIsSubmitting(false); }
+        } catch (err) { showAlert('資料寫入失敗', '錯誤', 'error'); } finally { setIsSubmitting(false); }
       };
 
       const getFilteredDistricts = (query) => {
@@ -296,20 +326,16 @@
         return options.filter(d => d.includes(query)).slice(0, 20);
       };
 
-      // --- 動態渲染選項，強制上限 ---
       const renderOptionsWithLimit = (otherSum, maxTotal) => {
         const remaining = maxTotal - otherSum;
         const options = [];
-        for (let i = 0; i <= remaining; i++) {
-          options.push(<option key={i} value={i}>{i}</option>);
-        }
+        for (let i = 0; i <= remaining; i++) options.push(<option key={i} value={i}>{i}</option>);
         return options;
       };
 
       return (
         <div className="pb-10">
           <CustomModal isOpen={modal.open} title={modal.title} message={modal.message} type={modal.type} onClose={() => setModal({...modal, open: false})} />
-
           <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center relative">
             <h1 className="text-xl font-bold tracking-wider">RS專車接送 詢價/預約</h1>
             <div className="flex gap-4 absolute right-4">
@@ -394,16 +420,9 @@
                 <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8">
                   <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件)</span>
                 </h2>
-                
                 <div className="relative">
-                  <select 
-                    className={`w-full p-3 border font-bold text-base outline-none focus:border-black ${carTypeConstraint.isForced ? 'bg-gray-100 border-red-300 text-red-700 cursor-not-allowed' : 'bg-white border-gray-300'}`}
-                    value={carType} 
-                    onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)}
-                    disabled={carTypeConstraint.isForced}
-                  >
-                    <option value="小車">小車</option>
-                    <option value="大車">大車</option>
+                  <select className={`w-full p-3 border font-bold text-base outline-none focus:border-black ${carTypeConstraint.isForced ? 'bg-gray-100 border-red-300 text-red-700 cursor-not-allowed' : 'bg-white border-gray-300'}`} value={carType} onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)} disabled={carTypeConstraint.isForced}>
+                    <option value="小車">小車</option><option value="大車">大車</option>
                   </select>
                   {carTypeConstraint.isForced && (
                     <div className="mt-2 flex items-center gap-1 text-red-600 font-bold text-[11px] bg-red-50 p-2 rounded-sm border border-red-100">
@@ -411,7 +430,6 @@
                     </div>
                   )}
                 </div>
-
                 <div className="grid grid-cols-3 gap-2 text-center text-sm font-bold text-gray-700">
                   <div>大人<select className="w-full p-3 border" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{renderOptionsWithLimit(children + infants, 6).filter(opt => opt.key > 0)}</select></div>
                   <div>4~12歲<select className="w-full p-3 border" value={children} onChange={e=>setChildren(Number(e.target.value))}>{renderOptionsWithLimit(adults + infants, 6)}</select></div>
@@ -431,7 +449,6 @@
                     <option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結 (限簽約客戶)</option>
                   </select>
                 </div>
-
                 <div className="p-3 bg-gray-50 border border-gray-200">
                   <label className="flex items-center gap-2 cursor-pointer py-1 font-bold">
                     <input type="checkbox" className="w-5 h-5 accent-black" checked={extraSignboard} onChange={e=>setExtraSignboard(e.target.checked)} />舉牌服務 (+$200)
@@ -457,7 +474,11 @@
                       {fees.nightFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 夜間加成 (22-06)</span><span>+$200</span></div>}
                       {fees.infantSeatFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 安全座椅 x {infants}</span><span>+${fees.infantSeatFee}</span></div>}
                       {fees.signboardFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 機場舉牌服務</span><span>+$200</span></div>}
-                      {fees.extraPointFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 加點服務 ({district.substring(0,3) === extraDistrict.substring(0,3) ? '同區' : '異區'})</span><span>+${fees.extraPointFee}</span></div>}
+                      {fees.extraPointFee > 0 && (
+                        <div className="flex justify-between text-gray-400">
+                          <span>└ 加點服務 {extraPointInfo.label}</span><span>+${fees.extraPointFee}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="mt-6 pt-4 border-t-2 border-gray-700 flex justify-between items-center">
                       <span className="font-black text-yellow-400 text-base">預估總額</span>
@@ -478,19 +499,17 @@
                     <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
                     <p>4、為維護乘車品質，顧及每位貴賓權益，車內勿飲食。</p>
-                    <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
+                    <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶過使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
                   </div>
                 </div>
                 <label className="flex items-start gap-3 cursor-pointer p-4 border border-black font-black text-sm bg-white active:bg-gray-50">
                   <input type="checkbox" required className="w-6 h-6 mt-0.5 accent-black" checked={agreed} onChange={e=>setAgreed(e.target.checked)} />我同意以上資訊與免責聲明。
                 </label>
               </section>
-
               <button type="submit" disabled={!agreed || isSubmitting} className={`w-full py-5 text-xl font-black flex items-center justify-center gap-3 transition-all ${agreed && !isSubmitting ? 'bg-black text-white shadow-2xl' : 'bg-gray-300 text-gray-500'}`}>
                 {isSubmitting ? '預約傳送中...' : '確認預約並送出'}
               </button>
             </form>
-
             <div className="mt-10 text-center border-t-4 border-black pt-8 pb-4">
               <p className="text-xl font-black mb-2">24H 預約服務電話</p>
               <a href="tel:0915926166" className="text-4xl sm:text-5xl font-black text-black hover:underline tracking-wider block font-black-stroke">0915-926-166</a>
@@ -499,7 +518,6 @@
         </div>
       );
     }
-
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
