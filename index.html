@@ -147,13 +147,14 @@
       const [mapsError, setMapsError] = useState(false);
       const [showDistrictList, setShowDistrictList] = useState(false);
       const [showExtraDistrictList, setShowExtraDistrictList] = useState(false);
-      const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info' });
+      // 修改：在 modal state 增加 onConfirm 回呼函數，用於按確定後關閉視窗
+      const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
 
       const addressInputRef = useRef(null);
       const extraAddressInputRef = useRef(null);
 
-      const showAlert = (msg, title = '系統訊息', type = 'info') => {
-        setModal({ open: true, title, message: msg, type });
+      const showAlert = (msg, title = '系統訊息', type = 'info', onConfirm = null) => {
+        setModal({ open: true, title, message: msg, type, onConfirm });
       };
 
       const handleFlightChange = (e) => {
@@ -290,7 +291,6 @@
       const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // --- 1. 自訂表單驗證邏輯 ---
         const missingFields = [];
         
         if (!name.trim()) missingFields.push('乘車人真實姓名');
@@ -303,22 +303,15 @@
           }
         }
         if (!email.trim()) missingFields.push('MAIL 電子信箱');
-        
         if (!district.trim()) missingFields.push('接送地址 - 區域與郵遞區號');
         if (!address.trim()) missingFields.push('接送地址 - 詳細地址');
-        
         if (hasExtraPoint) {
           if (!extraDistrict.trim()) missingFields.push('加點服務 - 加點區域');
           if (!extraAddress.trim()) missingFields.push('加點服務 - 加點詳細地址');
         }
-        
         if (!date) missingFields.push('乘車資訊 - 乘車日期');
         if (!flightNumber.trim()) missingFields.push('乘車資訊 - 航班編號');
-        
-        // 驗證舉牌內容 (有勾選舉牌時必填)
         if (extraSignboard && !signboardText.trim()) missingFields.push('舉牌服務 - 舉牌內容');
-        
-        // 驗證免責聲明
         if (!agreed) missingFields.push('【注意事項與免責聲明】需勾選同意');
 
         if (missingFields.length > 0) {
@@ -327,7 +320,6 @@
           return;
         }
 
-        // --- 2. 通過驗證後才鎖定按鈕並發送請求 ---
         if (isSubmitting) return;
         setIsSubmitting(true);
         
@@ -340,7 +332,7 @@
             phone, 
             email, 
             date: date, 
-            time: `'${timeHour}:${timeMinute}`, // 加入隱形單引號，強迫 Google 表單視為純文字
+            time: `'${timeHour}:${timeMinute}`,
             serviceType, 
             airport, 
             flightNumber, 
@@ -358,23 +350,26 @@
         };
 
         try {
-          // 1. 先背景傳送資料至 GAS
-          fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          // 加上 await 確保請求發出
+          await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           
-          // 2. 等待 LINE LIFF 傳送確認訊息
           if (window.liff && window.liff.isInClient()) {
-            const lineText = `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n聯絡電話：${phone}\nMAIL：${email}\n乘車日期：${date}\n乘車時間：${timeHour}:${timeMinute}\n服務類型：${serviceType}\n機場/航班：${airport} / ${flightNumber}\n接送區域：${district}\n詳細地址：${address}\n${hasExtraPoint ? '加點地址：' + extraDistrict + ' ' + extraAddress + '\n加點費用：$' + extraPointInfo.fee + extraPointInfo.label + '\n' : ''}車型：${carType}\n預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})\n${finalRemarks ? '備註：\n' + finalRemarks : ''}`;
+            const lineText = `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n聯絡電話：${phone}\nMAIL：${email}\n乘車日期：${date}\n乘車時間：${timeHour}:${timeMinute}\n服務類型：${serviceType}\n機場/航班：${airport} / ${flightNumber}\n接送地址：${district} ${address}\n${hasExtraPoint ? '加點地址：' + extraDistrict + ' ' + extraAddress + '\n加點費用：$' + extraPointInfo.fee + extraPointInfo.label + '\n' : ''}車型：${carType}\n預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})\n${finalRemarks ? '備註：\n' + finalRemarks : ''}`;
             
             window.liff.sendMessages([{ type: 'text', text: lineText }])
               .then(() => {
-                window.liff.closeWindow();
+                showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}\n\n預約明細已同步回傳至 LINE 聊天室！\n\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+                  window.liff.closeWindow();
+                });
               })
               .catch((err) => {
                 console.error('LINE 傳送失敗:', err);
-                showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}\n\n(但 LINE 系統回傳明細失敗，請自行截圖保存本畫面)`, '提交成功', 'info');
+                showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}\n\n(但 LINE 系統回傳明細失敗，請自行截圖保存本畫面)\n\n(點擊確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
+                  window.liff.closeWindow();
+                });
               });
           } else {
-            showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}`, '提交成功', 'info');
+            showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}\n\n(您目前不在 LINE App 內，請自行截圖保存本畫面)`, '預約成功', 'success');
           }
         } catch (err) { 
           showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); 
@@ -399,7 +394,16 @@
 
       return (
         <div className="pb-10">
-          <CustomModal isOpen={modal.open} title={modal.title} message={modal.message} type={modal.type} onClose={() => setModal({...modal, open: false})} />
+          <CustomModal 
+            isOpen={modal.open} 
+            title={modal.title} 
+            message={modal.message} 
+            type={modal.type} 
+            onClose={() => {
+              setModal({...modal, open: false});
+              if (modal.onConfirm) modal.onConfirm();
+            }} 
+          />
           <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center relative text-center">
             <h1 className="text-xl font-bold tracking-wider">RS專車接送 詢價/預約</h1>
             <div className="flex gap-4 absolute right-4">
