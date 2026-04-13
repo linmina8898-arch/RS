@@ -106,6 +106,9 @@
       const [carType, setCarType] = useState('小車');
       const [carryOn, setCarryOn] = useState(0);
       const [checkedBag, setCheckedBag] = useState(0);
+      const [adults, setAdults] = useState(1);
+      const [children, setChildren] = useState(0);
+      const [infants, setInfants] = useState(0);
       
       const [district, setDistrict] = useState('');
       const [address, setAddress] = useState('');
@@ -114,9 +117,6 @@
       const [extraDistrict, setExtraDistrict] = useState('');
       const [extraAddress, setExtraAddress] = useState('');
 
-      const [adults, setAdults] = useState(1);
-      const [children, setChildren] = useState(0);
-      const [infants, setInfants] = useState(0);
       const [payment, setPayment] = useState('現金');
       const [remarks, setRemarks] = useState('');
       const [agreed, setAgreed] = useState(false);
@@ -141,6 +141,25 @@
       const handleFlightChange = (e) => {
         setFlightNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
       };
+
+      // --- 自動判斷車型限制邏輯 ---
+      const carTypeConstraint = useMemo(() => {
+        const totalLuggage = Number(carryOn) + Number(checkedBag);
+        const totalPeople = Number(adults) + Number(children) + Number(infants);
+        
+        if (totalLuggage >= 3 || totalPeople >= 5) {
+          const reason = totalLuggage >= 3 ? "行李總計達 3 件以上" : "人數總計達 5 人以上";
+          return { isForced: true, reason };
+        }
+        return { isForced: false, reason: '' };
+      }, [carryOn, checkedBag, adults, children, infants]);
+
+      // 當滿足強制條件時，自動切換至大車
+      useEffect(() => {
+        if (carTypeConstraint.isForced) {
+          setCarType('大車');
+        }
+      }, [carTypeConstraint]);
 
       useEffect(() => {
         if (window.liff) {
@@ -199,12 +218,6 @@
         else if (val.length > 4) formatted = `${val.slice(0, 4)}-${val.slice(4)}`;
         setPhone(formatted);
       };
-
-      useEffect(() => {
-        const totalLuggage = Number(carryOn) + Number(checkedBag);
-        const totalPassengers = Number(adults) + Number(children) + Number(infants);
-        if (totalLuggage >= 3 || totalPassengers >= 5) setCarType('大車');
-      }, [carryOn, checkedBag, adults, children, infants]);
 
       const basePrice = useMemo(() => {
         const key = `${airport}_${district}`;
@@ -283,7 +296,15 @@
         return options.filter(d => d.includes(query)).slice(0, 20);
       };
 
-      const renderNumberOptions = (max) => Array.from({ length: max + 1 }, (_, i) => <option key={i} value={i}>{i}</option>);
+      // --- 動態渲染選項，強制上限 ---
+      const renderOptionsWithLimit = (otherSum, maxTotal) => {
+        const remaining = maxTotal - otherSum;
+        const options = [];
+        for (let i = 0; i <= remaining; i++) {
+          options.push(<option key={i} value={i}>{i}</option>);
+        }
+        return options;
+      };
 
       return (
         <div className="pb-10">
@@ -331,7 +352,6 @@
                       <input type="checkbox" className="w-5 h-5 accent-black" checked={hasExtraPoint} onChange={e => setHasExtraPoint(e.target.checked)} />
                       <PlusCircle className="w-4 h-4 text-green-600" /> 需加點服務 (每點 +$100起)
                     </label>
-                    
                     {hasExtraPoint && (
                       <div className="mt-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
                         <div className="relative">
@@ -347,7 +367,7 @@
                         <input ref={extraAddressInputRef} type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={extraAddress} onChange={e => setExtraAddress(e.target.value)} placeholder="加點：輸入詳細地址" />
                         <div className="bg-blue-50 p-2 rounded-sm flex items-start gap-2 mt-2">
                            <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                           <p className="text-[10px] text-blue-700 leading-tight">系統預計最多2個接送點，超過2個接送點請直接聯絡客服，謝謝。</p>
+                           <p className="text-[10px] text-blue-700 leading-tight text-justify justify-text">系統預計最多2個接送點，超過2個接送點請直接聯絡客服，謝謝。</p>
                         </div>
                       </div>
                     )}
@@ -372,31 +392,43 @@
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8">
-                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件--包含登機箱)</span>
+                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件)</span>
                 </h2>
-                <select className="w-full p-3 border border-gray-300 bg-white font-bold text-base" value={carType} onChange={e => setCarType(e.target.value)} disabled={(Number(carryOn)+Number(checkedBag))>=3 || (Number(adults)+Number(children)+Number(infants))>=5}>
-                  <option value="小車">小車</option><option value="大車">大車</option>
-                </select>
+                
+                <div className="relative">
+                  <select 
+                    className={`w-full p-3 border font-bold text-base outline-none focus:border-black ${carTypeConstraint.isForced ? 'bg-gray-100 border-red-300 text-red-700 cursor-not-allowed' : 'bg-white border-gray-300'}`}
+                    value={carType} 
+                    onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)}
+                    disabled={carTypeConstraint.isForced}
+                  >
+                    <option value="小車">小車</option>
+                    <option value="大車">大車</option>
+                  </select>
+                  {carTypeConstraint.isForced && (
+                    <div className="mt-2 flex items-center gap-1 text-red-600 font-bold text-[11px] bg-red-50 p-2 rounded-sm border border-red-100">
+                      <AlertCircle className="w-3.5 h-3.5" /> 因 {carTypeConstraint.reason}，已由系統強制切換為大車服務。
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-3 gap-2 text-center text-sm font-bold text-gray-700">
-                  <div>大人<select className="w-full p-3 border" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{renderNumberOptions(6)}</select></div>
-                  <div>4~12歲<select className="w-full p-3 border" value={children} onChange={e=>setChildren(Number(e.target.value))}>{renderNumberOptions(5)}</select></div>
-                  <div>4歲以下<select className="w-full p-3 border" value={infants} onChange={e=>setInfants(Number(e.target.value))}>{renderNumberOptions(5)}</select></div>
+                  <div>大人<select className="w-full p-3 border" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{renderOptionsWithLimit(children + infants, 6).filter(opt => opt.key > 0)}</select></div>
+                  <div>4~12歲<select className="w-full p-3 border" value={children} onChange={e=>setChildren(Number(e.target.value))}>{renderOptionsWithLimit(adults + infants, 6)}</select></div>
+                  <div>4歲以下<select className="w-full p-3 border" value={infants} onChange={e=>setInfants(Number(e.target.value))}>{renderOptionsWithLimit(adults + children, 6)}</select></div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-center text-sm font-bold text-gray-700">
-                  <div>登機箱<select className="w-full p-3 border" value={carryOn} onChange={e=>setCarryOn(Number(e.target.value))}>{renderNumberOptions(6)}</select></div>
-                  <div>託運 <span className="text-red-500 text-xs">(21~29吋)</span><select className="w-full p-3 border" value={checkedBag} onChange={e=>setCheckedBag(Number(e.target.value))}>{renderNumberOptions(6)}</select></div>
+                  <div>登機箱<select className="w-full p-3 border" value={carryOn} onChange={e=>setCarryOn(Number(e.target.value))}>{renderOptionsWithLimit(checkedBag, 6)}</select></div>
+                  <div>託運 <span className="text-red-500 text-xs">(21~29吋)</span><select className="w-full p-3 border" value={checkedBag} onChange={e=>setCheckedBag(Number(e.target.value))}>{renderOptionsWithLimit(carryOn, 6)}</select></div>
                 </div>
               </section>
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8"><CreditCard className="w-5 h-5" /> 費用報價</h2>
-                
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-sm">
                   <label className="block text-xs font-bold text-gray-700 mb-2">付款方式</label>
                   <select className="w-full p-3 border border-gray-300 bg-white font-bold text-base outline-none focus:border-black" value={payment} onChange={e => setPayment(e.target.value)}>
-                    <option value="現金">現金</option>
-                    <option value="轉帳">轉帳</option>
-                    <option value="簽單月結">簽單月結 (限簽約客戶)</option>
+                    <option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結 (限簽約客戶)</option>
                   </select>
                 </div>
 
@@ -415,10 +447,7 @@
                       <div className="flex flex-col">
                         <span className="text-gray-300">基本車資 ({carType})</span>
                         <span className="text-[10px] text-gray-500">
-                          {serviceType === '送機' 
-                            ? `${district || '未選區'} - ${airport}` 
-                            : `${airport} - ${district || '未選區'}`
-                          }
+                          {serviceType === '送機' ? `${district || '未選區'} - ${airport}` : `${airport} - ${district || '未選區'}`}
                         </span>
                       </div>
                       <span className="font-bold">{basePrice > 0 ? `$${basePrice}` : '待客服報價'}</span>
