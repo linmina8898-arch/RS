@@ -159,7 +159,6 @@
       const [isSubmitting, setIsSubmitting] = useState(false);
       const [mapsError, setMapsError] = useState(false);
       
-      // 狀態管理：彈跳視窗與暫存確認資料
       const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
       const [confirmData, setConfirmData] = useState(null); 
       
@@ -333,34 +332,54 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + sumExtra : null;
       }, [basePriceInfo.price, fees]);
 
-      // 獨立的發送流程函式 (在確認視窗關閉後執行)
       const executeSubmit = async (payload, lineText) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
         
         try {
-          await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-          
+          // 嘗試向 Google 表單 (GAS) 發送資料
+          const gasTask = fetch(GAS_WEBAPP_URL, { 
+            method: 'POST', 
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(payload) 
+          });
+
+          let liffError = null;
+          // 若在 LINE 內開啟，嘗試回傳訊息
           if (window.liff && window.liff.isInClient()) {
             try {
+              if (!window.liff.id) {
+                await window.liff.init({ liffId: LINE_LIFF_ID });
+              }
               await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-              showAlert(`🌟 預約已成功送出！\n明細已同步回傳至 LINE 聊天室。\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
-                window.liff.closeWindow();
-              });
             } catch (err) {
+              liffError = err;
               console.error('LINE 傳送失敗:', err);
-              showAlert(`🌟 預約已成功送出！\n\n(但 LINE 系統回傳失敗，請自行截圖保存或確認聯絡資訊)\n\n(點擊下方確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
+            }
+          }
+
+          // 等待背景請求完成（雖然 no-cors 拿不到具體結果）
+          await gasTask;
+
+          if (window.liff && window.liff.isInClient()) {
+            if (liffError) {
+              showAlert(`🌟 資料已嘗試送出。\n\n⚠️ 但 LINE 明細回傳失敗：${liffError.message || '許可權限不足'}\n請檢查 LIFF 是否具備 chat_message.write 權限，或直接截圖此畫面即可。`, '部分成功', 'info');
+            } else {
+              showAlert(`🌟 預約已成功送出！\n預約明細已同步回傳至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
                 window.liff.closeWindow();
               });
             }
           } else {
-            showAlert(`🌟 預約已成功送出！\n\n(系統偵測您目前不在 LINE 內開啟，本畫面可直接截圖保存)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約已成功送出！\n\n(系統偵測您目前不在 LINE 內開啟，請直接截圖保存以下明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
+
         } catch (err) { 
-          showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); 
+          showAlert('資料傳送過程中發生錯誤，請檢查網路連線或稍後再試。', '系統錯誤', 'error'); 
+          console.error(err);
         } finally { 
           setIsSubmitting(false); 
-          setConfirmData(null); // 清空暫存
+          setConfirmData(null);
         }
       };
 
@@ -368,10 +387,7 @@
         e.preventDefault();
         
         const missingFields = [];
-        
-        // 攔截檢查機制
         if (!name.trim()) missingFields.push('乘車人真實姓名');
-        
         if (!phone.trim()) {
           missingFields.push('聯絡電話');
         } else {
@@ -380,31 +396,25 @@
             missingFields.push('聯絡電話 (需為09開頭之10碼)');
           }
         }
-        
         if (!email.trim()) {
           missingFields.push('MAIL 電子信箱');
         } else {
-          // 信箱格式驗證
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (!emailRegex.test(email.trim())) {
             missingFields.push('MAIL 電子信箱 (格式不正確)');
           }
         }
-        
         if (!district.trim()) missingFields.push('接送地址 - 區域與郵遞區號');
         if (!address.trim()) missingFields.push('接送地址 - 詳細地址');
-        
         if (hasExtraPoint) {
           if (!extraDistrict.trim()) missingFields.push('加點服務 - 加點區域');
           if (!extraAddress.trim()) missingFields.push('加點服務 - 加點詳細地址');
         }
-        
         if (!date) missingFields.push('乘車資訊 - 乘車日期');
         if (!flightNumber.trim()) missingFields.push('乘車資訊 - 航班編號');
         if (extraSignboard && !signboardText.trim()) missingFields.push('舉牌服務 - 舉牌內容');
         if (!agreed) missingFields.push('【注意事項與免責聲明】需勾選同意');
 
-        // 如果有缺少欄位或格式不正確，跳出提示並阻擋後續流程 (不會進入確認視窗)
         if (missingFields.length > 0) {
           const formattedMissing = missingFields.map(f => `• ${f}`).join('\n');
           showAlert(`您還有欄位尚未填寫完整或格式有誤：\n\n${formattedMissing}`, '資料未填寫完整', 'error');
@@ -427,7 +437,7 @@
 ${hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``}車型：${carType}
 乘車人數：大人${adults}, 小孩${children}, 幼童${infants}
 行李件數：登機箱${carryOn}, 託運${checkedBag}
-預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})
+預估總額：${estimatedTotal ? '$' + estimatedTotal : '待報價'} (${payment})
 ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
 
         const payload = {
@@ -449,13 +459,12 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
             passengers: `成人:${adults}, 小孩:${children}, 幼童:${infants}`, 
             luggage: `登機箱:${carryOn}, 託運:${checkedBag}`,
             payment, 
-            totalFee: estimatedTotal || '待系統報價', 
+            totalFee: estimatedTotal || '待報價', 
             remarks: finalRemarks, 
             timestamp: new Date().toLocaleString('zh-TW')
           }
         };
 
-        // 儲存至 ConfirmData 並打開確認視窗
         setConfirmData({ payload, lineText });
         setModal({
           open: true,
@@ -491,19 +500,13 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
             onClose={() => {
               const prevOnConfirm = modal.onConfirm;
               setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
-              
-              // 若不是確認視窗且有綁定行為 (例如: 傳送成功後關閉視窗)
               if (modal.type !== 'confirm' && typeof prevOnConfirm === 'function') {
                 try { prevOnConfirm(); } catch(e) { console.error(e); }
               }
             }} 
             onConfirm={() => {
-              // 使用者點選確認後
               if (modal.type === 'confirm') {
-                // 1. 先關閉確認彈跳視窗
                 setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
-                
-                // 2. 視窗關閉後，才開始呼叫發送與回傳 LINE 邏輯
                 if (confirmData) {
                   executeSubmit(confirmData.payload, confirmData.lineText);
                 }
@@ -643,7 +646,7 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
                           {serviceType === '送機' ? `${basePriceInfo.name || '未選區'} - ${airport}` : `${airport} - ${basePriceInfo.name || '未選區'}`}
                         </span>
                       </div>
-                      <span className="font-bold">{basePriceInfo.price > 0 ? `$${basePriceInfo.price}` : '待系統報價'}</span>
+                      <span className="font-bold">{basePriceInfo.price > 0 ? `$${basePriceInfo.price}` : '待報價'}</span>
                     </div>
                     <div className="border-t border-dashed border-gray-800 pt-3 space-y-2">
                       {fees.pickupFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 接機服務費</span><span>+$200</span></div>}
@@ -659,7 +662,7 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
                     <div className="mt-6 pt-4 border-t-2 border-gray-700 flex justify-between items-center">
                       <span className="font-black text-yellow-400 text-base">預估總額</span>
                       <div className="text-right">
-                        <span className="text-3xl font-black">{estimatedTotal ? `$${estimatedTotal}` : '待系統報價'}</span>
+                        <span className="text-3xl font-black">{estimatedTotal ? `$${estimatedTotal}` : '待報價'}</span>
                         <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">付款方式：{payment}</div>
                       </div>
                     </div>
