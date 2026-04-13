@@ -38,6 +38,13 @@
     .font-black-stroke {
       -webkit-text-stroke: 1.5px black;
     }
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .animate-pulse-red {
+      animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
   </style>
 </head>
 <body class="bg-gray-50 text-black font-sans">
@@ -66,29 +73,25 @@
       "新竹縣": ["302 竹北市", "303 湖口鄉", "304 新豐鄉", "305 新埔鎮", "306 關西鎮", "307 芎林鄉", "308 寶山鄉", "310 竹東鎮", "311 五峰鄉", "312 橫山鄉", "313 尖石鄉", "314 北埔鄉", "315 峨眉鄉"]
     };
 
-    // --- 修正後的預約編號生成邏輯 ---
     const generateReservationId = () => {
       const now = new Date();
       const yyyy = now.getFullYear();
       const mm = String(now.getMonth() + 1).padStart(2, '0');
       const dd = String(now.getDate()).padStart(2, '0');
       const dateStr = `${yyyy}${mm}${dd}`;
-      
       const randomDigits = Math.floor(1000 + Math.random() * 9000);
-      
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
       let randomChars = '';
       for (let i = 0; i < 3; i++) {
         randomChars += chars.charAt(Math.floor(Math.random() * chars.length));
       }
-      
       return `RS${dateStr}${randomDigits}${randomChars}`;
     };
 
     function CustomModal({ isOpen, onClose, title, message, type = 'info' }) {
       if (!isOpen) return null;
       return (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center">
           <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-black p-4 flex justify-between items-center text-white">
               <div className="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
@@ -97,7 +100,7 @@
               </div>
               <button onClick={onClose}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
             </div>
-            <div className="p-6 text-center">
+            <div className="p-6">
               <p className="text-gray-700 leading-relaxed font-bold mb-6 whitespace-pre-wrap justify-text text-sm">{message}</p>
               <button onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
             </div>
@@ -177,35 +180,25 @@
         }
         window.gm_authFailure = () => {
           setMapsError(true);
-          showAlert("【地圖功能提示】\n目前受到瀏覽器或 Google 參照限制，地址自動完成功能可能不穩定。\n\n請手動輸入詳細地址，預約流程依然可正常完成。", "授權提示", "error");
+          showAlert("【地圖功能提示】目前受限於環境安全參照，地址自動完成功能可能暫時無法使用。請手動輸入詳細地址即可正常預約。", "授權提示", "error");
         };
       }, []);
 
-      const findMatchingDistrict = (components) => {
+      const findMatchingDistrict = (components, fullAddr = "") => {
         let districtName = "";
-        let cityName = "";
-        let postalCode = "";
         components.forEach(c => {
           if (c.types.includes("sublocality_level_1")) districtName = c.long_name;
-          if (c.types.includes("locality")) cityName = c.long_name;
-          if (c.types.includes("postal_code")) postalCode = c.long_name;
         });
+        if (!districtName && fullAddr) {
+          const districtRegex = /(?:市|縣)([^區鄉鎮市]+[區鄉鎮市])/;
+          const match = fullAddr.match(districtRegex);
+          if (match) districtName = match[1];
+        }
+        if (!districtName) return null;
         const dynamicDists = Object.keys(priceMap).filter(key => key.startsWith(airport + '_')).map(key => key.split('_')[1]);
         const allOptions = dynamicDists.length > 0 ? dynamicDists : Object.values(DISTRICTS_FALLBACK).flat();
-        if (districtName) {
-          const match = allOptions.find(opt => opt.includes(districtName));
-          if (match) return match;
-        }
-        if (cityName) {
-          const match = allOptions.find(opt => opt.includes(cityName));
-          if (match) return match;
-        }
-        if (postalCode) {
-          const zip3 = postalCode.substring(0, 3);
-          const match = allOptions.find(opt => opt.startsWith(zip3));
-          if (match) return match;
-        }
-        return null;
+        const finalMatch = allOptions.find(opt => opt.includes(districtName));
+        return finalMatch || null;
       };
 
       useEffect(() => {
@@ -217,9 +210,10 @@
             });
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
-              if (place.formatted_address) addrSetter(place.formatted_address.replace(/^台灣\d{3,5}\s*/, ''));
-              if (place.address_components) {
-                const matched = findMatchingDistrict(place.address_components);
+              if (place.formatted_address) {
+                const formatted = place.formatted_address.replace(/^台灣\d{3,5}\s*/, '');
+                addrSetter(formatted);
+                const matched = findMatchingDistrict(place.address_components || [], place.formatted_address);
                 if (matched) distSetter(matched);
               }
             });
@@ -318,7 +312,7 @@
           if (window.liff && window.liff.isInClient()) {
             await window.liff.sendMessages([{
               type: 'text',
-              text: `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n聯絡電話：${phone}\nMAIL：${email}\n乘車時間：${date} ${timeHour}:${timeMinute}\n服務類型：${serviceType}\n機場/航班：${airport} / ${flightNumber}\n接送地址：${district} ${address}\n${hasExtraPoint ? '加點地址：' + extraDistrict + ' ' + extraAddress + '\n加點費用：$' + extraPointInfo.fee + extraPointInfo.label + '\n' : ''}車型：${carType}\n預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})\n${finalRemarks ? '備註：\n' + finalRemarks : ''}`
+              text: `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n乘車時間：${date} ${timeHour}:${timeMinute}\n接送地址：${district} ${address}\n${hasExtraPoint ? '加點地址：' + extraDistrict + ' ' + extraAddress + '\n' : ''}預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'}`
             }]);
             window.liff.closeWindow();
           } else {
@@ -344,8 +338,8 @@
       return (
         <div className="pb-10">
           <CustomModal isOpen={modal.open} title={modal.title} message={modal.message} type={modal.type} onClose={() => setModal({...modal, open: false})} />
-          <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center relative">
-            <h1 className="text-xl font-bold tracking-wider text-center">RS專車接送 詢價/預約</h1>
+          <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center relative text-center">
+            <h1 className="text-xl font-bold tracking-wider">RS專車接送 詢價/預約</h1>
             <div className="flex gap-4 absolute right-4">
               <button onClick={fetchPrices} type="button"><RefreshCw className={`w-5 h-5 ${isLoadingPrices ? 'animate-spin' : ''}`} /></button>
             </div>
@@ -370,7 +364,7 @@
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4" /> 接送地址</label>
                   <div className="relative mb-2">
-                    <input type="text" required className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={district} onFocus={() => setShowDistrictList(true)} onChange={e => {setDistrict(e.target.value); setShowDistrictList(true);}} placeholder="輸入郵遞區號或區域搜尋" />
+                    <input type="text" required className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={district} onFocus={() => setShowDistrictList(true)} onChange={e => {setDistrict(e.target.value); setShowDistrictList(true);}} placeholder="區域與郵遞區號 (自動對應)" />
                     {showDistrictList && (
                       <div className="absolute z-[100] w-full bg-white border border-gray-300 shadow-2xl mt-1 max-h-60 overflow-y-auto">
                         {getFilteredDistricts(district).map((d, idx) => (
@@ -379,17 +373,19 @@
                       </div>
                     )}
                   </div>
-                  <input ref={addressInputRef} type="text" required className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base mb-4" value={address} onChange={e => setAddress(e.target.value)} placeholder={mapsError ? "請手動輸入詳細地址" : "輸入詳細地址 (支援自動完成)"} />
+                  <input ref={addressInputRef} type="text" required className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base mb-4 font-bold bg-yellow-50" value={address} onChange={e => setAddress(e.target.value)} placeholder={mapsError ? "請手動輸入詳細地址" : "輸入詳細地址 (自動解析)"} />
 
                   <div className="mt-2 p-3 bg-gray-50 border border-dashed border-gray-400 rounded-sm">
                     <label className="flex items-center gap-2 cursor-pointer font-black text-sm">
                       <input type="checkbox" className="w-5 h-5 accent-black" checked={hasExtraPoint} onChange={e => setHasExtraPoint(e.target.checked)} />
                       <PlusCircle className="w-4 h-4 text-green-600" /> 需加點服務 (每點 +$100起)
                     </label>
+                    <p className="text-[11px] text-red-600 font-bold ml-7 mt-1 animate-pulse-red">※ 加點上下車順序需由本公司安排。</p>
+                    
                     {hasExtraPoint && (
                       <div className="mt-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
                         <div className="relative">
-                          <input type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={extraDistrict} onFocus={() => setShowExtraDistrictList(true)} onChange={e => {setExtraDistrict(e.target.value); setShowExtraDistrictList(true);}} placeholder="加點：搜尋區域或郵遞區號" />
+                          <input type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={extraDistrict} onFocus={() => setShowExtraDistrictList(true)} onChange={e => {setExtraDistrict(e.target.value); setShowExtraDistrictList(true);}} placeholder="加點區域 (自動對應)" />
                           {showExtraDistrictList && (
                             <div className="absolute z-[100] w-full bg-white border border-gray-300 shadow-2xl mt-1 max-h-40 overflow-y-auto">
                               {getFilteredDistricts(extraDistrict).map((d, idx) => (
@@ -398,11 +394,7 @@
                             </div>
                           )}
                         </div>
-                        <input ref={extraAddressInputRef} type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={extraAddress} onChange={e => setExtraAddress(e.target.value)} placeholder="加點：輸入詳細地址" />
-                        <div className="bg-blue-50 p-2 rounded-sm flex items-start gap-2 mt-2">
-                           <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                           <p className="text-[10px] text-blue-700 leading-tight text-justify justify-text text-sm">系統預計最多2個接送點，超過2個接送點請直接聯絡客服，謝謝。</p>
-                        </div>
+                        <input ref={extraAddressInputRef} type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base bg-yellow-50 font-bold" value={extraAddress} onChange={e => setExtraAddress(e.target.value)} placeholder="加點：詳細地址" />
                       </div>
                     )}
                   </div>
@@ -426,7 +418,7 @@
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8">
-                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件**包含登機箱**)</span>
+                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件 ** 包含登機箱 ** )</span>
                 </h2>
                 <div className="relative">
                   <select className={`w-full p-3 border font-bold text-base outline-none focus:border-black ${carTypeConstraint.isForced ? 'bg-gray-100 border-red-300 text-red-700 cursor-not-allowed' : 'bg-white border-gray-300'}`} value={carType} onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)} disabled={carTypeConstraint.isForced}>
@@ -434,7 +426,7 @@
                   </select>
                   {carTypeConstraint.isForced && (
                     <div className="mt-2 flex items-center gap-1 text-red-600 font-bold text-[11px] bg-red-50 p-2 rounded-sm border border-red-100">
-                      <AlertCircle className="w-3.5 h-3.5" /> 因 {carTypeConstraint.reason}，已由系統強制切換為大車服務。
+                      <AlertCircle className="w-3.5 h-3.5" /> 因 {carTypeConstraint.reason}，已自動切換為大車。
                     </div>
                   )}
                 </div>
@@ -502,12 +494,12 @@
               <section className="mt-8 border-t-2 border-black pt-6">
                 <div className="bg-gray-100 p-4 border border-gray-300 h-80 overflow-y-auto text-xs text-gray-700 mb-4 leading-relaxed justify-text">
                   <h3 className="font-bold text-black mb-3 flex items-center gap-1 text-sm"><ShieldAlert className="w-4 h-4" /> 【注意事項】</h3>
-                  <div className="space-y-4 text-sm font-bold">
+                  <div className="space-y-4 text-sm font-bold text-gray-800">
                     <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「時加點服務」。</p>
                     <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
                     <p>4、為維護乘車品質，顧及每位貴賓權益，車內勿飲食。</p>
-                    <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶過使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
+                    <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
                   </div>
                 </div>
                 <label className="flex items-start gap-3 cursor-pointer p-4 border border-black font-black text-sm bg-white active:bg-gray-50">
