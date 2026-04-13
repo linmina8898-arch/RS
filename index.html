@@ -35,6 +35,9 @@
       text-align: justify;
       text-justify: inter-ideograph;
     }
+    .font-black-stroke {
+      -webkit-text-stroke: 1.5px black;
+    }
   </style>
 </head>
 <body class="bg-gray-50 text-black font-sans">
@@ -48,7 +51,7 @@
     const { 
       Calendar = FallbackIcon, Clock = FallbackIcon, MapPin = FallbackIcon, Phone = FallbackIcon, User = FallbackIcon, Plane = FallbackIcon, Car = FallbackIcon, 
       Briefcase = FallbackIcon, Users = FallbackIcon, CreditCard = FallbackIcon, Mail = FallbackIcon, FileText = FallbackIcon, CheckCircle = FallbackIcon, 
-      ShieldAlert = FallbackIcon, Receipt = FallbackIcon, Database = FallbackIcon, Send = FallbackIcon, RefreshCw = FallbackIcon, Search = FallbackIcon, X = FallbackIcon, AlertCircle = FallbackIcon
+      ShieldAlert = FallbackIcon, Receipt = FallbackIcon, Database = FallbackIcon, Send = FallbackIcon, RefreshCw = FallbackIcon, Search = FallbackIcon, X = FallbackIcon, AlertCircle = FallbackIcon, PlusCircle = FallbackIcon, Info = FallbackIcon
     } = window.lucideReact || {};
 
     const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxwE2pYFk4VS9Vjus6a6Xp24CaTTrxblbUqmEb3ituiK-vrNanH4mN44eotKrSf0Yo92A/exec';
@@ -71,7 +74,7 @@
       if (!isOpen) return null;
       return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden">
+          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-black p-4 flex justify-between items-center text-white">
               <div className="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
                 {type === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}
@@ -81,12 +84,7 @@
             </div>
             <div className="p-6 text-center">
               <p className="text-gray-700 leading-relaxed font-bold mb-6 whitespace-pre-wrap justify-text">{message}</p>
-              <button 
-                onClick={onClose}
-                className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform"
-              >
-                確定
-              </button>
+              <button onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
             </div>
           </div>
         </div>
@@ -98,6 +96,7 @@
       const [name, setName] = useState('');
       const [title, setTitle] = useState('先生');
       const [phone, setPhone] = useState('');
+      const [email, setEmail] = useState('');
       const [date, setDate] = useState('');
       const [timeHour, setTimeHour] = useState('12');
       const [timeMinute, setTimeMinute] = useState('00');
@@ -107,8 +106,14 @@
       const [carType, setCarType] = useState('小車');
       const [carryOn, setCarryOn] = useState(0);
       const [checkedBag, setCheckedBag] = useState(0);
+      
       const [district, setDistrict] = useState('');
       const [address, setAddress] = useState('');
+      
+      const [hasExtraPoint, setHasExtraPoint] = useState(false);
+      const [extraDistrict, setExtraDistrict] = useState('');
+      const [extraAddress, setExtraAddress] = useState('');
+
       const [adults, setAdults] = useState(1);
       const [children, setChildren] = useState(0);
       const [infants, setInfants] = useState(0);
@@ -117,16 +122,17 @@
       const [agreed, setAgreed] = useState(false);
       const [extraSignboard, setExtraSignboard] = useState(false);
       const [signboardText, setSignboardText] = useState('');
-      const [extraMultiPoint, setExtraMultiPoint] = useState(false);
 
       const [priceMap, setPriceMap] = useState({});
       const [isLoadingPrices, setIsLoadingPrices] = useState(false);
       const [isSubmitting, setIsSubmitting] = useState(false);
       const [mapsError, setMapsError] = useState(false);
       const [showDistrictList, setShowDistrictList] = useState(false);
+      const [showExtraDistrictList, setShowExtraDistrictList] = useState(false);
       const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info' });
 
       const addressInputRef = useRef(null);
+      const extraAddressInputRef = useRef(null);
 
       const showAlert = (msg, title = '系統訊息', type = 'info') => {
         setModal({ open: true, title, message: msg, type });
@@ -147,35 +153,34 @@
       }, []);
 
       useEffect(() => {
-        const initAutocomplete = () => {
-          if (addressInputRef.current && window.google && window.google.maps && window.google.maps.places) {
-            const autocomplete = new window.google.maps.places.Autocomplete(addressInputRef.current, {
+        const initAutocomplete = (ref, setter) => {
+          if (ref.current && window.google && window.google.maps && window.google.maps.places) {
+            const autocomplete = new window.google.maps.places.Autocomplete(ref.current, {
               types: ['geocode', 'establishment'],
               componentRestrictions: { country: 'tw' }
             });
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
-              if (place.formatted_address) {
-                setAddress(place.formatted_address.replace(/^台灣\d{3,5}\s*/, ''));
-              }
+              if (place.formatted_address) setter(place.formatted_address.replace(/^台灣\d{3,5}\s*/, ''));
             });
           }
         };
         if (!window.google) {
           const script = document.createElement('script');
           script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-TW`;
-          script.async = true;
-          script.defer = true;
-          script.onload = initAutocomplete;
+          script.async = true; script.defer = true;
+          script.onload = () => {
+            initAutocomplete(addressInputRef, setAddress);
+            if (hasExtraPoint) initAutocomplete(extraAddressInputRef, setExtraAddress);
+          };
           document.head.appendChild(script);
         } else {
-          initAutocomplete();
+          initAutocomplete(addressInputRef, setAddress);
+          if (hasExtraPoint) initAutocomplete(extraAddressInputRef, setExtraAddress);
         }
-      }, []);
+      }, [hasExtraPoint]);
 
-      useEffect(() => {
-        fetchPrices();
-      }, []);
+      useEffect(() => { fetchPrices(); }, []);
 
       const fetchPrices = async () => {
         if (GAS_WEBAPP_URL.includes('YOUR_GAS_ID')) return;
@@ -208,9 +213,28 @@
         return carType === '大車' ? priceData.large : priceData.small;
       }, [priceMap, airport, district, carType]);
 
-      const isNightCharge = parseInt(timeHour) >= 22 || parseInt(timeHour) < 6;
-      const totalExtraFee = (serviceType === '接機' ? 200 : 0) + (isNightCharge ? 200 : 0) + (infants * 200) + (extraSignboard ? 200 : 0);
-      const estimatedTotal = basePrice > 0 ? basePrice + totalExtraFee : null;
+      const fees = useMemo(() => {
+        const pickupFee = serviceType === '接機' ? 200 : 0;
+        const hour = parseInt(timeHour);
+        const nightFee = (hour >= 22 || hour < 6) ? 200 : 0;
+        const infantSeatFee = infants * 200;
+        const signboardFee = extraSignboard ? 200 : 0;
+        
+        let extraPointFee = 0;
+        if (hasExtraPoint && district && extraDistrict) {
+          const zip1 = district.substring(0, 3);
+          const zip2 = extraDistrict.substring(0, 3);
+          if (extraDistrict.includes("香山區")) extraPointFee = 200;
+          else extraPointFee = (zip1 === zip2) ? 100 : 200;
+        }
+
+        return { pickupFee, nightFee, infantSeatFee, signboardFee, extraPointFee };
+      }, [serviceType, timeHour, infants, extraSignboard, hasExtraPoint, district, extraDistrict]);
+
+      const estimatedTotal = useMemo(() => {
+        const sumExtra = Object.values(fees).reduce((a, b) => a + b, 0);
+        return basePrice > 0 ? basePrice + sumExtra : null;
+      }, [basePrice, fees]);
 
       const handleSubmit = async (e) => {
         e.preventDefault();
@@ -226,8 +250,11 @@
         const payload = {
           action: 'addReservation',
           data: {
-            reservationId, name: `${name} ${title}`, phone, dateTime: `${date} ${timeHour}:${timeMinute}`,
-            serviceType, airport, flightNumber, location: `${district} ${address}`, carType,
+            reservationId, name: `${name} ${title}`, phone, email, dateTime: `${date} ${timeHour}:${timeMinute}`,
+            serviceType, airport, flightNumber, 
+            location: `${district} ${address}`, 
+            extraLocation: hasExtraPoint ? `${extraDistrict} ${extraAddress}` : '無',
+            carType,
             passengers: `成人:${adults}, 小孩:${children}, 幼童:${infants}`,
             luggage: `登機箱:${carryOn}, 託運:${checkedBag}`,
             payment, totalFee: estimatedTotal || '待報價', remarks: finalRemarks,
@@ -240,7 +267,7 @@
           if (window.liff && window.liff.isInClient()) {
             await window.liff.sendMessages([{
               type: 'text',
-              text: `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n聯絡電話：${phone}\n乘車時間：${date} ${timeHour}:${timeMinute}\n服務類型：${serviceType}\n機場/航班：${airport} / ${flightNumber}\n接送地址：${district} ${address}\n車型：${carType}\n預估總額：${estimatedTotal ? '$' + estimatedTotal : '待報價'} (${payment})\n${finalRemarks ? '備註：\n' + finalRemarks : ''}`
+              text: `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n聯絡電話：${phone}\nMAIL：${email}\n乘車時間：${date} ${timeHour}:${timeMinute}\n服務類型：${serviceType}\n機場/航班：${airport} / ${flightNumber}\n接送地址：${district} ${address}\n${hasExtraPoint ? '加點地址：' + extraDistrict + ' ' + extraAddress + '\n' : ''}車型：${carType}\n預估總額：${estimatedTotal ? '$' + estimatedTotal : '待報價'} (${payment})\n${finalRemarks ? '備註：\n' + finalRemarks : ''}`
             }]);
             window.liff.closeWindow();
           } else {
@@ -249,12 +276,12 @@
         } catch (err) { showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); } finally { setIsSubmitting(false); }
       };
 
-      const filteredDistricts = useMemo(() => {
+      const getFilteredDistricts = (query) => {
         const dynamicDists = Object.keys(priceMap).filter(key => key.startsWith(airport + '_')).map(key => key.split('_')[1]);
         const options = dynamicDists.length > 0 ? dynamicDists : Object.values(DISTRICTS_FALLBACK).flat();
-        if (!district) return options.slice(0, 15);
-        return options.filter(d => d.includes(district)).slice(0, 20);
-      }, [priceMap, airport, district]);
+        if (!query) return options.slice(0, 15);
+        return options.filter(d => d.includes(query)).slice(0, 20);
+      };
 
       const renderNumberOptions = (max) => Array.from({ length: max + 1 }, (_, i) => <option key={i} value={i}>{i}</option>);
 
@@ -282,7 +309,8 @@
                   <input type="text" required className="flex-1 p-3 border border-gray-300 outline-none focus:border-black text-base" placeholder="真實姓名" value={name} onChange={e => setName(e.target.value)} />
                   <select className="p-3 border border-gray-300 bg-white text-base" value={title} onChange={e => setTitle(e.target.value)}><option>先生</option><option>小姐</option></select>
                 </div>
-                <input type="tel" required className="w-full p-3 border border-gray-300 font-mono outline-none focus:border-black text-base" value={phone} onChange={handlePhoneChange} placeholder="0900-000-000" />
+                <input type="tel" required className="w-full p-3 border border-gray-300 font-mono outline-none focus:border-black text-base" value={phone} onChange={handlePhoneChange} placeholder="聯絡電話 0900-000-000" />
+                <input type="email" required className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={email} onChange={e => setEmail(e.target.value)} placeholder="MAIL 電子信箱" />
 
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4" /> 接送地址</label>
@@ -290,13 +318,40 @@
                     <input type="text" required className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={district} onFocus={() => setShowDistrictList(true)} onChange={e => {setDistrict(e.target.value); setShowDistrictList(true);}} placeholder="輸入郵遞區號或區域搜尋" />
                     {showDistrictList && (
                       <div className="absolute z-[100] w-full bg-white border border-gray-300 shadow-2xl mt-1 max-h-60 overflow-y-auto">
-                        {filteredDistricts.map((d, idx) => (
+                        {getFilteredDistricts(district).map((d, idx) => (
                           <div key={idx} className="p-3 border-b border-gray-50 active:bg-black active:text-white" onMouseDown={() => {setDistrict(d); setShowDistrictList(false);}}>{d}</div>
                         ))}
                       </div>
                     )}
                   </div>
-                  <input ref={addressInputRef} type="text" required className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={address} onChange={e => setAddress(e.target.value)} placeholder={mapsError ? "請手動輸入詳細地址" : "輸入詳細地址 (支援自動完成)"} />
+                  <input ref={addressInputRef} type="text" required className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base mb-4" value={address} onChange={e => setAddress(e.target.value)} placeholder={mapsError ? "請手動輸入詳細地址" : "輸入詳細地址 (支援自動完成)"} />
+
+                  <div className="mt-2 p-3 bg-gray-50 border border-dashed border-gray-400 rounded-sm">
+                    <label className="flex items-center gap-2 cursor-pointer font-black text-sm">
+                      <input type="checkbox" className="w-5 h-5 accent-black" checked={hasExtraPoint} onChange={e => setHasExtraPoint(e.target.checked)} />
+                      <PlusCircle className="w-4 h-4 text-green-600" /> 需加點服務 (每點 +$100起)
+                    </label>
+                    
+                    {hasExtraPoint && (
+                      <div className="mt-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
+                        <div className="relative">
+                          <input type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={extraDistrict} onFocus={() => setShowExtraDistrictList(true)} onChange={e => {setExtraDistrict(e.target.value); setShowExtraDistrictList(true);}} placeholder="加點：搜尋區域或郵遞區號" />
+                          {showExtraDistrictList && (
+                            <div className="absolute z-[100] w-full bg-white border border-gray-300 shadow-2xl mt-1 max-h-40 overflow-y-auto">
+                              {getFilteredDistricts(extraDistrict).map((d, idx) => (
+                                <div key={idx} className="p-3 border-b border-gray-50 active:bg-black active:text-white" onMouseDown={() => {setExtraDistrict(d); setShowExtraDistrictList(false);}}>{d}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <input ref={extraAddressInputRef} type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={extraAddress} onChange={e => setExtraAddress(e.target.value)} placeholder="加點：輸入詳細地址" />
+                        <div className="bg-blue-50 p-2 rounded-sm flex items-start gap-2 mt-2">
+                           <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                           <p className="text-[10px] text-blue-700 leading-tight">系統預計最多2個接送點，超過2個接送點請直接聯絡客服，謝謝。</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
 
@@ -316,7 +371,9 @@
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8"><Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件)</span></h2>
+                <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8">
+                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件--包含登機箱)</span>
+                </h2>
                 <select className="w-full p-3 border border-gray-300 bg-white font-bold text-base" value={carType} onChange={e => setCarType(e.target.value)} disabled={(Number(carryOn)+Number(checkedBag))>=3 || (Number(adults)+Number(children)+Number(infants))>=5}>
                   <option value="小車">小車</option><option value="大車">大車</option>
                 </select>
@@ -332,18 +389,54 @@
               </section>
 
               <section className="space-y-4">
-                <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8"><CreditCard className="w-5 h-5" /> 費用與付款</h2>
+                <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8"><CreditCard className="w-5 h-5" /> 費用報價</h2>
+                
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-sm">
+                  <label className="block text-xs font-bold text-gray-700 mb-2">付款方式</label>
+                  <select className="w-full p-3 border border-gray-300 bg-white font-bold text-base outline-none focus:border-black" value={payment} onChange={e => setPayment(e.target.value)}>
+                    <option value="現金">現金</option>
+                    <option value="轉帳">轉帳</option>
+                    <option value="簽單月結">簽單月結 (限簽約客戶)</option>
+                  </select>
+                </div>
+
                 <div className="p-3 bg-gray-50 border border-gray-200">
                   <label className="flex items-center gap-2 cursor-pointer py-1 font-bold">
                     <input type="checkbox" className="w-5 h-5 accent-black" checked={extraSignboard} onChange={e=>setExtraSignboard(e.target.checked)} />舉牌服務 (+$200)
                   </label>
                   {extraSignboard && <input type="text" className="w-full mt-2 p-3 border text-base" placeholder="輸入舉牌內容" value={signboardText} onChange={e => setSignboardText(e.target.value)} />}
                 </div>
-                <div className="bg-black text-white p-5 border-t-4 border-yellow-400">
-                  <div className="flex justify-between text-sm font-mono"><span>{airport} - {district || '未選區'}</span><span className="text-yellow-400 font-bold">{basePrice > 0 ? `$${basePrice}` : '待報價'}</span></div>
-                  <div className="mt-4 pt-3 border-t border-gray-700 flex justify-between items-end">
-                    <span className="font-bold text-xs uppercase">Total</span>
-                    <span className="text-3xl font-black">{estimatedTotal ? `$${estimatedTotal}` : '待報價'}</span>
+
+                <div className="bg-black text-white p-6 border-t-8 border-yellow-400 rounded-sm relative shadow-xl text-justify">
+                  <div className="absolute top-2 right-4 opacity-10"><Receipt className="w-16 h-16" /></div>
+                  <h3 className="text-xs font-black tracking-widest text-gray-400 border-b border-gray-800 pb-2 mb-4 flex items-center gap-2 uppercase"><FileText className="w-3 h-3" /> 報價明細內容</h3>
+                  <div className="space-y-3 font-mono text-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="flex flex-col">
+                        <span className="text-gray-300">基本車資 ({carType})</span>
+                        <span className="text-[10px] text-gray-500">
+                          {serviceType === '送機' 
+                            ? `${district || '未選區'} - ${airport}` 
+                            : `${airport} - ${district || '未選區'}`
+                          }
+                        </span>
+                      </div>
+                      <span className="font-bold">{basePrice > 0 ? `$${basePrice}` : '待客服報價'}</span>
+                    </div>
+                    <div className="border-t border-dashed border-gray-800 pt-3 space-y-2">
+                      {fees.pickupFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 接機服務費</span><span>+$200</span></div>}
+                      {fees.nightFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 夜間加成 (22-06)</span><span>+$200</span></div>}
+                      {fees.infantSeatFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 安全座椅 x {infants}</span><span>+${fees.infantSeatFee}</span></div>}
+                      {fees.signboardFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 機場舉牌服務</span><span>+$200</span></div>}
+                      {fees.extraPointFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 加點服務 ({district.substring(0,3) === extraDistrict.substring(0,3) ? '同區' : '異區'})</span><span>+${fees.extraPointFee}</span></div>}
+                    </div>
+                    <div className="mt-6 pt-4 border-t-2 border-gray-700 flex justify-between items-center">
+                      <span className="font-black text-yellow-400 text-base">預估總額</span>
+                      <div className="text-right">
+                        <span className="text-3xl font-black">{estimatedTotal ? `$${estimatedTotal}` : '待報價'}</span>
+                        <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">付款方式：{payment}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -371,7 +464,7 @@
 
             <div className="mt-10 text-center border-t-4 border-black pt-8 pb-4">
               <p className="text-xl font-black mb-2">24H 預約服務電話</p>
-              <a href="tel:0915926166" className="text-4xl sm:text-5xl font-black text-black hover:underline tracking-wider block" style={{ WebkitTextStroke: '1.5px black' }}>0915-926-166</a>
+              <a href="tel:0915926166" className="text-4xl sm:text-5xl font-black text-black hover:underline tracking-wider block font-black-stroke">0915-926-166</a>
             </div>
           </main>
         </div>
