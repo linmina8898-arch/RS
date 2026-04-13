@@ -171,25 +171,48 @@
         };
       }, []);
 
-      // 解析地址組成，尋找郵遞區號與地區
+      // --- 優化後的地址解析與行政區匹配邏輯 ---
       const findMatchingDistrict = (components) => {
         let postCode = "";
-        let subLocality = "";
+        let districtName = ""; // 行政區 (如: 香山區)
+        let cityName = "";     // 城市 (如: 新竹市)
+        
         components.forEach(c => {
           if (c.types.includes("postal_code")) postCode = c.long_name;
-          if (c.types.includes("sublocality_level_1")) subLocality = c.long_name;
+          if (c.types.includes("sublocality_level_1")) districtName = c.long_name;
+          if (c.types.includes("locality")) cityName = c.long_name;
         });
-        if (!postCode && !subLocality) return null;
-        const dynamicDists = Object.keys(priceMap).filter(key => key.startsWith(airport + '_')).map(key => key.split('_')[1]);
+
+        if (!postCode && !districtName) return null;
+
+        // 取得目前的區域選項清單
+        const dynamicDists = Object.keys(priceMap)
+          .filter(key => key.startsWith(airport + '_'))
+          .map(key => key.split('_')[1]);
+        
         const allOptions = dynamicDists.length > 0 ? dynamicDists : Object.values(DISTRICTS_FALLBACK).flat();
+
+        // 1. 優先嘗試「行政區名稱」匹配 (例如 "香山區")
+        // 這是最準確的方式，避免多個區共用同一個郵遞區號的問題
+        if (districtName) {
+          const match = allOptions.find(opt => opt.includes(districtName));
+          if (match) return match;
+        }
+
+        // 2. 嘗試「城市+行政區」組合匹配
+        if (cityName && districtName) {
+          const combined = cityName + districtName;
+          const match = allOptions.find(opt => opt.includes(combined));
+          if (match) return match;
+        }
+
+        // 3. 最後才是「郵遞區號」前三碼匹配 (保底方案)
         if (postCode) {
-          const match = allOptions.find(opt => opt.startsWith(postCode.substring(0, 3)));
+          const code3 = postCode.substring(0, 3);
+          const match = allOptions.find(opt => opt.startsWith(code3));
           if (match) return match;
         }
-        if (subLocality) {
-          const match = allOptions.find(opt => opt.includes(subLocality));
-          if (match) return match;
-        }
+
         return null;
       };
 
@@ -202,7 +225,11 @@
             });
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
-              if (place.formatted_address) addrSetter(place.formatted_address.replace(/^台灣\d{3,5}\s*/, ''));
+              if (place.formatted_address) {
+                // 更新詳細地址欄位
+                addrSetter(place.formatted_address.replace(/^台灣\d{3,5}\s*/, ''));
+              }
+              // 自動更新上面的「區域/郵遞區號」欄位
               if (place.address_components) {
                 const matched = findMatchingDistrict(place.address_components);
                 if (matched) distSetter(matched);
@@ -210,6 +237,7 @@
             });
           }
         };
+
         if (!window.google) {
           const script = document.createElement('script');
           script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-TW`;
@@ -267,7 +295,7 @@
         // 一般同區 (+100) 與跨區 (+200) 判斷
         const zip1 = district.substring(0, 3);
         const zip2 = extraDistrict.substring(0, 3);
-        return zip1 === zip2 ? { fee: 100, label: '（同區）' } : { fee: 200, label: '（跨區）' };
+        return (zip1 && zip2 && zip1 === zip2) ? { fee: 100, label: '（同區）' } : { fee: 200, label: '（跨區）' };
       }, [hasExtraPoint, district, extraDistrict]);
 
       const fees = useMemo(() => {
@@ -316,7 +344,7 @@
           } else {
             showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}`, '提交成功', 'info');
           }
-        } catch (err) { showAlert('資料寫入失敗', '錯誤', 'error'); } finally { setIsSubmitting(false); }
+        } catch (err) { showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); } finally { setIsSubmitting(false); }
       };
 
       const getFilteredDistricts = (query) => {
