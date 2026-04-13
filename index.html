@@ -92,16 +92,18 @@
       if (!isOpen) return null;
       return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center">
-          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="bg-black p-4 flex justify-between items-center text-white">
+          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            <div className="bg-black p-4 flex justify-between items-center text-white shrink-0">
               <div className="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
                 {type === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}
                 {title}
               </div>
               <button onClick={onClose}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
             </div>
-            <div className="p-6">
-              <p className="text-gray-700 leading-relaxed font-bold mb-6 whitespace-pre-wrap justify-text text-sm text-left">{message}</p>
+            <div className="p-6 flex-1 overflow-y-auto">
+              <p className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap justify-text text-sm text-left">{message}</p>
+            </div>
+            <div className="p-4 bg-white border-t border-gray-100 shrink-0">
               <button onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
             </div>
           </div>
@@ -174,7 +176,6 @@
         if (carTypeConstraint.isForced) setCarType('大車');
       }, [carTypeConstraint]);
 
-      // --- 檢查 24 小時預約限制 ---
       useEffect(() => {
         if (date && timeHour && timeMinute) {
           const selectedDate = new Date(`${date}T${timeHour}:${timeMinute}:00`);
@@ -183,7 +184,7 @@
           
           if (diffHours < 24) {
             showAlert('預約時間小於24小時無法線上預約，請直接來電 0915-926-166。', '時間限制', 'error');
-            setDate(''); // 清除日期，防止繼續送出
+            setDate(''); 
           }
         }
       }, [date, timeHour, timeMinute]);
@@ -337,6 +338,25 @@
         setIsSubmitting(true);
         
         const finalRemarks = extraSignboard && signboardText ? `【舉牌內容：${signboardText}】\n${remarks}` : remarks;
+        
+        // 準備好要在視窗與 LINE 同步顯示的明細內容
+        const lineText = `【RS專車接送 線上預約單】\n` +
+          `預約編號：${reservationId}\n` +
+          `乘車人姓名：${name} ${title}\n` +
+          `乘車人電話：${phone}\n` +
+          `電子信箱：${email}\n` +
+          `乘車日期：${date}\n` +
+          `乘車時間：${timeHour}:${timeMinute}\n` +
+          `服務類型：${serviceType}\n` +
+          `機場/航班：${airport} / ${flightNumber}\n` +
+          `接送地址：${district} ${address}\n` +
+          (hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``) +
+          `車型：${carType}\n` +
+          `乘車人數：大人${adults}, 小孩${children}, 幼童${infants}\n` +
+          `行李件數：登機箱${carryOn}, 託運${checkedBag}\n` +
+          `預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})\n` +
+          (finalRemarks ? `備註：\n${finalRemarks}` : ``);
+
         const payload = {
           action: 'addReservation',
           data: {
@@ -363,42 +383,23 @@
         };
 
         try {
-          // 加上 await 確保請求發出
           await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           
           if (window.liff && window.liff.isInClient()) {
-            // --- 修改後的 LINE 明細格式 ---
-            const lineText = `【RS專車接送 線上預約單】\n` +
-              `預約編號：${reservationId}\n` +
-              `乘車人姓名：${name} ${title}\n` +
-              `乘車人電話：${phone}\n` +
-              `電子信箱：${email}\n` +
-              `乘車日期：${date}\n` +
-              `乘車時間：${timeHour}:${timeMinute}\n` +
-              `服務類型：${serviceType}\n` +
-              `機場/航班：${airport} / ${flightNumber}\n` +
-              `接送地址：${district} ${address}\n` +
-              (hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``) +
-              `車型：${carType}\n` +
-              `乘車人數：大人${adults}, 小孩${children}, 幼童${infants}\n` +
-              `行李件數：登機箱${carryOn}, 託運${checkedBag}\n` +
-              `預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})\n` +
-              (finalRemarks ? `備註：\n${finalRemarks}` : ``);
-            
             window.liff.sendMessages([{ type: 'text', text: lineText }])
               .then(() => {
-                showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}\n\n預約明細已同步回傳至 LINE 聊天室！\n\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+                showAlert(`預約已提交成功！\n預約明細已同步回傳至 LINE 聊天室！\n\n${lineText}\n\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
                   window.liff.closeWindow();
                 });
               })
               .catch((err) => {
                 console.error('LINE 傳送失敗:', err);
-                showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}\n\n(但 LINE 系統回傳明細失敗，請自行截圖保存本畫面)\n\n(點擊確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
+                showAlert(`預約已提交成功！\n\n(但 LINE 系統回傳明細失敗，請自行截圖保存以下明細)\n\n${lineText}\n\n(點擊確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
                   window.liff.closeWindow();
                 });
               });
           } else {
-            showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}\n\n(您目前不在 LINE App 內，請自行截圖保存本畫面)`, '預約成功', 'success');
+            showAlert(`預約已提交成功！\n\n(您目前不在 LINE App 內，請自行截圖保存以下明細)\n\n${lineText}`, '預約成功', 'success');
           }
         } catch (err) { 
           showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); 
