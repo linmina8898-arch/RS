@@ -70,7 +70,7 @@
       "新北市": ["207 萬里區", "208 金山區", "220 板橋區", "221 汐止區", "222 深坑區", "223 石碇區", "224 瑞芳區", "226 平溪區", "227 雙溪區", "228 貢寮區", "231 新店區", "232 坪林區", "233 烏來區", "234 永和區", "235 中和區", "236 土城區", "237 三峽區", "238 樹林區", "239 鶯歌區", "241 三重區", "242 新莊區", "243 泰山區", "244 林口區", "247 蘆洲區", "248 五股區", "249 八里區", "251 淡水區", "252 三芝區", "253 石門區"],
       "桃園市": ["320 中壢區", "324 平鎮區", "325 龍潭區", "326 楊梅區", "327 新屋區", "328 觀音區", "330 桃園區", "333 龜山區", "334 八德區", "338 蘆竹區", "337 大園區", "335 大溪區", "336 復興區"],
       "新竹市": ["300 東區", "300 北區", "300 香山區"],
-      "新竹縣": ["302 竹北市", "303 湖口鄉", "304 新豐鄉", "305 新埔鎮", "306 關西鎮", "307 芎林鄉", "308 寶山鄉", "310 竹東鎮", "311 五峰鄉", "312 橫山鄉", "313 尖石鄉", "314 北埔鄉", "315 峨眉鄉"]
+      "新竹縣": ["302 竹北市", "303 湖口鄉", "304 新豐鄉", "305 新埔鎮", "306 關西鎮", "307 芎林鄉", "308 宝山鄉", "310 竹東鎮", "311 五峰鄉", "312 橫山鄉", "313 尖石鄉", "314 北埔鄉", "315 峨眉鄉"]
     };
 
     const generateReservationId = () => {
@@ -218,7 +218,7 @@
         
         window.gm_authFailure = () => {
           setMapsError(true);
-          showAlert("【地圖功能提示】目前受限於環境安全參照，地址自動完成功能可能暫時無法使用。請手動輸入詳細地址即可正常預約。", "授權提示", "error");
+          showAlert("【地圖功能提示】地址自動完成功能目前無法載入，請手動輸入即可正常預約。", "地圖授權", "error");
         };
       }, []);
 
@@ -253,23 +253,29 @@
                 const postCodeObj = components.find(c => c.types.includes('postal_code'));
                 const cityObj = components.find(c => c.types.includes('administrative_area_level_1') || c.types.includes('locality'));
                 
-                // 判斷是否為新竹市
                 const isHsinchuCity = cityObj && (cityObj.long_name.includes('新竹市') || cityObj.short_name.includes('新竹市'));
                 
                 let formatted = place.formatted_address.replace(/^台灣\d{3,5}\s*/, '');
+                const matchedArea = findMatchingDistrict(components, place.formatted_address);
                 
-                // 邏輯：除了新竹市以外，若有郵遞區號則在詳細地址前抓取前3碼
-                if (!isHsinchuCity && postCodeObj) {
-                  const code3 = postCodeObj.long_name.substring(0, 3);
-                  // 檢查是否已經開頭包含該區號，避免重複
-                  if (!formatted.startsWith(code3)) {
-                    formatted = `${code3} ${formatted}`;
+                let zipCode = postCodeObj ? postCodeObj.long_name.substring(0, 3) : '';
+
+                if (isHsinchuCity) {
+                  distSetter(matchedArea || '300 新竹市');
+                  addrSetter(formatted);
+                } else {
+                  if (zipCode && matchedArea) {
+                    distSetter(matchedArea);
+                    if (!formatted.startsWith(zipCode)) {
+                      addrSetter(`${zipCode} ${formatted}`);
+                    } else {
+                      addrSetter(formatted);
+                    }
+                  } else {
+                    distSetter(matchedArea || '');
+                    addrSetter(formatted);
                   }
                 }
-                
-                addrSetter(formatted);
-                const matched = findMatchingDistrict(components, place.formatted_address);
-                if (matched) distSetter(matched);
               }
             });
           }
@@ -363,7 +369,6 @@
         setIsSubmitting(true);
         
         try {
-          // 1. 同步向 Google 表單發送
           const gasTask = fetch(GAS_WEBAPP_URL, { 
             method: 'POST', 
             mode: 'no-cors', 
@@ -374,44 +379,38 @@
           let liffError = null;
           let isInLine = false;
 
-          // 2. 處理 LINE LIFF 邏輯
           if (window.liff) {
             try {
-              // 確保已經初始化
-              if (!window.liff.id) {
-                await window.liff.init({ liffId: LINE_LIFF_ID });
-              }
-              
-              // 強制再次檢查是否在 LINE Client 內
-              isInLine = window.liff.isInClient();
+              // 強制初始化並重新判定環境
+              await window.liff.init({ liffId: LINE_LIFF_ID });
+              isInLine = window.liff.isInClient() || /Line/i.test(navigator.userAgent);
               
               if (isInLine) {
                 await window.liff.sendMessages([{ type: 'text', text: lineText }]);
               }
             } catch (err) {
               liffError = err;
-              console.error('LIFF 操作異常:', err);
             }
           }
 
-          await gasTask; // 等待背景 GAS 請求發出
+          await gasTask;
 
           if (isInLine) {
             if (liffError) {
-              showAlert(`🌟 資料已嘗試送出。\n\n⚠️ 但 LINE 明細回傳失敗：${liffError.message || '許可權限不足'}\n請檢查 LIFF 是否具備 chat_message.write 權限，或直接截圖此畫面即可。`, '部分成功', 'info');
+              showAlert(`🌟 資料已成功錄入。\n\n⚠️ 但 LINE 明細回傳失敗：${liffError.message || '許可權不足'}\n請手動截圖保存。`, '部分成功', 'info', () => {
+                window.liff.closeWindow();
+              });
             } else {
-              showAlert(`🌟 預約已成功送出！\n預約明細已同步回傳至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+              showAlert(`🌟 預約成功！明細已回傳至您的 LINE 聊天室。\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
                 window.liff.closeWindow();
               });
             }
           } else {
-            // 非 LINE 內開啟的情況
-            showAlert(`🌟 預約已成功送出！\n\n(系統偵測您目前不在 LINE 內開啟，請直接截圖保存以下明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請截圖保存)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
 
         } catch (err) { 
-          showAlert('資料傳送過程中發生錯誤，請檢查網路連線或稍後再試。', '系統錯誤', 'error'); 
-          console.error(err);
+          showAlert('資料傳送失敗，請檢查網路。', '系統錯誤', 'error'); 
         } finally { 
           setIsSubmitting(false); 
           setConfirmData(null);
@@ -420,7 +419,6 @@
 
       const handleSubmit = async (e) => {
         e.preventDefault();
-        
         const missingFields = [];
         if (!name.trim()) missingFields.push('乘車人真實姓名');
         if (!phone.trim()) {
@@ -439,25 +437,24 @@
             missingFields.push('MAIL 電子信箱 (格式不正確)');
           }
         }
-        if (!district.trim()) missingFields.push('接送地址 - 區域與郵遞區號');
+        if (!district.trim()) missingFields.push('接送地址 - 區域');
         if (!address.trim()) missingFields.push('接送地址 - 詳細地址');
         if (hasExtraPoint) {
-          if (!extraDistrict.trim()) missingFields.push('加點服務 - 加點區域');
-          if (!extraAddress.trim()) missingFields.push('加點服務 - 加點詳細地址');
+          if (!extraDistrict.trim()) missingFields.push('加點服務 - 區域');
+          if (!extraAddress.trim()) missingFields.push('加點服務 - 詳細地址');
         }
         if (!date) missingFields.push('乘車資訊 - 乘車日期');
         if (!flightNumber.trim()) missingFields.push('乘車資訊 - 航班編號');
-        if (extraSignboard && !signboardText.trim()) missingFields.push('舉牌服務 - 舉牌內容');
+        if (extraSignboard && !signboardText.trim()) missingFields.push('舉牌內容');
         if (!agreed) missingFields.push('【注意事項與免責聲明】需勾選同意');
 
         if (missingFields.length > 0) {
           const formattedMissing = missingFields.map(f => `• ${f}`).join('\n');
-          showAlert(`您還有欄位尚未填寫完整或格式有誤：\n\n${formattedMissing}`, '資料未填寫完整', 'error');
+          showAlert(`資料未填寫完整或格式有誤：\n\n${formattedMissing}`, '資料不全', 'error');
           return;
         }
 
         const finalRemarks = extraSignboard && signboardText ? `【舉牌內容：${signboardText}】\n${remarks}` : remarks;
-        
         const lineText = `【RS專車接送 線上預約單】
 預約編號：${reservationId}
 乘車人姓名：${name} ${title}
@@ -470,44 +467,26 @@
 航班編號：${flightNumber}
 接送地址：${district} ${address}
 ${hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``}車型：${carType}
-乘車人數：大人${adults}, 小孩${children}, 幼童${infants}
+乘車人數：大人${adults}, 小孩(4-12歲)${children}, 幼童(4歲以下)${infants}
 行李件數：登機箱${carryOn}, 託運${checkedBag}
-預估總額：${estimatedTotal ? '$' + estimatedTotal : '待報價'} (${payment})
+預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})
 ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
 
         const payload = {
           action: 'addReservation',
           data: {
-            reservationId, 
-            name: `${name} ${title}`, 
-            phone, 
-            email, 
-            date: date, 
-            time: `'${timeHour}:${timeMinute}`,
-            serviceType, 
-            airport, 
-            flightNumber, 
-            district: district, 
-            address: address, 
+            reservationId, name: `${name} ${title}`, phone, email, date, 
+            time: `'${timeHour}:${timeMinute}`, serviceType, airport, flightNumber, district, address, 
             extraLocation: hasExtraPoint ? `${extraDistrict} ${extraAddress}` : '無',
-            carType, 
-            passengers: `成人:${adults}, 小孩:${children}, 幼童:${infants}`, 
-            luggage: `登機箱:${carryOn}, 託運:${checkedBag}`,
-            payment, 
-            totalFee: estimatedTotal || '待報價', 
-            remarks: finalRemarks, 
+            carType, passengers: `成人:${adults}, 小孩(4-12歲):${children}, 幼童(4歲以下):${infants}`, 
+            luggage: `登機箱:${carryOn}, 託運:${checkedBag}`, payment, 
+            totalFee: estimatedTotal || '待報價', remarks: finalRemarks, 
             timestamp: new Date().toLocaleString('zh-TW')
           }
         };
 
         setConfirmData({ payload, lineText });
-        setModal({
-          open: true,
-          title: '請確認預約明細',
-          message: lineText,
-          type: 'confirm',
-          onConfirm: null 
-        });
+        setModal({ open: true, title: '請確認預約明細', message: lineText, type: 'confirm', onConfirm: null });
       };
 
       const getFilteredDistricts = (query) => {
@@ -542,9 +521,7 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
             onConfirm={() => {
               if (modal.type === 'confirm') {
                 setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
-                if (confirmData) {
-                  executeSubmit(confirmData.payload, confirmData.lineText);
-                }
+                if (confirmData) { executeSubmit(confirmData.payload, confirmData.lineText); }
               }
             }}
           />
@@ -575,16 +552,15 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4" /> 接送地址</label>
                   <div className="relative mb-2">
-                    <input type="text" className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={district} onFocus={() => setShowDistrictList(true)} onChange={e => {setDistrict(e.target.value); setShowDistrictList(true);}} placeholder="區域與郵遞區號 (自動對應)" />
-                    {showDistrictList && (
-                      <div className="absolute z-[100] w-full bg-white border border-gray-300 shadow-2xl mt-1 max-h-60 overflow-y-auto">
-                        {getFilteredDistricts(district).map((d, idx) => (
-                          <div key={idx} className="p-3 border-b border-gray-50 active:bg-black active:text-white" onMouseDown={() => {setDistrict(d); setShowDistrictList(false);}}>{d}</div>
-                        ))}
-                      </div>
-                    )}
+                    <input 
+                      type="text" 
+                      className="w-full p-3 border border-gray-300 bg-gray-100 outline-none focus:border-black text-base text-gray-500 cursor-not-allowed" 
+                      value={district} 
+                      readOnly
+                      placeholder="區域與郵遞區號 (自動帶入)" 
+                    />
                   </div>
-                  <input ref={addressInputRef} type="text" className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base mb-4 font-bold bg-yellow-50" value={address} onChange={e => setAddress(e.target.value)} placeholder={mapsError ? "請手動輸入詳細地址" : "輸入詳細地址 (自動解析)"} />
+                  <input ref={addressInputRef} type="text" className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base mb-4 font-bold bg-yellow-50" value={address} onChange={e => setAddress(e.target.value)} placeholder={mapsError ? "請手動輸入詳細地址" : "輸入詳細地址 (自動帶入區號)"} />
 
                   <div className="mt-2 p-3 bg-gray-50 border border-dashed border-gray-400 rounded-sm">
                     <label className="flex items-center gap-2 cursor-pointer font-black text-sm">
@@ -596,19 +572,18 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
                     {hasExtraPoint && (
                       <div className="mt-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
                         <div className="relative">
-                          <input type="text" className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={extraDistrict} onFocus={() => setShowExtraDistrictList(true)} onChange={e => {setExtraDistrict(e.target.value); setShowExtraDistrictList(true);}} placeholder="加點區域 (自動對應)" />
-                          {showExtraDistrictList && (
-                            <div className="absolute z-[100] w-full bg-white border border-gray-300 shadow-2xl mt-1 max-h-40 overflow-y-auto">
-                              {getFilteredDistricts(extraDistrict).map((d, idx) => (
-                                <div key={idx} className="p-3 border-b border-gray-50 active:bg-black active:text-white" onMouseDown={() => {setExtraDistrict(d); setShowExtraDistrictList(false);}}>{d}</div>
-                              ))}
-                            </div>
-                          )}
+                          <input 
+                            type="text" 
+                            className="w-full p-3 border border-gray-300 bg-gray-100 outline-none focus:border-black text-base text-gray-500 cursor-not-allowed" 
+                            value={extraDistrict} 
+                            readOnly
+                            placeholder="加點區域 (自動帶入)" 
+                          />
                         </div>
-                        <input ref={extraAddressInputRef} type="text" className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base bg-yellow-50 font-bold" value={extraAddress} onChange={e => setExtraAddress(e.target.value)} placeholder="加點：詳細地址" />
+                        <input ref={extraAddressInputRef} type="text" className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base bg-yellow-50 font-bold" value={extraAddress} onChange={e => setExtraAddress(e.target.value)} placeholder="加點：詳細地址 (自動帶入)" />
                         <div className="bg-blue-50 p-2 rounded-sm flex items-start gap-2 mt-2">
                            <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                           <p className="text-[10px] text-blue-700 leading-tight text-justify justify-text text-sm">系統預計最多2個接送點，超過2個接送點請直接聯絡客服，謝謝。</p>
+                           <p className="text-xs text-blue-700 leading-tight">系統最多支援2個接送點，超過請洽客服。</p>
                         </div>
                       </div>
                     )}
@@ -633,7 +608,7 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8">
-                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件 **包含登機箱** )</span>
+                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件 **包含登機箱**)</span>
                 </h2>
                 <div className="relative">
                   <select className={`w-full p-3 border font-bold text-base outline-none focus:border-black ${carTypeConstraint.isForced ? 'bg-gray-100 border-red-300 text-red-700 cursor-not-allowed' : 'bg-white border-gray-300'}`} value={carType} onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)} disabled={carTypeConstraint.isForced}>
@@ -641,18 +616,18 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
                   </select>
                   {carTypeConstraint.isForced && (
                     <div className="mt-2 flex items-center gap-1 text-red-600 font-bold text-[11px] bg-red-50 p-2 rounded-sm border border-red-100">
-                      <AlertCircle className="w-3.5 h-3.5" /> 因 {carTypeConstraint.reason}，已由系統強制切換為大車服務。
+                      <AlertCircle className="w-3.5 h-3.5" /> 因 {carTypeConstraint.reason}，已強制切換為大車。
                     </div>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-sm font-bold text-gray-700">
+                <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-gray-700">
                   <div>大人<select className="w-full p-3 border text-base" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{renderOptionsWithLimit(children + infants, 6).filter(opt => opt.key > 0)}</select></div>
-                  <div>4~12歲<select className="w-full p-3 border text-base" value={children} onChange={e=>setChildren(Number(e.target.value))}>{renderOptionsWithLimit(adults + infants, 6)}</select></div>
-                  <div>4歲以下<select className="w-full p-3 border text-base" value={infants} onChange={e=>setInfants(Number(e.target.value))}>{renderOptionsWithLimit(adults + children, 6)}</select></div>
+                  <div>小孩（4~12歲）<select className="w-full p-3 border text-base" value={children} onChange={e=>setChildren(Number(e.target.value))}>{renderOptionsWithLimit(adults + infants, 6)}</select></div>
+                  <div>幼童（4歲以下）<select className="w-full p-3 border text-base" value={infants} onChange={e=>setInfants(Number(e.target.value))}>{renderOptionsWithLimit(adults + children, 6)}</select></div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-center text-sm font-bold text-gray-700">
+                <div className="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-gray-700">
                   <div>登機箱<select className="w-full p-3 border text-base" value={carryOn} onChange={e=>setCarryOn(Number(e.target.value))}>{renderOptionsWithLimit(checkedBag, 6)}</select></div>
-                  <div>託運 <span className="text-red-500 text-xs">(21~29吋)</span><select className="w-full p-3 border text-base" value={checkedBag} onChange={e=>setCheckedBag(Number(e.target.value))}>{renderOptionsWithLimit(carryOn, 6)}</select></div>
+                  <div>託運（21~29吋）<select className="w-full p-3 border text-base" value={checkedBag} onChange={e=>setCheckedBag(Number(e.target.value))}>{renderOptionsWithLimit(carryOn, 6)}</select></div>
                 </div>
               </section>
 
@@ -661,24 +636,24 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
                 <div className="p-3 bg-gray-50 border border-gray-200 rounded-sm">
                   <label className="block text-xs font-bold text-gray-700 mb-2">付款方式</label>
                   <select className="w-full p-3 border border-gray-300 bg-white font-bold text-base outline-none focus:border-black" value={payment} onChange={e => setPayment(e.target.value)}>
-                    <option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結 (限簽約客戶)</option>
+                    <option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結</option>
                   </select>
                 </div>
                 <div className="p-3 bg-gray-50 border border-gray-200">
                   <label className="flex items-center gap-2 cursor-pointer py-1 font-bold">
                     <input type="checkbox" className="w-5 h-5 accent-black" checked={extraSignboard} onChange={e=>setExtraSignboard(e.target.checked)} />舉牌服務 (+$200)
                   </label>
-                  {extraSignboard && <input type="text" className="w-full mt-2 p-3 border text-base" placeholder="請輸入舉牌內容 (必填)" value={signboardText} onChange={e => setSignboardText(e.target.value)} />}
+                  {extraSignboard && <input type="text" className="w-full mt-2 p-3 border text-base" placeholder="舉牌內容" value={signboardText} onChange={e => setSignboardText(e.target.value)} />}
                 </div>
 
                 <div className="bg-black text-white p-6 border-t-8 border-yellow-400 rounded-sm relative shadow-xl text-justify">
-                  <h3 className="text-xs font-black tracking-widest text-gray-400 border-b border-gray-800 pb-2 mb-4 flex items-center gap-2 uppercase"><FileText className="w-3 h-3" /> 報價明細內容</h3>
+                  <h3 className="text-xs font-black text-gray-400 border-b border-gray-800 pb-2 mb-4 flex items-center gap-2 uppercase"><FileText className="w-3 h-3" /> 報價明細內容</h3>
                   <div className="space-y-3 font-mono text-sm">
                     <div className="flex justify-between items-start">
                       <div className="flex flex-col">
                         <span className="text-gray-300 font-bold">基本車資 ({carType})</span>
                         <span className="text-[10px] text-gray-500">
-                          {serviceType === '送機' ? `${basePriceInfo.name || '未選區'} - ${airport}` : `${airport} - ${basePriceInfo.name || '未選區'}`}
+                          {serviceType === '送機' ? `${basePriceInfo.name || '未選'} - ${airport}` : `${airport} - ${basePriceInfo.name || '未選'}`}
                         </span>
                       </div>
                       <span className="font-bold">{basePriceInfo.price > 0 ? `$${basePriceInfo.price}` : '待報價'}</span>
@@ -688,17 +663,13 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
                       {fees.nightFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 夜間加成 (22-06)</span><span>+$200</span></div>}
                       {fees.infantSeatFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 安全座椅 x {infants}</span><span>+${fees.infantSeatFee}</span></div>}
                       {fees.signboardFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 機場舉牌服務</span><span>+$200</span></div>}
-                      {fees.extraPointFee > 0 && (
-                        <div className="flex justify-between text-gray-400">
-                          <span>└ 加點服務 {extraPointInfo.label}</span><span>+${fees.extraPointFee}</span>
-                        </div>
-                      )}
+                      {fees.extraPointFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 加點服務 {extraPointInfo.label}</span><span>+${fees.extraPointFee}</span></div>}
                     </div>
                     <div className="mt-6 pt-4 border-t-2 border-gray-700 flex justify-between items-center">
                       <span className="font-black text-yellow-400 text-base">預估總額</span>
                       <div className="text-right">
                         <span className="text-3xl font-black">{estimatedTotal ? `$${estimatedTotal}` : '待報價'}</span>
-                        <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">付款方式：{payment}</div>
+                        <div className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">付款：{payment}</div>
                       </div>
                     </div>
                   </div>
