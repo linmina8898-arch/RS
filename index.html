@@ -147,7 +147,6 @@
       const [mapsError, setMapsError] = useState(false);
       const [showDistrictList, setShowDistrictList] = useState(false);
       const [showExtraDistrictList, setShowExtraDistrictList] = useState(false);
-      // 修改：在 modal state 增加 onConfirm 回呼函數，用於按確定後關閉視窗
       const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
 
       const addressInputRef = useRef(null);
@@ -174,6 +173,20 @@
       useEffect(() => {
         if (carTypeConstraint.isForced) setCarType('大車');
       }, [carTypeConstraint]);
+
+      // --- 檢查 24 小時預約限制 ---
+      useEffect(() => {
+        if (date && timeHour && timeMinute) {
+          const selectedDate = new Date(`${date}T${timeHour}:${timeMinute}:00`);
+          const now = new Date();
+          const diffHours = (selectedDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+          
+          if (diffHours < 24) {
+            showAlert('預約時間小於24小時無法線上預約，請直接來電 0915-926-166。', '時間限制', 'error');
+            setDate(''); // 清除日期，防止繼續送出
+          }
+        }
+      }, [date, timeHour, timeMinute]);
 
       useEffect(() => {
         if (window.liff) {
@@ -354,7 +367,23 @@
           await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           
           if (window.liff && window.liff.isInClient()) {
-            const lineText = `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n乘車人：${name} ${title}\n聯絡電話：${phone}\nMAIL：${email}\n乘車日期：${date}\n乘車時間：${timeHour}:${timeMinute}\n服務類型：${serviceType}\n機場/航班：${airport} / ${flightNumber}\n接送地址：${district} ${address}\n${hasExtraPoint ? '加點地址：' + extraDistrict + ' ' + extraAddress + '\n加點費用：$' + extraPointInfo.fee + extraPointInfo.label + '\n' : ''}車型：${carType}\n預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})\n${finalRemarks ? '備註：\n' + finalRemarks : ''}`;
+            // --- 修改後的 LINE 明細格式 ---
+            const lineText = `【RS專車接送 線上預約單】\n` +
+              `預約編號：${reservationId}\n` +
+              `乘車人姓名：${name} ${title}\n` +
+              `乘車人電話：${phone}\n` +
+              `電子信箱：${email}\n` +
+              `乘車日期：${date}\n` +
+              `乘車時間：${timeHour}:${timeMinute}\n` +
+              `服務類型：${serviceType}\n` +
+              `機場/航班：${airport} / ${flightNumber}\n` +
+              `接送地址：${district} ${address}\n` +
+              (hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``) +
+              `車型：${carType}\n` +
+              `乘車人數：大人${adults}, 小孩${children}, 幼童${infants}\n` +
+              `行李件數：登機箱${carryOn}, 託運${checkedBag}\n` +
+              `預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})\n` +
+              (finalRemarks ? `備註：\n${finalRemarks}` : ``);
             
             window.liff.sendMessages([{ type: 'text', text: lineText }])
               .then(() => {
@@ -412,7 +441,6 @@
           </header>
 
           <main className="max-w-md mx-auto mt-6 bg-white shadow-lg p-6 sm:p-8 sm:border border-gray-200">
-            {/* 加入 noValidate 關閉瀏覽器預設阻擋，交由自訂邏輯驗證 */}
             <form onSubmit={handleSubmit} className="space-y-6" noValidate>
               <div className="bg-gray-100 p-3 flex justify-between items-center border border-gray-300">
                 <span className="text-sm font-bold flex items-center gap-2 text-gray-600"><FileText className="w-4 h-4" /> 預約編號</span>
@@ -574,7 +602,7 @@
                   </div>
                 </div>
                 <label className="flex items-start gap-3 cursor-pointer p-4 border border-black font-black text-sm bg-white active:bg-gray-50 transition-colors">
-                  <input type="checkbox" className="w-6 h-6 mt-0.5 accent-black" checked={agreed} onChange={e=>setAgreed(e.target.checked)} />我同意以上資訊與免責聲明。
+                  <input type="checkbox" required className="w-6 h-6 mt-0.5 accent-black" checked={agreed} onChange={e=>setAgreed(e.target.checked)} />我同意以上資訊與免責聲明。
                 </label>
               </section>
               
