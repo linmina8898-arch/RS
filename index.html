@@ -158,9 +158,13 @@
       const [isLoadingPrices, setIsLoadingPrices] = useState(false);
       const [isSubmitting, setIsSubmitting] = useState(false);
       const [mapsError, setMapsError] = useState(false);
+      
+      // 狀態管理：彈跳視窗與暫存確認資料
+      const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+      const [confirmData, setConfirmData] = useState(null); 
+      
       const [showDistrictList, setShowDistrictList] = useState(false);
       const [showExtraDistrictList, setShowExtraDistrictList] = useState(false);
-      const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
 
       const addressInputRef = useRef(null);
       const extraAddressInputRef = useRef(null);
@@ -329,6 +333,7 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + sumExtra : null;
       }, [basePriceInfo.price, fees]);
 
+      // 獨立的發送流程函式 (在確認視窗關閉後執行)
       const executeSubmit = async (payload, lineText) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
@@ -355,6 +360,7 @@
           showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); 
         } finally { 
           setIsSubmitting(false); 
+          setConfirmData(null); // 清空暫存
         }
       };
 
@@ -363,7 +369,9 @@
         
         const missingFields = [];
         
+        // 攔截檢查機制
         if (!name.trim()) missingFields.push('乘車人真實姓名');
+        
         if (!phone.trim()) {
           missingFields.push('聯絡電話');
         } else {
@@ -372,18 +380,31 @@
             missingFields.push('聯絡電話 (需為09開頭之10碼)');
           }
         }
-        if (!email.trim()) missingFields.push('MAIL 電子信箱');
+        
+        if (!email.trim()) {
+          missingFields.push('MAIL 電子信箱');
+        } else {
+          // 信箱格式驗證
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email.trim())) {
+            missingFields.push('MAIL 電子信箱 (格式不正確)');
+          }
+        }
+        
         if (!district.trim()) missingFields.push('接送地址 - 區域與郵遞區號');
         if (!address.trim()) missingFields.push('接送地址 - 詳細地址');
+        
         if (hasExtraPoint) {
           if (!extraDistrict.trim()) missingFields.push('加點服務 - 加點區域');
           if (!extraAddress.trim()) missingFields.push('加點服務 - 加點詳細地址');
         }
+        
         if (!date) missingFields.push('乘車資訊 - 乘車日期');
         if (!flightNumber.trim()) missingFields.push('乘車資訊 - 航班編號');
         if (extraSignboard && !signboardText.trim()) missingFields.push('舉牌服務 - 舉牌內容');
         if (!agreed) missingFields.push('【注意事項與免責聲明】需勾選同意');
 
+        // 如果有缺少欄位或格式不正確，跳出提示並阻擋後續流程 (不會進入確認視窗)
         if (missingFields.length > 0) {
           const formattedMissing = missingFields.map(f => `• ${f}`).join('\n');
           showAlert(`您還有欄位尚未填寫完整或格式有誤：\n\n${formattedMissing}`, '資料未填寫完整', 'error');
@@ -400,7 +421,8 @@
 乘車日期：${date}
 乘車時間：${timeHour}:${timeMinute}
 服務類型：${serviceType}
-機場/航班：${airport} / ${flightNumber}
+接送機場：${airport}
+航班編號：${flightNumber}
 接送地址：${district} ${address}
 ${hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``}車型：${carType}
 乘車人數：大人${adults}, 小孩${children}, 幼童${infants}
@@ -433,12 +455,14 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
           }
         };
 
+        // 儲存至 ConfirmData 並打開確認視窗
+        setConfirmData({ payload, lineText });
         setModal({
           open: true,
           title: '請確認預約明細',
           message: lineText,
           type: 'confirm',
-          onConfirm: () => executeSubmit(payload, lineText)
+          onConfirm: null 
         });
       };
 
@@ -465,22 +489,28 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
             type={modal.type} 
             isSubmitting={isSubmitting}
             onClose={() => {
-              if (modal.type !== 'confirm') {
-                const confirmAction = modal.onConfirm;
-                setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
-                if (typeof confirmAction === 'function') {
-                  try { confirmAction(); } catch(e) { console.error(e); }
-                }
-              } else {
-                setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+              const prevOnConfirm = modal.onConfirm;
+              setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+              
+              // 若不是確認視窗且有綁定行為 (例如: 傳送成功後關閉視窗)
+              if (modal.type !== 'confirm' && typeof prevOnConfirm === 'function') {
+                try { prevOnConfirm(); } catch(e) { console.error(e); }
               }
             }} 
             onConfirm={() => {
-              if (modal.type === 'confirm' && typeof modal.onConfirm === 'function') {
-                modal.onConfirm();
+              // 使用者點選確認後
+              if (modal.type === 'confirm') {
+                // 1. 先關閉確認彈跳視窗
+                setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+                
+                // 2. 視窗關閉後，才開始呼叫發送與回傳 LINE 邏輯
+                if (confirmData) {
+                  executeSubmit(confirmData.payload, confirmData.lineText);
+                }
               }
             }}
           />
+          
           <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center relative text-center">
             <h1 className="text-xl font-bold tracking-wider">RS專車接送 詢價/預約</h1>
             <div className="flex gap-4 absolute right-4">
