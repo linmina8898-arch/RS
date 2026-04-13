@@ -218,7 +218,7 @@
         }
       }, [date, timeHour, timeMinute, showAlert]);
 
-      // 改進後的地址解析邏輯：抓到第二層行政區
+      // 改進後的地址解析邏輯：確保抓到郵遞區號 + 縣市 + 第二層行政區
       const parsePlaceToDistrictAndAddress = (place, distSetter, addrSetter) => {
         const components = place.address_components || [];
         const fullAddr = place.formatted_address || "";
@@ -231,36 +231,42 @@
           if (match) zipCode = match[1].substring(0, 3);
         }
 
-        // 2. 抓取縣市 (administrative_area_level_1)
+        // 2. 抓取第一層：縣市 (administrative_area_level_1)
         const cityObj = components.find(c => c.types.includes('administrative_area_level_1'));
         const cityName = (cityObj ? cityObj.long_name : '').replace(/\d+/g, '').trim();
 
-        // 3. 抓取行政區 (優先 sublocality_level_1，其次 locality)
+        // 3. 抓取第二層：行政區 (優先搜尋 sublocality_level_1，其次搜尋 locality)
         let areaName = '';
         const subLocality = components.find(c => c.types.includes('sublocality_level_1'));
         const locality = components.find(c => c.types.includes('locality'));
         
-        // 邏輯：新竹市會回傳次級行政區(東區/北區/香山區)，其餘地區優先抓取鎮、區
+        // 判斷邏輯：如果 sublocality 存在且不等於縣市名稱，則它是行政區。
+        // 若不存在，則檢查 locality (例如竹東鎮、頭份市)。
         if (subLocality && subLocality.long_name !== cityName) {
           areaName = subLocality.long_name;
-        } else if (locality) {
+        } else if (locality && locality.long_name !== cityName) {
           areaName = locality.long_name;
+        } else if (locality && locality.long_name === cityName) {
+          // 特殊情況：若 locality 與 cityName 相同，再往下一層尋找 sublocality
+          if (subLocality) areaName = subLocality.long_name;
         }
         
-        // 4. 清理名稱與組合格式：310 新竹縣 竹東鎮
-        areaName = areaName.replace(/\d+/g, '').trim();
-        const priceListFormat = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
+        // 4. 清理並組合成格式：310 新竹縣 竹東鎮
+        const cleanCityName = cityName.replace(/\d+/g, '').trim();
+        const cleanAreaName = areaName.replace(/\d+/g, '').trim();
+        
+        const priceListFormat = `${zipCode} ${cleanCityName} ${cleanAreaName}`.replace(/\s+/g, ' ').trim();
         distSetter(priceListFormat);
         
-        // 5. 清理詳細地址 (移除開頭區號、台灣、重複的縣市區域資訊)
-        let cleanAddr = fullAddr
+        // 5. 設定詳細地址 (移除重複的開頭資訊)
+        let formattedAddress = fullAddr
           .replace(/^台灣\d{3,5}\s*/, '')
           .replace(/^台灣/, '')
-          .replace(cityName, '')
-          .replace(areaName, '')
+          .replace(cleanCityName, '')
+          .replace(cleanAreaName, '')
           .replace(/^\d{3,5}/, '')
           .trim();
-        addrSetter(cleanAddr);
+        addrSetter(formattedAddress);
       };
 
       useEffect(() => {
@@ -554,13 +560,13 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               </section>
 
               <section className="mt-8 border-t-2 border-[#0ABAB5] pt-6">
-                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm">
+                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
                   <h3 className="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><ShieldAlert className="w-4 h-4" /> 【注意事項】</h3>
-                  <div className="space-y-4 font-bold text-gray-800">
-                    <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「時加點服務」。</p>
-                    <p>2、依實際人數及行李件尺寸預約車款。</p>
+                  <div className="space-y-4 text-sm font-bold text-gray-800">
+                    <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
+                    <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
-                    <p>4、為維護乘車品質，顧及每位貴賓權益，車內勿飲食。</p>
+                    <p>4、為維護乘車品質，顧及每位貴賓權益，車內請勿飲食。</p>
                     <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
                   </div>
                 </div>
