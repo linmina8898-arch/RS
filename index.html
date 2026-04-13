@@ -249,9 +249,26 @@
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
               if (place.formatted_address) {
-                const formatted = place.formatted_address.replace(/^台灣\d{3,5}\s*/, '');
+                const components = place.address_components || [];
+                const postCodeObj = components.find(c => c.types.includes('postal_code'));
+                const cityObj = components.find(c => c.types.includes('administrative_area_level_1') || c.types.includes('locality'));
+                
+                // 判斷是否為新竹市
+                const isHsinchuCity = cityObj && (cityObj.long_name.includes('新竹市') || cityObj.short_name.includes('新竹市'));
+                
+                let formatted = place.formatted_address.replace(/^台灣\d{3,5}\s*/, '');
+                
+                // 邏輯：除了新竹市以外，若有郵遞區號則在詳細地址前抓取前3碼
+                if (!isHsinchuCity && postCodeObj) {
+                  const code3 = postCodeObj.long_name.substring(0, 3);
+                  // 檢查是否已經開頭包含該區號，避免重複
+                  if (!formatted.startsWith(code3)) {
+                    formatted = `${code3} ${formatted}`;
+                  }
+                }
+                
                 addrSetter(formatted);
-                const matched = findMatchingDistrict(place.address_components || [], place.formatted_address);
+                const matched = findMatchingDistrict(components, place.formatted_address);
                 if (matched) distSetter(matched);
               }
             });
