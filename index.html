@@ -101,7 +101,7 @@
               <button onClick={onClose}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
             </div>
             <div className="p-6">
-              <p className="text-gray-700 leading-relaxed font-bold mb-6 whitespace-pre-wrap justify-text text-sm">{message}</p>
+              <p className="text-gray-700 leading-relaxed font-bold mb-6 whitespace-pre-wrap text-left text-sm">{message}</p>
               <button onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
             </div>
           </div>
@@ -289,12 +289,38 @@
 
       const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!agreed || isSubmitting) return;
+        
+        // --- 完整資料校驗邏輯 ---
+        const incomplete = [];
+        if (!name.trim()) incomplete.push("乘車人姓名");
+        
         const phoneDigits = phone.replace(/\D/g, '');
         if (phoneDigits.length !== 10 || !phoneDigits.startsWith('09')) {
-          showAlert('請輸入 09 開頭的完整 10 碼電話！', '格式錯誤', 'error');
+          incomplete.push("正確的 10 碼手機號碼 (09開頭)");
+        }
+        
+        if (!email.trim() || !email.includes('@')) incomplete.push("完整的電子信箱");
+        if (!district) incomplete.push("接送區域與郵遞區號");
+        if (!address.trim()) incomplete.push("詳細接送地址");
+        if (!date) incomplete.push("乘車日期");
+        if (!flightNumber.trim()) incomplete.push("航班編號");
+        
+        if (hasExtraPoint) {
+          if (!extraDistrict) incomplete.push("加點服務的區域");
+          if (!extraAddress.trim()) incomplete.push("加點服務的詳細地址");
+        }
+        
+        if (extraSignboard && !signboardText.trim()) {
+          incomplete.push("舉牌服務的顯示內容");
+        }
+
+        if (incomplete.length > 0) {
+          showAlert(`以下預約資料尚未填寫完整：\n\n● ${incomplete.join('\n● ')}\n\n請補齊資料後再行送出。`, "資料不完整", "error");
           return;
         }
+
+        if (!agreed || isSubmitting) return;
+
         setIsSubmitting(true);
         const finalRemarks = extraSignboard && signboardText ? `【舉牌內容：${signboardText}】\n${remarks}` : remarks;
         const payload = {
@@ -316,7 +342,7 @@
             }]);
             window.liff.closeWindow();
           } else {
-            showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}`, '提交成功', 'info');
+            showAlert(`預約已提交成功！\n您的預約編號為：${reservationId}`, "提交成功", "info");
           }
         } catch (err) { showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); } finally { setIsSubmitting(false); }
       };
@@ -355,16 +381,16 @@
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2"><User className="w-5 h-5" /> 乘車人資訊</h2>
                 <div className="flex gap-2">
-                  <input type="text" required className="flex-1 p-3 border border-gray-300 outline-none focus:border-black text-base" placeholder="真實姓名" value={name} onChange={e => setName(e.target.value)} />
+                  <input type="text" className="flex-1 p-3 border border-gray-300 outline-none focus:border-black text-base" placeholder="真實姓名" value={name} onChange={e => setName(e.target.value)} />
                   <select className="p-3 border border-gray-300 bg-white text-base" value={title} onChange={e => setTitle(e.target.value)}><option>先生</option><option>小姐</option></select>
                 </div>
-                <input type="tel" required className="w-full p-3 border border-gray-300 font-mono outline-none focus:border-black text-base" value={phone} onChange={handlePhoneChange} placeholder="聯絡電話 0900-000-000" />
-                <input type="email" required className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={email} onChange={e => setEmail(e.target.value)} placeholder="MAIL 電子信箱" />
+                <input type="tel" className="w-full p-3 border border-gray-300 font-mono outline-none focus:border-black text-base" value={phone} onChange={handlePhoneChange} placeholder="聯絡電話 0900-000-000" />
+                <input type="email" className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={email} onChange={e => setEmail(e.target.value)} placeholder="MAIL 電子信箱" />
 
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4" /> 接送地址</label>
                   <div className="relative mb-2">
-                    <input type="text" required className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={district} onFocus={() => setShowDistrictList(true)} onChange={e => {setDistrict(e.target.value); setShowDistrictList(true);}} placeholder="區域與郵遞區號 (自動對應)" />
+                    <input type="text" className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={district} onFocus={() => setShowDistrictList(true)} onChange={e => {setDistrict(e.target.value); setShowDistrictList(true);}} placeholder="區域與郵遞區號 (自動對應)" />
                     {showDistrictList && (
                       <div className="absolute z-[100] w-full bg-white border border-gray-300 shadow-2xl mt-1 max-h-60 overflow-y-auto">
                         {getFilteredDistricts(district).map((d, idx) => (
@@ -373,7 +399,7 @@
                       </div>
                     )}
                   </div>
-                  <input ref={addressInputRef} type="text" required className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base mb-4 font-bold bg-yellow-50" value={address} onChange={e => setAddress(e.target.value)} placeholder={mapsError ? "請手動輸入詳細地址" : "輸入詳細地址 (自動解析)"} />
+                  <input ref={addressInputRef} type="text" className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base mb-4 font-bold bg-yellow-50" value={address} onChange={e => setAddress(e.target.value)} placeholder={mapsError ? "請手動輸入詳細地址" : "輸入詳細地址 (自動解析)"} />
 
                   <div className="mt-2 p-3 bg-gray-50 border border-dashed border-gray-400 rounded-sm">
                     <label className="flex items-center gap-2 cursor-pointer font-black text-sm">
@@ -385,7 +411,7 @@
                     {hasExtraPoint && (
                       <div className="mt-4 space-y-2 animate-in slide-in-from-top-2 duration-200">
                         <div className="relative">
-                          <input type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={extraDistrict} onFocus={() => setShowExtraDistrictList(true)} onChange={e => {setExtraDistrict(e.target.value); setShowExtraDistrictList(true);}} placeholder="加點區域 (自動對應)" />
+                          <input type="text" className="w-full p-3 border border-gray-300 bg-white outline-none focus:border-black text-base" value={extraDistrict} onFocus={() => setShowExtraDistrictList(true)} onChange={e => {setExtraDistrict(e.target.value); setShowExtraDistrictList(true);}} placeholder="加點區域 (自動對應)" />
                           {showExtraDistrictList && (
                             <div className="absolute z-[100] w-full bg-white border border-gray-300 shadow-2xl mt-1 max-h-40 overflow-y-auto">
                               {getFilteredDistricts(extraDistrict).map((d, idx) => (
@@ -394,7 +420,7 @@
                             </div>
                           )}
                         </div>
-                        <input ref={extraAddressInputRef} type="text" required={hasExtraPoint} className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base bg-yellow-50 font-bold" value={extraAddress} onChange={e => setExtraAddress(e.target.value)} placeholder="加點：詳細地址" />
+                        <input ref={extraAddressInputRef} type="text" className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base bg-yellow-50 font-bold" value={extraAddress} onChange={e => setExtraAddress(e.target.value)} placeholder="加點：詳細地址" />
                       </div>
                     )}
                   </div>
@@ -404,7 +430,7 @@
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
                 <label className="block text-base font-bold text-gray-700">乘車日期 <span className="text-red-500 font-bold text-xs">(小於24H請直接來電)</span></label>
-                <input type="date" required className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={date} onChange={e => setDate(e.target.value)} />
+                <input type="date" className="w-full p-3 border border-gray-300 outline-none focus:border-black text-base" value={date} onChange={e => setDate(e.target.value)} />
                 <div className="flex gap-2">
                   <select className="flex-1 p-3 border border-gray-300 bg-white text-base" value={timeHour} onChange={e => setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
                   <select className="flex-1 p-3 border border-gray-300 bg-white text-base" value={timeMinute} onChange={e => setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
@@ -413,12 +439,12 @@
                   <select className="p-3 border border-gray-300 bg-white font-bold text-base" value={serviceType} onChange={e => setServiceType(e.target.value)}><option value="送機">送機</option><option value="接機">接機 (+ $200)</option></select>
                   <select className="p-3 border border-gray-300 bg-white font-bold text-base" value={airport} onChange={e => setAirport(e.target.value)}><option>桃園機場</option><option>松山機場</option><option>台中機場</option></select>
                 </div>
-                <input type="text" required className="w-full p-3 border border-gray-300 font-mono uppercase text-base" value={flightNumber} onChange={handleFlightChange} placeholder="航班編號 EX: BR123" />
+                <input type="text" className="w-full p-3 border border-gray-300 font-mono uppercase text-base" value={flightNumber} onChange={handleFlightChange} placeholder="航班編號 EX: BR123" />
               </section>
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-black pb-2 flex items-center gap-2 mt-8">
-                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件 ** 包含登機箱 ** )</span>
+                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 font-bold text-xs">(最多6人6件)</span>
                 </h2>
                 <div className="relative">
                   <select className={`w-full p-3 border font-bold text-base outline-none focus:border-black ${carTypeConstraint.isForced ? 'bg-gray-100 border-red-300 text-red-700 cursor-not-allowed' : 'bg-white border-gray-300'}`} value={carType} onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)} disabled={carTypeConstraint.isForced}>
@@ -499,14 +525,14 @@
                     <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
                     <p>4、為維護乘車品質，顧及每位貴賓權益，車內勿飲食。</p>
-                    <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
+                    <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶過使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
                   </div>
                 </div>
                 <label className="flex items-start gap-3 cursor-pointer p-4 border border-black font-black text-sm bg-white active:bg-gray-50">
                   <input type="checkbox" required className="w-6 h-6 mt-0.5 accent-black" checked={agreed} onChange={e=>setAgreed(e.target.checked)} />我同意以上資訊與免責聲明。
                 </label>
               </section>
-              <button type="submit" disabled={!agreed || isSubmitting} className={`w-full py-5 text-xl font-black flex items-center justify-center gap-3 transition-all ${agreed && !isSubmitting ? 'bg-black text-white shadow-2xl' : 'bg-gray-300 text-gray-500'}`}>
+              <button type="submit" className={`w-full py-5 text-xl font-black flex items-center justify-center gap-3 transition-all ${agreed && !isSubmitting ? 'bg-black text-white shadow-2xl' : 'bg-gray-300 text-gray-500'}`}>
                 {isSubmitting ? '預約傳送中...' : '確認預約並送出'}
               </button>
             </form>
