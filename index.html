@@ -100,8 +100,8 @@
               </div>
               <button onClick={onClose}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
             </div>
-            <div className="p-6 flex-1 overflow-y-auto">
-              <p className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap justify-text text-sm text-left">{message}</p>
+            <div className="p-6 flex-1 overflow-y-auto text-left">
+              <p className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap text-sm">{message}</p>
             </div>
             <div className="p-4 bg-white border-t border-gray-100 shrink-0">
               <button onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
@@ -269,12 +269,30 @@
         setPhone(formatted);
       };
 
-      const basePrice = useMemo(() => {
-        const key = `${airport}_${district}`;
-        const priceData = priceMap[key];
-        if (!priceData) return 0;
-        return carType === '大車' ? priceData.large : priceData.small;
-      }, [priceMap, airport, district, carType]);
+      // --- 更新基本車資邏輯：主地點與加點兩者取價格高者 ---
+      const basePriceInfo = useMemo(() => {
+        let mainPrice = 0;
+        let extraPrice = 0;
+
+        if (district) {
+          const key1 = `${airport}_${district}`;
+          const priceData1 = priceMap[key1];
+          if (priceData1) mainPrice = carType === '大車' ? priceData1.large : priceData1.small;
+        }
+
+        if (hasExtraPoint && extraDistrict) {
+          const key2 = `${airport}_${extraDistrict}`;
+          const priceData2 = priceMap[key2];
+          if (priceData2) extraPrice = carType === '大車' ? priceData2.large : priceData2.small;
+        }
+
+        // 若有加點且加點區域價格較高，以加點區域為基準
+        if (hasExtraPoint && extraPrice > mainPrice) {
+          return { price: extraPrice, name: extraDistrict };
+        }
+        
+        return { price: mainPrice, name: district };
+      }, [priceMap, airport, district, extraDistrict, hasExtraPoint, carType]);
 
       const extraPointInfo = useMemo(() => {
         if (!hasExtraPoint || !district || !extraDistrict) return { fee: 0, label: '' };
@@ -299,8 +317,8 @@
 
       const estimatedTotal = useMemo(() => {
         const sumExtra = Object.values(fees).reduce((a, b) => a + b, 0);
-        return basePrice > 0 ? basePrice + sumExtra : null;
-      }, [basePrice, fees]);
+        return basePriceInfo.price > 0 ? basePriceInfo.price + sumExtra : null;
+      }, [basePriceInfo.price, fees]);
 
       const handleSubmit = async (e) => {
         e.preventDefault();
@@ -339,23 +357,21 @@
         
         const finalRemarks = extraSignboard && signboardText ? `【舉牌內容：${signboardText}】\n${remarks}` : remarks;
         
-        // 準備好要在視窗與 LINE 同步顯示的明細內容
-        const lineText = `【RS專車接送 線上預約單】\n` +
-          `預約編號：${reservationId}\n` +
-          `乘車人姓名：${name} ${title}\n` +
-          `乘車人電話：${phone}\n` +
-          `電子信箱：${email}\n` +
-          `乘車日期：${date}\n` +
-          `乘車時間：${timeHour}:${timeMinute}\n` +
-          `服務類型：${serviceType}\n` +
-          `機場/航班：${airport} / ${flightNumber}\n` +
-          `接送地址：${district} ${address}\n` +
-          (hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``) +
-          `車型：${carType}\n` +
-          `乘車人數：大人${adults}, 小孩${children}, 幼童${infants}\n` +
-          `行李件數：登機箱${carryOn}, 託運${checkedBag}\n` +
-          `預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})\n` +
-          (finalRemarks ? `備註：\n${finalRemarks}` : ``);
+        const lineText = `【RS專車接送 線上預約單】
+預約編號：${reservationId}
+乘車人姓名：${name} ${title}
+乘車人電話：${phone}
+電子信箱：${email}
+乘車日期：${date}
+乘車時間：${timeHour}:${timeMinute}
+服務類型：${serviceType}
+機場/航班：${airport} / ${flightNumber}
+接送地址：${district} ${address}
+${hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n加點費用：$${extraPointInfo.fee}${extraPointInfo.label}\n` : ``}車型：${carType}
+乘車人數：大人${adults}, 小孩${children}, 幼童${infants}
+行李件數：登機箱${carryOn}, 託運${checkedBag}
+預估總額：${estimatedTotal ? '$' + estimatedTotal : '待系統報價'} (${payment})
+${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
 
         const payload = {
           action: 'addReservation',
@@ -388,18 +404,18 @@
           if (window.liff && window.liff.isInClient()) {
             window.liff.sendMessages([{ type: 'text', text: lineText }])
               .then(() => {
-                showAlert(`預約已提交成功！\n預約明細已同步回傳至 LINE 聊天室！\n\n${lineText}\n\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+                showAlert(`✅ 預約已提交成功！\n明細已同步回傳至 LINE 聊天室。\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
                   window.liff.closeWindow();
                 });
               })
               .catch((err) => {
                 console.error('LINE 傳送失敗:', err);
-                showAlert(`預約已提交成功！\n\n(但 LINE 系統回傳明細失敗，請自行截圖保存以下明細)\n\n${lineText}\n\n(點擊確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
+                showAlert(`✅ 預約已提交成功！\n\n(但 LINE 系統回傳失敗，請自行截圖保存以下明細)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
                   window.liff.closeWindow();
                 });
               });
           } else {
-            showAlert(`預約已提交成功！\n\n(您目前不在 LINE App 內，請自行截圖保存以下明細)\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`✅ 預約已提交成功！\n\n(您目前不在 LINE 內開啟，請自行截圖保存本畫面)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
         } catch (err) { 
           showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); 
@@ -557,17 +573,16 @@
                 </div>
 
                 <div className="bg-black text-white p-6 border-t-8 border-yellow-400 rounded-sm relative shadow-xl text-justify">
-                  <div className="absolute top-2 right-4 opacity-10"><Receipt className="w-16 h-16" /></div>
                   <h3 className="text-xs font-black tracking-widest text-gray-400 border-b border-gray-800 pb-2 mb-4 flex items-center gap-2 uppercase"><FileText className="w-3 h-3" /> 報價明細內容</h3>
                   <div className="space-y-3 font-mono text-sm">
                     <div className="flex justify-between items-start">
                       <div className="flex flex-col">
                         <span className="text-gray-300 font-bold">基本車資 ({carType})</span>
                         <span className="text-[10px] text-gray-500">
-                          {serviceType === '送機' ? `${district || '未選區'} - ${airport}` : `${airport} - ${district || '未選區'}`}
+                          {serviceType === '送機' ? `${basePriceInfo.name || '未選區'} - ${airport}` : `${airport} - ${basePriceInfo.name || '未選區'}`}
                         </span>
                       </div>
-                      <span className="font-bold">{basePrice > 0 ? `$${basePrice}` : '待系統報價'}</span>
+                      <span className="font-bold">{basePriceInfo.price > 0 ? `$${basePriceInfo.price}` : '待系統報價'}</span>
                     </div>
                     <div className="border-t border-dashed border-gray-800 pt-3 space-y-2">
                       {fees.pickupFee > 0 && <div className="flex justify-between text-gray-400"><span>└ 接機服務費</span><span>+$200</span></div>}
