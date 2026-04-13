@@ -224,9 +224,12 @@
 
       const findMatchingDistrict = (components, fullAddr = "") => {
         let districtName = "";
-        components.forEach(c => {
-          if (c.types.includes("sublocality_level_1")) districtName = c.long_name;
-        });
+        const area = components.find(c => c.types.includes("sublocality_level_1")) || 
+                     components.find(c => c.types.includes("locality")) ||
+                     components.find(c => c.types.includes("administrative_area_level_2"));
+        
+        if (area) districtName = area.long_name;
+
         if (!districtName && fullAddr) {
           const districtRegex = /(?:市|縣)([^區鄉鎮市]+[區鄉鎮市])/;
           const match = fullAddr.match(districtRegex);
@@ -250,29 +253,39 @@
               const place = autocomplete.getPlace();
               if (place.formatted_address) {
                 const components = place.address_components || [];
+                const fullAddr = place.formatted_address;
+
+                // 抓取郵遞區號邏輯優化
                 const postCodeObj = components.find(c => c.types.includes('postal_code'));
-                const cityObj = components.find(c => c.types.includes('administrative_area_level_1') || c.types.includes('locality'));
-                
-                const isHsinchuCity = cityObj && (cityObj.long_name.includes('新竹市') || cityObj.short_name.includes('新竹市'));
-                
-                let formatted = place.formatted_address.replace(/^台灣\d{3,5}\s*/, '');
-                const matchedArea = findMatchingDistrict(components, place.formatted_address);
-                
                 let zipCode = postCodeObj ? postCodeObj.long_name.substring(0, 3) : '';
+                
+                // 備援：若結構化資料沒有，從 formatted_address 正則抓取前三碼
+                if (!zipCode) {
+                  const zipMatch = fullAddr.match(/(\d{3,5})/);
+                  if (zipMatch) zipCode = zipMatch[1].substring(0, 3);
+                }
+
+                const cityObj = components.find(c => c.types.includes('administrative_area_level_1') || c.types.includes('locality'));
+                const areaObj = components.find(c => c.types.includes('sublocality_level_1') || c.types.includes('locality'));
+                
+                const cityName = cityObj ? cityObj.long_name : '';
+                const areaName = areaObj ? areaObj.long_name : '';
+                const isHsinchuCity = cityName.includes('新竹市') || fullAddr.includes('新竹市');
+                
+                let formatted = fullAddr.replace(/^台灣\d{3,5}\s*/, '').replace(/^台灣/, '');
+                const matchedArea = findMatchingDistrict(components, fullAddr);
 
                 if (isHsinchuCity) {
                   distSetter(matchedArea || '300 新竹市');
                   addrSetter(formatted);
                 } else {
-                  if (zipCode && matchedArea) {
-                    distSetter(matchedArea);
-                    if (!formatted.startsWith(zipCode)) {
-                      addrSetter(`${zipCode} ${formatted}`);
-                    } else {
-                      addrSetter(formatted);
-                    }
+                  // 其他地區 (包含苗栗頭份等)
+                  const displayDistrict = zipCode ? `${zipCode} ${areaName || cityName}` : (areaName || cityName);
+                  distSetter(displayDistrict || matchedArea || '');
+                  
+                  if (zipCode && !formatted.startsWith(zipCode)) {
+                    addrSetter(`${zipCode} ${formatted}`);
                   } else {
-                    distSetter(matchedArea || '');
                     addrSetter(formatted);
                   }
                 }
@@ -381,7 +394,6 @@
 
           if (window.liff) {
             try {
-              // 強制初始化並重新判定環境
               await window.liff.init({ liffId: LINE_LIFF_ID });
               isInLine = window.liff.isInClient() || /Line/i.test(navigator.userAgent);
               
@@ -390,6 +402,7 @@
               }
             } catch (err) {
               liffError = err;
+              console.error('LIFF Error:', err);
             }
           }
 
@@ -397,11 +410,11 @@
 
           if (isInLine) {
             if (liffError) {
-              showAlert(`🌟 資料已成功錄入。\n\n⚠️ 但 LINE 明細回傳失敗：${liffError.message || '許可權不足'}\n請手動截圖保存。`, '部分成功', 'info', () => {
+              showAlert(`🌟 預約資料已成功錄入。\n\n⚠️ 但 LINE 明細回傳失敗：${liffError.message || '許可權不足'}\n請手動截圖保存。`, '部分成功', 'info', () => {
                 window.liff.closeWindow();
               });
             } else {
-              showAlert(`🌟 預約成功！明細已回傳至您的 LINE 聊天室。\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
+              showAlert(`🌟 預約成功！\n明細已同步回傳至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
                 window.liff.closeWindow();
               });
             }
@@ -410,7 +423,7 @@
           }
 
         } catch (err) { 
-          showAlert('資料傳送失敗，請檢查網路。', '系統錯誤', 'error'); 
+          showAlert('資料傳送過程中發生錯誤，請檢查網路連線或稍後再試。', '系統錯誤', 'error'); 
         } finally { 
           setIsSubmitting(false); 
           setConfirmData(null);
@@ -574,7 +587,7 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
                         <div className="relative">
                           <input 
                             type="text" 
-                            className="w-full p-3 border border-gray-300 bg-gray-100 outline-none focus:border-black text-base text-gray-500 cursor-not-allowed" 
+                            className="w-full p-3 border border-gray-300 bg-gray-100 outline-none focus:border-black text-gray-500 cursor-not-allowed" 
                             value={extraDistrict} 
                             readOnly
                             placeholder="加點區域 (自動帶入)" 
