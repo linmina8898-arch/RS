@@ -269,7 +269,6 @@
         setPhone(formatted);
       };
 
-      // --- 更新基本車資邏輯：主地點與加點兩者取價格高者 ---
       const basePriceInfo = useMemo(() => {
         let mainPrice = 0;
         let extraPrice = 0;
@@ -286,7 +285,6 @@
           if (priceData2) extraPrice = carType === '大車' ? priceData2.large : priceData2.small;
         }
 
-        // 若有加點且加點區域價格較高，以加點區域為基準
         if (hasExtraPoint && extraPrice > mainPrice) {
           return { price: extraPrice, name: extraDistrict };
         }
@@ -402,20 +400,19 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
           await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           
           if (window.liff && window.liff.isInClient()) {
-            window.liff.sendMessages([{ type: 'text', text: lineText }])
-              .then(() => {
-                showAlert(`✅ 預約已提交成功！\n明細已同步回傳至 LINE 聊天室。\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
-                  window.liff.closeWindow();
-                });
-              })
-              .catch((err) => {
-                console.error('LINE 傳送失敗:', err);
-                showAlert(`✅ 預約已提交成功！\n\n(但 LINE 系統回傳失敗，請自行截圖保存以下明細)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
-                  window.liff.closeWindow();
-                });
+            try {
+              await window.liff.sendMessages([{ type: 'text', text: lineText }]);
+              showAlert(`🌟 預約已成功送出！\n明細已同步回傳至 LINE 聊天室。\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+                window.liff.closeWindow();
               });
+            } catch (err) {
+              console.error('LINE 傳送失敗:', err);
+              showAlert(`🌟 預約已成功送出！\n\n(但 LINE 系統回傳失敗，請自行截圖保存以下明細)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
+                window.liff.closeWindow();
+              });
+            }
           } else {
-            showAlert(`✅ 預約已提交成功！\n\n(您目前不在 LINE 內開啟，請自行截圖保存本畫面)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約已成功送出！\n\n(系統偵測您目前不在 LINE 內開啟，請自行截圖保存本畫面)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
         } catch (err) { 
           showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); 
@@ -446,8 +443,13 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
             message={modal.message} 
             type={modal.type} 
             onClose={() => {
-              setModal({...modal, open: false});
-              if (modal.onConfirm) modal.onConfirm();
+              const confirmAction = modal.onConfirm;
+              // 確保狀態清空
+              setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+              // 執行關閉視窗的後續動作
+              if (typeof confirmAction === 'function') {
+                try { confirmAction(); } catch(e) { console.error(e); }
+              }
             }} 
           />
           <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center relative text-center">
