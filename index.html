@@ -88,23 +88,34 @@
       return `RS${dateStr}${randomDigits}${randomChars}`;
     };
 
-    function CustomModal({ isOpen, onClose, title, message, type = 'info' }) {
+    function CustomModal({ isOpen, onClose, onConfirm, title, message, type = 'info', isSubmitting = false }) {
       if (!isOpen) return null;
       return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center">
-          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
             <div className="bg-black p-4 flex justify-between items-center text-white shrink-0">
               <div className="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
-                {type === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}
+                {type === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" /> : 
+                 type === 'confirm' ? <FileText className="w-4 h-4 text-blue-400" /> :
+                 <CheckCircle className="w-4 h-4 text-green-500" />}
                 {title}
               </div>
-              <button type="button" onClick={onClose}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
+              <button onClick={onClose} disabled={isSubmitting}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
             </div>
             <div className="p-6 flex-1 overflow-y-auto text-left">
               <p className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap text-sm">{message}</p>
             </div>
-            <div className="p-4 bg-white border-t border-gray-100 shrink-0">
-              <button type="button" onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
+            <div className="p-4 bg-white border-t border-gray-100 shrink-0 flex gap-2">
+              {type === 'confirm' ? (
+                <>
+                  <button onClick={onClose} disabled={isSubmitting} className="w-1/3 py-3 bg-gray-200 text-gray-700 font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50">返回修改</button>
+                  <button onClick={onConfirm} disabled={isSubmitting} className="w-2/3 py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2">
+                    {isSubmitting ? '處理中...' : '確認無誤並送出'}
+                  </button>
+                </>
+              ) : (
+                <button onClick={onClose} className="w-full py-3 bg-black text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
+              )}
             </div>
           </div>
         </div>
@@ -156,18 +167,6 @@
 
       const showAlert = (msg, title = '系統訊息', type = 'info', onConfirm = null) => {
         setModal({ open: true, title, message: msg, type, onConfirm });
-      };
-
-      const handleModalClose = () => {
-        const confirmAction = modal.onConfirm;
-        // 先強制關閉視窗狀態
-        setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
-        // 延遲執行回呼，確保 React 已經把視窗從畫面上移除
-        if (typeof confirmAction === 'function') {
-          setTimeout(() => {
-            try { confirmAction(); } catch(e) { console.error(e); }
-          }, 100);
-        }
       };
 
       const handleFlightChange = (e) => {
@@ -330,6 +329,35 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + sumExtra : null;
       }, [basePriceInfo.price, fees]);
 
+      const executeSubmit = async (payload, lineText) => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
+        
+        try {
+          await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          
+          if (window.liff && window.liff.isInClient()) {
+            try {
+              await window.liff.sendMessages([{ type: 'text', text: lineText }]);
+              showAlert(`🌟 預約已成功送出！\n明細已同步回傳至 LINE 聊天室。\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+                window.liff.closeWindow();
+              });
+            } catch (err) {
+              console.error('LINE 傳送失敗:', err);
+              showAlert(`🌟 預約已成功送出！\n\n(但 LINE 系統回傳失敗，請自行截圖保存或確認聯絡資訊)\n\n(點擊下方確定後將自動關閉本視窗)`, '提交成功', 'info', () => {
+                window.liff.closeWindow();
+              });
+            }
+          } else {
+            showAlert(`🌟 預約已成功送出！\n\n(系統偵測您目前不在 LINE 內開啟，本畫面可直接截圖保存)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+          }
+        } catch (err) { 
+          showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); 
+        } finally { 
+          setIsSubmitting(false); 
+        }
+      };
+
       const handleSubmit = async (e) => {
         e.preventDefault();
         
@@ -344,13 +372,7 @@
             missingFields.push('聯絡電話 (需為09開頭之10碼)');
           }
         }
-        
-        if (!email.trim()) {
-          missingFields.push('MAIL 電子信箱');
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          missingFields.push('MAIL 電子信箱 (請輸入正確的信箱格式，需包含 @ 與網域)');
-        }
-
+        if (!email.trim()) missingFields.push('MAIL 電子信箱');
         if (!district.trim()) missingFields.push('接送地址 - 區域與郵遞區號');
         if (!address.trim()) missingFields.push('接送地址 - 詳細地址');
         if (hasExtraPoint) {
@@ -368,9 +390,6 @@
           return;
         }
 
-        if (isSubmitting) return;
-        setIsSubmitting(true);
-        
         const finalRemarks = extraSignboard && signboardText ? `【舉牌內容：${signboardText}】\n${remarks}` : remarks;
         
         const lineText = `【RS專車接送 線上預約單】
@@ -414,38 +433,13 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
           }
         };
 
-        try {
-          await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-          
-          let liffSent = false;
-          let isInLine = false;
-
-          if (window.liff && window.liff.isInClient()) {
-            isInLine = true;
-            try {
-              await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-              liffSent = true;
-            } catch (err) {
-              console.error('LINE 傳送失敗:', err);
-            }
-          }
-
-          if (isInLine && liffSent) {
-            showAlert(`🌟 預約已成功送出！\n✅ 明細已同步回傳至 LINE 聊天室。\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
-              if(window.liff) window.liff.closeWindow();
-            });
-          } else if (isInLine && !liffSent) {
-            showAlert(`🌟 預約已成功送出！\n\n⚠️ 系統無法自動回傳明細至 LINE，請您「自行截圖保存」以下明細：\n\n⬇️ 您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功 (請截圖保存)', 'info', () => {
-              if(window.liff) window.liff.closeWindow();
-            });
-          } else {
-            showAlert(`🌟 預約已成功送出！\n\n(系統偵測您目前不在 LINE 內開啟，請自行截圖保存本畫面)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
-          }
-        } catch (err) { 
-          showAlert('資料寫入失敗，請檢查網路連線', '錯誤', 'error'); 
-        } finally { 
-          setIsSubmitting(false); 
-        }
+        setModal({
+          open: true,
+          title: '請確認預約明細',
+          message: lineText,
+          type: 'confirm',
+          onConfirm: () => executeSubmit(payload, lineText)
+        });
       };
 
       const getFilteredDistricts = (query) => {
@@ -469,7 +463,23 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
             title={modal.title} 
             message={modal.message} 
             type={modal.type} 
-            onClose={handleModalClose} 
+            isSubmitting={isSubmitting}
+            onClose={() => {
+              if (modal.type !== 'confirm') {
+                const confirmAction = modal.onConfirm;
+                setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+                if (typeof confirmAction === 'function') {
+                  try { confirmAction(); } catch(e) { console.error(e); }
+                }
+              } else {
+                setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+              }
+            }} 
+            onConfirm={() => {
+              if (modal.type === 'confirm' && typeof modal.onConfirm === 'function') {
+                modal.onConfirm();
+              }
+            }}
           />
           <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center relative text-center">
             <h1 className="text-xl font-bold tracking-wider">RS專車接送 詢價/預約</h1>
