@@ -92,7 +92,7 @@
       if (!isOpen) return null;
       return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center">
-          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[75vh]">
+          <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             <div className="bg-black p-4 flex justify-between items-center text-white shrink-0">
               <div className="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
                 {type === 'error' ? <AlertCircle className="w-4 h-4 text-red-500" /> : <CheckCircle className="w-4 h-4 text-green-500" />}
@@ -156,6 +156,18 @@
 
       const showAlert = (msg, title = '系統訊息', type = 'info', onConfirm = null) => {
         setModal({ open: true, title, message: msg, type, onConfirm });
+      };
+
+      const handleModalClose = () => {
+        const confirmAction = modal.onConfirm;
+        // 先強制關閉視窗狀態
+        setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+        // 延遲執行回呼，確保 React 已經把視窗從畫面上移除
+        if (typeof confirmAction === 'function') {
+          setTimeout(() => {
+            try { confirmAction(); } catch(e) { console.error(e); }
+          }, 100);
+        }
       };
 
       const handleFlightChange = (e) => {
@@ -332,7 +344,13 @@
             missingFields.push('聯絡電話 (需為09開頭之10碼)');
           }
         }
-        if (!email.trim()) missingFields.push('MAIL 電子信箱');
+        
+        if (!email.trim()) {
+          missingFields.push('MAIL 電子信箱');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          missingFields.push('MAIL 電子信箱 (請輸入正確的信箱格式，需包含 @ 與網域)');
+        }
+
         if (!district.trim()) missingFields.push('接送地址 - 區域與郵遞區號');
         if (!address.trim()) missingFields.push('接送地址 - 詳細地址');
         if (hasExtraPoint) {
@@ -399,29 +417,27 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
         try {
           await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           
+          let liffSent = false;
+          let isInLine = false;
+
           if (window.liff && window.liff.isInClient()) {
+            isInLine = true;
             try {
               await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-              showAlert(`🌟 預約已成功送出！\n\n✅ 明細已同步回傳至 LINE 聊天室。\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
-                window.liff.closeWindow();
-              });
+              liffSent = true;
             } catch (err) {
               console.error('LINE 傳送失敗:', err);
-              
-              // 剪貼簿備用方案，嘗試幫使用者自動複製明細
-              try {
-                const ta = document.createElement('textarea');
-                ta.value = lineText;
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-              } catch(e){}
-
-              showAlert(`🌟 預約已成功送出！\n\n⚠️ 系統無法自動回傳明細至 LINE。\n(因 LINE 權限未開啟 chat_message.write)\n\n✅ 系統已自動「複製」您的預約明細！\n👉 請點擊下方確定，回到對話框直接「貼上」即可。\n\n⬇️ 以下為您的明細 ⬇️\n\n${lineText}`, '請手動貼上明細', 'error', () => {
-                window.liff.closeWindow();
-              });
             }
+          }
+
+          if (isInLine && liffSent) {
+            showAlert(`🌟 預約已成功送出！\n✅ 明細已同步回傳至 LINE 聊天室。\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+              if(window.liff) window.liff.closeWindow();
+            });
+          } else if (isInLine && !liffSent) {
+            showAlert(`🌟 預約已成功送出！\n\n⚠️ 系統無法自動回傳明細至 LINE，請您「自行截圖保存」以下明細：\n\n⬇️ 您的預約明細 ⬇️\n\n${lineText}\n\n(點擊下方確定後將自動關閉本視窗)`, '預約成功 (請截圖保存)', 'info', () => {
+              if(window.liff) window.liff.closeWindow();
+            });
           } else {
             showAlert(`🌟 預約已成功送出！\n\n(系統偵測您目前不在 LINE 內開啟，請自行截圖保存本畫面)\n\n⬇️ 以下為您的預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
@@ -453,17 +469,7 @@ ${finalRemarks ? `備註：\n${finalRemarks}` : ``}`;
             title={modal.title} 
             message={modal.message} 
             type={modal.type} 
-            onClose={() => {
-              const confirmAction = modal.onConfirm;
-              // 確保 React 狀態清空，彈窗瞬間關閉
-              setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
-              // 延遲 50ms 執行後續動作 (如關閉視窗)，避免阻塞 UI 更新
-              if (typeof confirmAction === 'function') {
-                setTimeout(() => {
-                  try { confirmAction(); } catch(e) { console.error(e); }
-                }, 50);
-              }
-            }} 
+            onClose={handleModalClose} 
           />
           <header className="bg-black text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center relative text-center">
             <h1 className="text-xl font-bold tracking-wider">RS專車接送 詢價/預約</h1>
