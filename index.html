@@ -102,8 +102,8 @@
               </div>
               <button onClick={onClose} disabled={isSubmitting}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
             </div>
-            <div className="p-6 flex-1 overflow-y-auto text-left">
-              <p className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap text-sm">{message}</p>
+            <div className="p-6 flex-1 overflow-y-auto text-left text-sm">
+              <p className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap">{message}</p>
             </div>
             <div className="p-4 bg-white border-t border-gray-100 shrink-0 flex gap-2">
               {type === 'confirm' ? (
@@ -204,9 +204,18 @@
       }, [date, timeHour, timeMinute]);
 
       useEffect(() => {
-        if (window.liff) {
-          window.liff.init({ liffId: LINE_LIFF_ID }).then(() => console.log('LIFF Ready')).catch(err => console.error(err));
-        }
+        const initLiff = async () => {
+          if (window.liff) {
+            try {
+              await window.liff.init({ liffId: LINE_LIFF_ID });
+              console.log('LIFF Initialized');
+            } catch (err) {
+              console.error('LIFF Init Error:', err);
+            }
+          }
+        };
+        initLiff();
+        
         window.gm_authFailure = () => {
           setMapsError(true);
           showAlert("【地圖功能提示】目前受限於環境安全參照，地址自動完成功能可能暫時無法使用。請手動輸入詳細地址即可正常預約。", "授權提示", "error");
@@ -337,7 +346,7 @@
         setIsSubmitting(true);
         
         try {
-          // 嘗試向 Google 表單 (GAS) 發送資料
+          // 1. 同步向 Google 表單發送
           const gasTask = fetch(GAS_WEBAPP_URL, { 
             method: 'POST', 
             mode: 'no-cors', 
@@ -346,23 +355,31 @@
           });
 
           let liffError = null;
-          // 若在 LINE 內開啟，嘗試回傳訊息
-          if (window.liff && window.liff.isInClient()) {
+          let isInLine = false;
+
+          // 2. 處理 LINE LIFF 邏輯
+          if (window.liff) {
             try {
+              // 確保已經初始化
               if (!window.liff.id) {
                 await window.liff.init({ liffId: LINE_LIFF_ID });
               }
-              await window.liff.sendMessages([{ type: 'text', text: lineText }]);
+              
+              // 強制再次檢查是否在 LINE Client 內
+              isInLine = window.liff.isInClient();
+              
+              if (isInLine) {
+                await window.liff.sendMessages([{ type: 'text', text: lineText }]);
+              }
             } catch (err) {
               liffError = err;
-              console.error('LINE 傳送失敗:', err);
+              console.error('LIFF 操作異常:', err);
             }
           }
 
-          // 等待背景請求完成（雖然 no-cors 拿不到具體結果）
-          await gasTask;
+          await gasTask; // 等待背景 GAS 請求發出
 
-          if (window.liff && window.liff.isInClient()) {
+          if (isInLine) {
             if (liffError) {
               showAlert(`🌟 資料已嘗試送出。\n\n⚠️ 但 LINE 明細回傳失敗：${liffError.message || '許可權限不足'}\n請檢查 LIFF 是否具備 chat_message.write 權限，或直接截圖此畫面即可。`, '部分成功', 'info');
             } else {
@@ -371,6 +388,7 @@
               });
             }
           } else {
+            // 非 LINE 內開啟的情況
             showAlert(`🌟 預約已成功送出！\n\n(系統偵測您目前不在 LINE 內開啟，請直接截圖保存以下明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
 
