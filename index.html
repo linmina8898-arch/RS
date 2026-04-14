@@ -118,15 +118,11 @@
               <div className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap">{message}</div>
             </div>
             <div className="p-4 bg-white border-t border-gray-100 shrink-0 flex gap-2">
-              {type === 'confirm' ? (
-                <>
-                  <button onClick={onClose} disabled={isSubmitting} className="w-1/3 py-3 bg-gray-100 text-gray-700 font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 border border-gray-200">返回修改</button>
-                  <button onClick={onConfirm} disabled={isSubmitting} className="w-2/3 py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2">
-                    {isSubmitting ? '預約傳送中...' : '確認無誤並送出'}
-                  </button>
-                </>
-              ) : (
-                <button onClick={onClose} className="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform">確定</button>
+              <button onClick={onConfirm} disabled={isSubmitting} className="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2">
+                {type === 'confirm' ? (isSubmitting ? '處理中...' : '確認無誤並送出') : '確定'}
+              </button>
+              {type === 'confirm' && (
+                <button onClick={onClose} disabled={isSubmitting} className="w-1/3 py-3 bg-gray-100 text-gray-700 font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 border border-gray-200">返回修改</button>
               )}
             </div>
           </div>
@@ -204,7 +200,7 @@
         
         window.gm_authFailure = () => {
           setMapsError(true);
-          showAlert("【地圖提示】地圖補全功能目前無法載入，請改手動輸入詳細地址即可預約。", "地圖服務", "error");
+          showAlert("【地圖提示】地址自動補全功能目前無法載入，請改手動輸入詳細地址即可預約。", "地圖服務", "error");
         };
       }, [showAlert]);
 
@@ -345,6 +341,7 @@
         try {
           const isInLine = (window.liff && window.liff.isInClient()) || /Line/i.test(navigator.userAgent);
           
+          // 啟動 GAS 後台發送
           const gasTask = fetch(GAS_WEBAPP_URL, { 
             method: 'POST', 
             mode: 'no-cors', 
@@ -356,10 +353,14 @@
           if (window.liff && window.liff.isInClient()) {
             try {
               if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
-              await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-              liffSent = true;
+              
+              // 確保用戶已登入且具備傳送訊息權限
+              if (window.liff.isLoggedIn() && window.liff.getContext()) {
+                await window.liff.sendMessages([{ type: 'text', text: lineText }]);
+                liffSent = true;
+              }
             } catch (e) {
-              console.error('LINE回傳明細失敗:', e);
+              console.error('LINE回傳明細失敗 (請確認 Scope 授權):', e);
             }
           }
 
@@ -370,7 +371,7 @@
               window.liff.closeWindow();
             });
           } else if (isInLine) {
-             showAlert(`🌟 預約已送出！\n\n⚠️ 但明細無法自動回傳 (請檢查 LINE 聊天室授權)。\n請截圖此畫面保存預約明細：\n\n${lineText}`, '預約成功', 'info');
+             showAlert(`🌟 預約已送出！\n\n⚠️ 但明細無法自動回傳 (請檢查 LINE Developers 設定中 LIFF 的 Scopes 是否勾選 chat_message.write 授權)。\n請截圖此畫面保存預約明細：\n\n${lineText}`, '預約成功', 'info');
           } else {
             showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 客戶端開啟，請截圖保存預約明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
@@ -449,6 +450,11 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               if (modal.type === 'confirm' && confirmData) {
                 setModal({ open: false, title: '', message: '', type: 'info' });
                 executeSubmit(confirmData.payload, confirmData.lineText);
+              } else if (typeof modal.onConfirm === 'function') {
+                modal.onConfirm();
+                setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+              } else {
+                setModal({ open: false, title: '', message: '', type: 'info' });
               }
             }}
           />
@@ -488,7 +494,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
                     {hasExtraPoint && (
                       <div className="mt-4 space-y-2 animate-in slide-in-from-top-2">
                         <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm font-bold" value={extraDistrict} readOnly placeholder="加點區域" />
-                        <input ref={extraAddressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm" value={extraAddress} onChange={e=>setExtraAddress(e.target.value)} placeholder="加點詳細地址 (點選帶入)" />
+                        <input ref={extraAddressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm value={extraAddress} onChange={e=>setExtraAddress(e.target.value)} placeholder="加點詳細地址 (點選帶入)" />
                       </div>
                     )}
                   </div>
