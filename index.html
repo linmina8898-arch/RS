@@ -148,7 +148,7 @@
         <!-- 費用報價 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> 費用報價</h2>
-          <select id="payment" class="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結</option></select>
+          <select id="payment" class="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option value="現金">現金</option><option value="轉帳">轉帳</option></select>
           <div class="p-3 border rounded-sm">
             <label class="flex items-center gap-2 cursor-pointer py-1 font-bold text-gray-700">
               <input type="checkbox" id="extraSignboard" class="w-5 h-5 accent-[#0ABAB5]"> 舉牌服務 (+$200)
@@ -209,7 +209,7 @@
 
   <script>
     // --- 常數設定 ---
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzuwl0cpYubIcTayCI25Nukb8m2_7BYk0iffUeOsW97bNlHQJMI6zxR_l4Zzg4X3WM0xw/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbz5FObqS9-Iy0ZNgwymh8T5pC9B06o3-jCj-XYtiIKWE0dOriLdaZHirD9aXuJvrFnT/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -678,7 +678,30 @@
       const estimatedTotalStr = document.getElementById('display-total').innerText;
       const lineText = `【RS專車接送 線上預約單】\n預約編號：${state.reservationId}\n全名：${state.name} ${state.title}\n電話：${state.phone}\n日期：${state.date}\n時間：${state.timeHour}:${state.timeMinute}\n服務：${state.serviceType}\n機場：${state.airport}\n航班：${state.flightNumber}\n地址：${state.district} ${state.address}\n${state.hasExtraPoint ? `加點：${state.extraDistrict} ${state.extraAddress}\n` : ''}車型：${state.carType}\n人數：大${state.adults},小${state.children},幼${state.infants}\n行李：登機箱${state.carryOn},託運${state.checkedBag}\n總額：${estimatedTotalStr} (${state.payment})`;
       
-      const payload = { action: 'addReservation', data: { reservationId: state.reservationId, name: `${state.name} ${state.title}`, phone: state.phone, email: state.email, date: state.date, time: `'${state.timeHour}:${state.timeMinute}`, serviceType: state.serviceType, airport: state.airport, flightNumber: state.flightNumber, district: state.district, address: state.address, carType: state.carType, luggage: `大${state.adults},小${state.children},幼${state.infants} / 登機:${state.carryOn},託運:${state.checkedBag}`, payment: state.payment, totalFee: estimatedTotalStr, remarks: `${state.remarks}${state.extraSignboard ? ` [舉牌:${state.signboardText}]` : ''}`, timestamp: new Date().toLocaleString() } };
+      // 在此處拆分 payload 中的人數(passengers)與行李(luggage)
+      const payload = { 
+        action: 'addReservation', 
+        data: { 
+          reservationId: state.reservationId, 
+          name: `${state.name} ${state.title}`, 
+          phone: state.phone, 
+          email: state.email, 
+          date: state.date, 
+          time: `'${state.timeHour}:${state.timeMinute}`, 
+          serviceType: state.serviceType, 
+          airport: state.airport, 
+          flightNumber: state.flightNumber, 
+          district: state.district, 
+          address: state.address, 
+          carType: state.carType, 
+          passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
+          luggage: `登機:${state.carryOn},託運:${state.checkedBag}`, 
+          payment: state.payment, 
+          totalFee: estimatedTotalStr, 
+          remarks: `${state.remarks}${state.extraSignboard ? ` [舉牌:${state.signboardText}]` : ''}`, 
+          timestamp: new Date().toLocaleString() 
+        } 
+      };
 
       executeSubmit(payload, lineText);
     }
