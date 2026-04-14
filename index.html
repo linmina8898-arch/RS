@@ -170,12 +170,13 @@
         setFlightNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
       };
 
+      // 集中管理 LIFF 初始化
       useEffect(() => {
         const initLiff = async () => {
           if (window.liff) {
             try {
               await window.liff.init({ liffId: LINE_LIFF_ID });
-              console.log('LIFF Ready');
+              console.log('LIFF Initialized Successfully');
             } catch (err) {
               console.error('LIFF Init Error:', err);
             }
@@ -185,7 +186,7 @@
         
         window.gm_authFailure = () => {
           setMapsError(true);
-          showAlert("【地圖提示】地圖補全功能無法載入，請改手動輸入地址預約。", "地圖服務", "error");
+          showAlert("【地圖提示】地址自動補全功能無法載入，請手動輸入地址預約。", "地圖服務", "error");
         };
       }, [showAlert]);
 
@@ -208,61 +209,48 @@
           const now = new Date();
           const diffHours = (selectedDate.getTime() - now.getTime()) / (1000 * 60 * 60);
           if (diffHours < 24) {
-            showAlert('預約需大於 24 小時，急件請撥 0915-926-166。', '時間限制', 'error');
+            showAlert('預約需大於 24 小時，急件請直撥 0915-926-166。', '時間限制', 'error');
             setDate(''); 
           }
         }
       }, [date, timeHour, timeMinute, showAlert]);
 
-      // 修正後的精準解析行政區邏輯
-      const parsePlaceToDistrictAndAddress = (place, distSetter, addrSetter) => {
+      // 精準行政區抓取邏輯：杜絕重複郵遞區號 (解決 310 310 問題)
+      const parsePlaceToDistrictAndAddress = useCallback((place, distSetter, addrSetter) => {
         const components = place.address_components || [];
         const fullAddr = place.formatted_address || "";
         
-        // 1. 抓取 3 碼郵遞區號 (包含備援匹配)
-        let zipCode = "";
+        // 1. 抓取 3 碼郵遞區號
         const postCodeObj = components.find(c => c.types.includes('postal_code'));
-        if (postCodeObj) {
-          zipCode = postCodeObj.long_name.substring(0, 3);
-        } else {
-          const zipMatch = fullAddr.match(/(\d{3,5})/);
-          if (zipMatch) zipCode = zipMatch[1].substring(0, 3);
+        let zipCode = postCodeObj ? postCodeObj.long_name.substring(0, 3) : '';
+        if (!zipCode) {
+          const match = fullAddr.match(/(\d{3,5})/);
+          if (match) zipCode = match[1].substring(0, 3);
         }
 
-        // 2. 抓取第一層：縣市
+        // 2. 抓取縣市與區域，並清理數字干擾
         const cityComp = components.find(c => c.types.includes('administrative_area_level_1'));
+        const areaComp = components.find(c => c.types.includes('sublocality_level_1')) || 
+                        components.find(c => c.types.includes('locality'));
+        
         const cityName = (cityComp ? cityComp.long_name : "").replace(/\d+/g, '').replace('台灣', '').trim();
+        const areaName = (areaComp ? areaComp.long_name : "").replace(/\d+/g, '').trim();
 
-        // 3. 抓取第二層：行政區 (例如：東區、香山區、竹東鎮、頭份市)
-        // 優先搜尋 sublocality_level_1，其次搜尋 locality
-        let areaName = "";
-        const subLocality = components.find(c => c.types.includes('sublocality_level_1'));
-        const locality = components.find(c => c.types.includes('locality'));
-        
-        if (subLocality && subLocality.long_name !== cityName) {
-          areaName = subLocality.long_name;
-        } else if (locality && locality.long_name !== cityName) {
-          areaName = locality.long_name;
-        }
-        
-        // 清理名稱中的數字（例如解決 310 310 問題）
-        const cleanAreaName = areaName.replace(/\d+/g, '').trim();
-
-        // 4. 組合最終格式：310 新竹縣 竹東鎮 (嚴格對應價目表)
-        const priceListFormat = `${zipCode} ${cityName} ${cleanAreaName}`.replace(/\s+/g, ' ').trim();
+        // 3. 組合價目表標準格式：310 新竹縣 竹東鎮
+        const priceListFormat = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
         distSetter(priceListFormat);
         
-        // 5. 清理詳細地址 (避免開頭重複資訊)
+        // 4. 清理詳細地址 (避免開頭重複資訊)
         let cleanAddr = fullAddr
           .replace(/^台灣\d{3,5}\s*/, '')
           .replace(/^台灣/, '')
           .replace(cityName, '')
-          .replace(cleanAreaName, '')
+          .replace(areaName, '')
           .replace(/^\d{3,5}/, '')
           .trim();
           
         addrSetter(cleanAddr);
-      };
+      }, []);
 
       useEffect(() => {
         const initAutocomplete = (ref, addrSetter, distSetter) => {
@@ -292,7 +280,7 @@
           initAutocomplete(addressInputRef, setAddress, setDistrict);
           if (hasExtraPoint) initAutocomplete(extraAddressInputRef, setExtraAddress, setExtraDistrict);
         }
-      }, [hasExtraPoint]);
+      }, [hasExtraPoint, parsePlaceToDistrictAndAddress]);
 
       useEffect(() => { fetchPrices(); }, []);
 
@@ -344,7 +332,12 @@
         setIsSubmitting(true);
         
         try {
-          const gasTask = fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          const gasTask = fetch(GAS_WEBAPP_URL, { 
+            method: 'POST', 
+            mode: 'no-cors', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify(payload) 
+          });
 
           let liffSent = false;
           if (window.liff) {
@@ -352,8 +345,10 @@
             if (isInLine) {
               try {
                 if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
-                await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-                liffSent = true;
+                if (window.liff.isInClient()) {
+                  await window.liff.sendMessages([{ type: 'text', text: lineText }]);
+                  liffSent = true;
+                }
               } catch (e) { console.error('LINE回傳失敗:', e); }
             }
           }
@@ -361,13 +356,13 @@
           await gasTask;
 
           if (liffSent) {
-            showAlert(`🌟 預約成功！明細已回傳至您的 LINE 聊天室。\n(確定後將自動關閉視窗)`, '預約成功', 'success', () => {
+            showAlert(`🌟 預約成功！明細已同步回傳至您的 LINE 聊天室。\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
               if (window.liff && window.liff.isInClient()) window.liff.closeWindow();
             });
           } else {
-            showAlert(`🌟 預約成功！\n\n(非 LINE App 內開啟，請截圖保存)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請截圖保存預約明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
-        } catch (err) { showAlert('資料傳送過程中發生錯誤。', '系統錯誤', 'error'); } 
+        } catch (err) { showAlert('資料傳送發生錯誤，請檢查網路。', '系統錯誤', 'error'); } 
         finally { setIsSubmitting(false); setConfirmData(null); }
       };
 
@@ -400,8 +395,8 @@
 ${hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n` : ''}車型：${carType}
 人數：大${adults}, 小(4-12)${children}, 幼(4歲以下)${infants}
 行李：登機箱${carryOn}, 託運(21-29吋)${checkedBag}
-預估總額：${estimatedTotal ? '$'+estimatedTotal : '待報價'} (${payment})
-${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n舉牌：${signboardText}` : ''}`;
+預估總額：${estimatedTotal ? '$'+estimatedTotal : '待系統報價'} (${payment})
+${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${signboardText}` : ''}`;
 
         const payload = {
           action: 'addReservation',
@@ -418,7 +413,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n舉牌：${signbo
       };
 
       return (
-        <div className="pb-10">
+        <div className="pb-10 text-[#222]">
           <CustomModal 
             isOpen={modal.open} title={modal.title} message={modal.message} type={modal.type} isSubmitting={isSubmitting}
             onClose={() => setModal({ open: false, title: '', message: '', type: 'info' })} 
@@ -445,11 +440,11 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n舉牌：${signbo
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 text-[#0ABAB5]"><User className="w-5 h-5" /> 乘車人資訊</h2>
                 <div className="flex gap-2">
-                  <input type="text" className="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5]" placeholder="真實姓名" value={name} onChange={e=>setName(e.target.value)} />
-                  <select className="p-3 border rounded-sm outline-none focus:border-[#0ABAB5]" value={title} onChange={e=>setTitle(e.target.value)}><option>先生</option><option>小姐</option></select>
+                  <input type="text" className="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" placeholder="真實姓名" value={name} onChange={e=>setName(e.target.value)} />
+                  <select className="p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={title} onChange={e=>setTitle(e.target.value)}><option>先生</option><option>小姐</option></select>
                 </div>
-                <input type="tel" className="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5]" placeholder="聯絡電話 0900-000-000" value={phone} onChange={handlePhoneChange} />
-                <input type="email" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5]" placeholder="MAIL 電子信箱" value={email} onChange={e=>setEmail(e.target.value)} />
+                <input type="tel" className="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white" placeholder="聯絡電話 0900-000-000" value={phone} onChange={handlePhoneChange} />
+                <input type="email" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" placeholder="MAIL 電子信箱" value={email} onChange={e=>setEmail(e.target.value)} />
 
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4 text-[#0ABAB5]" /> 接送地址</label>
@@ -474,16 +469,16 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n舉牌：${signbo
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
-                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5]" value={date} onChange={e=>setDate(e.target.value)} />
+                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={date} onChange={e=>setDate(e.target.value)} />
                 <div className="flex gap-2">
                   <select className="flex-1 p-3 border bg-white rounded-sm" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
                   <select className="flex-1 p-3 border bg-white rounded-sm" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <select className="p-3 border font-bold rounded-sm" value={serviceType} onChange={e=>setServiceType(e.target.value)}><option value="送機">送機</option><option value="接機">接機 (+$200)</option></select>
-                  <select className="p-3 border font-bold rounded-sm" value={airport} onChange={e=>setAirport(e.target.value)}><option>桃園機場</option><option>松山機場</option><option>台中機場</option></select>
+                  <select className="p-3 border font-bold rounded-sm bg-white" value={serviceType} onChange={e=>setServiceType(e.target.value)}><option value="送機">送機</option><option value="接機">接機 (+$200)</option></select>
+                  <select className="p-3 border font-bold rounded-sm bg-white" value={airport} onChange={e=>setAirport(e.target.value)}><option>桃園機場</option><option>松山機場</option><option>台中機場</option></select>
                 </div>
-                <input type="text" className="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5]" value={flightNumber} onChange={handleFlightChange} placeholder="航班編號 EX: BR123" />
+                <input type="text" className="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={flightNumber} onChange={handleFlightChange} placeholder="航班編號 EX: BR123" />
               </section>
 
               <section className="space-y-4">
@@ -493,25 +488,26 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n舉牌：${signbo
                 <select className={`w-full p-3 border font-bold rounded-sm ${carTypeConstraint.isForced?'bg-[#0ABAB5]/5 text-[#0ABAB5] border-[#0ABAB5]/20 cursor-not-allowed':'bg-white'}`} value={carType} onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)} disabled={carTypeConstraint.isForced}>
                   <option value="小車">小車</option><option value="大車">大車</option>
                 </select>
+                {carTypeConstraint.isForced && <p className="text-[11px] text-[#0ABAB5] font-bold animate-pulse">※ 因 {carTypeConstraint.reason}，系統已強制改為大車。</p>}
                 <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-gray-700">
-                  <div>大人<select className="w-full p-3 border" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).filter(n=>n>0).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
-                  <div>小孩(4-12歲)<select className="w-full p-3 border" value={children} onChange={e=>setChildren(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
-                  <div>幼童(4歲以下)<select className="w-full p-3 border" value={infants} onChange={e=>setInfants(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
+                  <div>大人<select className="w-full p-3 border bg-white" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).filter(n=>n>0).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
+                  <div>小孩(4-12歲)<select className="w-full p-3 border bg-white" value={children} onChange={e=>setChildren(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
+                  <div>幼童(4歲以下)<select className="w-full p-3 border bg-white" value={infants} onChange={e=>setInfants(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-gray-700">
-                  <div>登機箱<select className="w-full p-3 border" value={carryOn} onChange={e=>setCarryOn(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
-                  <div>託運(21-29吋)<select className="w-full p-3 border" value={checkedBag} onChange={e=>setCheckedBag(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
+                  <div>登機箱<select className="w-full p-3 border bg-white" value={carryOn} onChange={e=>setCarryOn(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
+                  <div>託運(21-29吋)<select className="w-full p-3 border bg-white" value={checkedBag} onChange={e=>setCheckedBag(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
                 </div>
               </section>
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><CreditCard className="w-5 h-5" /> 費用報價</h2>
-                <select className="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5]" value={payment} onChange={e=>setPayment(e.target.value)}><option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結</option></select>
+                <select className="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={payment} onChange={e=>setPayment(e.target.value)}><option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結</option></select>
                 <div className="p-3 border rounded-sm">
                   <label className="flex items-center gap-2 cursor-pointer py-1 font-bold text-gray-700">
                     <input type="checkbox" className="w-5 h-5 accent-[#0ABAB5]" checked={extraSignboard} onChange={e=>setExtraSignboard(e.target.checked)} /> 舉牌服務 (+$200)
                   </label>
-                  {extraSignboard && <input type="text" className="w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5]" placeholder="輸入舉牌內容" value={signboardText} onChange={e=>setSignboardText(e.target.value)} />}
+                  {extraSignboard && <input type="text" className="w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" placeholder="輸入舉牌內容" value={signboardText} onChange={e=>setSignboardText(e.target.value)} />}
                 </div>
 
                 <div className="bg-[#0ABAB5] text-white p-6 border-t-8 border-white/20 rounded-sm shadow-xl">
@@ -520,7 +516,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n舉牌：${signbo
                     <div className="flex justify-between items-start">
                       <div className="flex flex-col">
                         <span className="font-bold text-base text-white">基本車資 ({carType})</span>
-                        <span className="text-xs text-white/70">{basePriceInfo.name || '未選'} - {airport}</span>
+                        <span className="text-xs text-white/70">{basePriceInfo.name || '未選區'} - {airport}</span>
                       </div>
                       <span className="font-bold text-xl text-white">{basePriceInfo.price ? `$${basePriceInfo.price}` : '待報價'}</span>
                     </div>
@@ -543,7 +539,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n舉牌：${signbo
               </section>
 
               <section className="mt-8 border-t-2 border-[#0ABAB5] pt-6">
-                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
+                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm">
                   <h3 className="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><ShieldAlert className="w-4 h-4" /> 【注意事項】</h3>
                   <div className="space-y-4 font-bold text-gray-800">
                     <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
