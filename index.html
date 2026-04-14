@@ -23,7 +23,7 @@
   
   <!-- 自訂提示 Modal -->
   <div id="custom-modal" class="hidden-block fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center text-[#222]">
-    <div class="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] scale-100 transition-transform">
+    <div class="bg-white w-full max-sm:w-full max-w-sm rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] scale-100 transition-transform">
       <div id="modal-header" class="p-4 flex justify-between items-center text-white shrink-0 bg-[#0ABAB5]">
         <div class="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
           <span id="modal-icon"></span>
@@ -93,8 +93,10 @@
 
           <div class="pt-2 border-t border-gray-100 mt-2 relative">
             <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
-            <input type="text" id="district" class="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 font-bold text-sm outline-none transition-colors" readonly placeholder="郵遞區號 縣市 區域 (選取詳細地址後自動帶入)">
-            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="輸入詳細地址 (請點選建議選單以帶入資訊)">
+            <!-- 郵遞區號欄位設定為 readonly -->
+            <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-500 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (選取詳細地址後帶入)">
+            <!-- 客人在此輸入地址觸發 Google Map -->
+            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請在此輸入詳細地址並點選選單">
 
             <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
               <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
@@ -103,7 +105,7 @@
               </label>
               <p class="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點上下車順序需由本公司安排。</p>
               <div id="extra-point-block" class="hidden-block mt-4 space-y-2">
-                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm font-bold text-sm outline-none transition-colors" readonly placeholder="加點區域 (選取詳細地址後自動帶入)">
+                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-100 text-gray-500 rounded-sm font-bold text-sm outline-none" readonly placeholder="加點區域 (選取地址後帶入)">
                 <input type="text" id="extraAddress" class="w-full p-3 border bg-white font-bold rounded-sm text-base focus:border-[#0ABAB5] outline-none transition-colors" placeholder="加點詳細地址 (請點選建議選單)">
               </div>
             </div>
@@ -213,19 +215,6 @@
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
-    // --- 產生訂單編號 ---
-    function generateReservationId() {
-      const now = new Date();
-      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-      const randomDigits = Math.floor(1000 + Math.random() * 9000);
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      let randomChars = '';
-      for (let i = 0; i < 3; i++) {
-        randomChars += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return `RS${dateStr}${randomDigits}${randomChars}`;
-    }
-
     // --- 狀態管理 ---
     const state = {
       reservationId: generateReservationId(),
@@ -240,7 +229,19 @@
       modalCallback: null
     };
 
-    // --- DOM 元素參照 ---
+    // --- 輔助函式 ---
+    function generateReservationId() {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      const randomDigits = Math.floor(1000 + Math.random() * 9000);
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let randomChars = '';
+      for (let i = 0; i < 3; i++) {
+        randomChars += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return `RS${dateStr}${randomDigits}${randomChars}`;
+    }
+
     const DOM = {
       displayId: document.getElementById('display-reservationId'),
       hasExtraPoint: document.getElementById('hasExtraPoint'),
@@ -272,7 +273,6 @@
       modalConfirmBtn: document.getElementById('modal-confirm-btn')
     };
 
-    // 初始化下拉選單
     function initSelectOptions() {
       DOM.displayId.innerText = state.reservationId;
       for(let i=0; i<24; i++) DOM.timeHour.add(new Option(i.toString().padStart(2,'0')));
@@ -282,7 +282,6 @@
       updatePeopleLuggageOptions();
     }
 
-    // 更新人數行李下拉選項
     function renderOptions(element, currentOtherSum, max, excludeZero) {
       const available = Math.max(0, max - currentOtherSum);
       const val = element.value;
@@ -336,7 +335,6 @@
         reason = '登機箱達 5 件 (含) 以上';
       }
 
-      // 車型強制判斷
       if (isForced) {
         state.carType = '大車';
         DOM.carType.value = '大車';
@@ -354,20 +352,17 @@
       calculatePrice();
     }
 
-    // --- 智慧尋找報價邏輯 (Smart Search) ---
+    // --- 智慧尋找報價邏輯 ---
     function findPriceData(airport, locString) {
       if (!locString || Object.keys(state.priceMap).length === 0) return null;
 
-      // 1. 清理使用者輸入 (移除空白與 "台灣")
       const userStr = locString.replace(/\s+/g, '').replace('台灣', '');
       const userZipMatch = userStr.match(/^(\d{3,5})/);
-      const userZip = userZipMatch ? userZipMatch[1].substring(0, 3) : ''; // 只取前三碼
-      const userText = userStr.replace(/^\d+/, ''); // 移除數字得到純文字
+      const userZip = userZipMatch ? userZipMatch[1].substring(0, 3) : '';
+      const userText = userStr.replace(/^\d+/, '');
 
-      // 模糊化機場名稱 (相容 "桃園機場" 與 "桃園")
       const aptPrefix = airport.replace('機場', '');
 
-      // 篩選與該機場相關的 DB 項目，並分解出郵遞區號與純文字
       const availableKeys = Object.keys(state.priceMap).filter(k => {
         const apt = k.split('_')[0];
         return apt && (apt.includes(aptPrefix) || airport.includes(apt));
@@ -379,11 +374,9 @@
           return { originalKey: k, normalizedLoc: locPart, zip: zip, text: text };
       });
 
-      // 策略 1：完全精準比對 (ex: "307新竹縣芎林鄉" === "307新竹縣芎林鄉")
       let match = availableKeys.find(k => k.normalizedLoc === userStr);
       if (match) return state.priceMap[match.originalKey];
 
-      // 策略 2：純文字互相包含比對 (ex: "新竹縣芎林鄉" 包含 "芎林鄉")
       match = availableKeys.find(k => {
          if (k.text && userText) {
              if (k.text.length >= 2 && userText.includes(k.text)) return true;
@@ -393,16 +386,13 @@
       });
       if (match) return state.priceMap[match.originalKey];
 
-      // 策略 3：郵遞區號比對 (當前兩者失敗時的最後依靠)
       if (userZip) {
           match = availableKeys.find(k => k.zip === userZip);
           if (match) return state.priceMap[match.originalKey];
       }
-
       return null;
     }
 
-    // 寬容的價格解析 (支援 {small:1000} 或 直接寫數字 1000)
     function extractPrice(data, carType) {
       if (!data) return 0;
       if (typeof data === 'object') {
@@ -411,10 +401,8 @@
       return Number(data) || 0;
     }
 
-    // --- 計算費用邏輯 ---
     function calculatePrice() {
       let p1 = 0, p2 = 0;
-      
       const dataMain = findPriceData(state.airport, state.district);
       p1 = extractPrice(dataMain, state.carType);
       
@@ -435,9 +423,7 @@
       const extraTotal = Object.values(fees).reduce((a, b) => a + b, 0);
       const estimatedTotal = baseInfo.price > 0 ? baseInfo.price + extraTotal : null;
 
-      // 更新畫面
       DOM.displayCarTypeName.innerText = `基本車資 (${state.carType})`;
-      
       let routeText = '未選 - ' + state.airport;
       if(state.serviceType === '接機') routeText = `${state.airport} - ${baseInfo.name || '未選'}`;
       else routeText = `${baseInfo.name || '未選'} - ${state.airport}`;
@@ -455,7 +441,6 @@
       if(fees.extraPoint > 0) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-base font-bold text-white/90"><span>└ 加點服務費</span><span>+$${fees.extraPoint}</span></div>`;
     }
 
-    // --- 事件監聽綁定 ---
     function bindEvents() {
       const textInputs = ['name', 'title', 'email', 'district', 'address', 'extraDistrict', 'extraAddress', 'signboardText', 'remarks'];
       textInputs.forEach(id => {
@@ -525,7 +510,6 @@
       document.getElementById('reservation-form').addEventListener('submit', handleSubmit);
     }
 
-    // --- 載入報價 (強大的錯誤偵測與自動測試模式) ---
     async function loadPrices() {
       DOM.refreshIcon.classList.add('animate-spin');
       try {
@@ -534,11 +518,11 @@
         if (!res.ok) throw new Error(`HTTP 狀態碼錯誤: ${res.status}`);
         const text = await res.text();
         if (text.trim().startsWith('<')) {
-          throw new Error('權限設定錯誤！\n\n您 Apps Script 部署時的「誰可以存取」可能沒有設定為「所有人」。');
+          throw new Error('權限設定錯誤！請將 Apps Script 設為「所有人」。');
         }
         let d;
-        try { d = JSON.parse(text); } catch(jsonErr) { throw new Error('回傳資料非 JSON 格式。'); }
-        if (d.status === 'error') throw new Error(`後端回報錯誤:\n${d.message}`);
+        try { d = JSON.parse(text); } catch(jsonErr) { throw new Error('回傳資料格式錯誤。'); }
+        if (d.status === 'error') throw new Error(d.message);
         const prices = d.prices || d.priceMap || d.data || d; 
         if (prices && Object.keys(prices).length > 0) {
           state.priceMap = prices;
@@ -547,41 +531,45 @@
         }
       } catch(e) {
         console.warn('報價載入失敗', e);
-        // 離線測試用
-        state.priceMap = { "桃園機場_台北市": { small: 1000, large: 1500 } };
-        showAlert(`無法連接到您的 Google 價目表！\n\n⛔ 系統錯誤訊息：\n${e.message}\n\n💡 常見解決方案：\n1. Apps Script 更新後請選擇「建立新版本」。\n2. 權限請設為「所有人(Anyone)」。`, '連線失敗', 'error');
+        showAlert(`連線失敗：${e.message}`, '系統連線異常', 'error');
       } finally {
         calculatePrice();
         DOM.refreshIcon.classList.remove('animate-spin');
       }
     }
 
-    // --- Google Maps Autocomplete (修復詳細地址解析與郵遞區號抓取) ---
+    // --- 終極修正：Google Map 解析與郵遞區號抓取 ---
     function initGoogleMaps() {
       const parsePlace = (place, distId, addrId) => {
         const components = place.address_components || [];
         const fullAddr = place.formatted_address || "";
         
-        // 抓取郵遞區號 (Google 回傳可能是 3 碼或 5 碼)
+        // 抓取郵遞區號 (Google 可能回傳 3 碼或 5 碼)
         let zip = (components.find(c => c.types.includes('postal_code'))?.long_name || "").substring(0, 3);
         
         // 抓取縣市與行政區
         let city = (components.find(c => c.types.includes('administrative_area_level_1'))?.long_name || "").replace('台灣', '').trim();
         let area = (components.find(c => c.types.includes('sublocality_level_1')) || components.find(c => c.types.includes('locality')))?.long_name || "";
         
-        // 解析路名、號碼作為詳細地址
-        // 通常詳細地址不包含縣市區域與郵遞區號
-        let detailedAddress = fullAddr.replace(/^台灣\d{3,5}\s*/, '').replace(/^台灣/, '').replace(city, '').replace(area, '').replace(/^\d{3,5}/, '').trim();
+        // 解析路名、號碼作為純淨的詳細地址 (去除郵遞區號、縣市、區域、國名)
+        let cleanedAddress = fullAddr.replace(/^台灣\d{3,5}\s*/, '')
+                                     .replace(/^台灣/, '')
+                                     .replace(city, '')
+                                     .replace(area, '')
+                                     .replace(/^\d{3,5}/, '')
+                                     .trim();
 
-        const distStr = `${zip} ${city} ${area}`.replace(/\s+/g, ' ').trim();
+        const districtString = `${zip} ${city} ${area}`.trim();
 
-        // 填入 UI
-        document.getElementById(distId).value = distStr;
-        document.getElementById(addrId).value = detailedAddress;
+        // 強制更新唯讀欄位與詳細地址欄位
+        const dInput = document.getElementById(distId);
+        const aInput = document.getElementById(addrId);
         
-        // 更新狀態
-        state[distId] = distStr;
-        state[addrId] = detailedAddress;
+        dInput.value = districtString;
+        aInput.value = cleanedAddress;
+        
+        state[distId] = districtString;
+        state[addrId] = cleanedAddress;
         
         calculatePrice();
       };
@@ -595,7 +583,7 @@
         });
         ac.addListener('place_changed', () => {
           const place = ac.getPlace();
-          if (place.formatted_address) parsePlace(place, distId, inputId);
+          if (place && place.formatted_address) parsePlace(place, distId, inputId);
         });
       };
 
@@ -610,7 +598,6 @@
       }
     }
 
-    // --- LIFF 初始化 ---
     let liffInitPromise = null;
     function initLiff() {
       if (liffInitPromise) return liffInitPromise;
@@ -628,7 +615,6 @@
       return liffInitPromise;
     }
 
-    // --- UI 互動 ---
     function showAlert(msg, title = '提示', type = 'info', callback = null) {
       DOM.modalTitle.innerText = title;
       DOM.modalMessage.innerText = msg;
@@ -650,22 +636,21 @@
     }
     DOM.modalConfirmBtn.addEventListener('click', closeModal);
 
-    // --- 表單送出 ---
     function handleSubmit(e) {
       e.preventDefault();
       const missing = [];
       if (!state.name.trim()) missing.push('乘車人全名');
       if (state.phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話');
       if (!state.email.trim()) missing.push('電子信箱');
-      if (!state.district) missing.push('接送地址 (請透過下拉選單選取)');
+      if (!state.district) missing.push('接送地址 (請透過地圖選單選取建議)');
       if (!state.address.trim()) missing.push('詳細地址');
       if (!state.date) missing.push('乘車日期');
       if (!state.flightNumber.trim()) missing.push('航班編號');
       if (missing.length > 0) return showAlert(`請確認以下欄位：\n\n• ${missing.join('\n• ')}`, '資料未填妥', 'error');
-      if (!state.agreed) return showAlert('請勾選同意資訊。', '提醒', 'error');
+      if (!state.agreed) return showAlert('請閱讀並勾選最下方同意資訊。', '提醒', 'error');
 
       const totalStr = document.getElementById('display-total').innerText;
-      const lineText = `【RS預約單】\n預約編號：${state.reservationId}\n全名：${state.name}\n電話：${state.phone}\n日期：${state.date} ${state.timeHour}:${state.timeMinute}\n地址：${state.district} ${state.address}\n總額：${totalStr}`;
+      const lineText = `【RS專車接送 預約單】\n預約編號：${state.reservationId}\n乘車人：${state.name} ${state.title}\n電話：${state.phone}\n時間：${state.date} ${state.timeHour}:${state.timeMinute}\n行程：${state.serviceType} (${state.airport})\n地址：${state.district} ${state.address}\n車型：${state.carType}\n總額：${totalStr}`;
       
       const payload = { 
         action: 'addReservation', 
@@ -686,7 +671,7 @@
     async function executeSubmit(payload, lineText) {
       if (state.isSubmitting) return;
       state.isSubmitting = true;
-      DOM.submitBtn.innerText = '傳送中...';
+      DOM.submitBtn.innerText = '預約資料傳送中...';
       try {
         fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) }).catch(()=>{});
         const liffModule = await initLiff();
@@ -702,7 +687,7 @@
           document.getElementById('fallback-message').innerText = lineText;
         }
       } catch (err) {
-        showAlert('傳送失敗。', '錯誤', 'error');
+        showAlert('預約傳送失敗，請檢查網路。', '傳送錯誤', 'error');
         state.isSubmitting = false;
         DOM.submitBtn.innerText = '確認預約並送出';
       }
