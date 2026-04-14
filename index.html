@@ -111,7 +111,7 @@
                 disabled={isSubmitting} 
                 className="flex-1 py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2"
               >
-                我知道了
+                確定
               </button>
             </div>
           </div>
@@ -152,8 +152,6 @@
       const [isSubmitting, setIsSubmitting] = useState(false);
       
       const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
-      const [submitSuccess, setSubmitSuccess] = useState(false);
-      const [fallbackMessage, setFallbackMessage] = useState('');
       
       const addressInputRef = useRef(null);
       const extraAddressInputRef = useRef(null);
@@ -306,7 +304,7 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + extra : null;
       }, [basePriceInfo.price, fees]);
 
-      // ----- 執行發送與 LINE 互動邏輯 -----
+      // ----- 執行發送與 LINE 互動邏輯 (替換為您的 snippet 邏輯) -----
       const executeSubmit = async (payload, lineText) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
@@ -327,29 +325,28 @@
              console.warn('LIFF 載入失敗', e);
           }
 
-          // 3. 傳送 LINE 訊息 (兩段式獨立訊息發送並直接關閉)
+          // 3. 傳送 LINE 訊息 (使用您提供的兩段式獨立訊息發送)
           if (liffModule && liffModule.isInClient()) {
               try {
-                  const messagesToSend = [
-                      { type: 'text', text: lineText },     // 第一段：預約單明細
-                      { type: 'text', text: successNotice } // 第二段：感謝與後續通知
-                  ];
+                  // ★ 兩段式獨立訊息發送 ★
+                  const messagesToSend = [{ type: 'text', text: lineText }]; // 相當於您的 orderMsg
+                  
+                  // 因進入這個函式代表已同意，直接加入成功提示
+                  messagesToSend.push({ type: 'text', text: successNotice });
                   
                   await liffModule.sendMessages(messagesToSend);
                   
-                  // 送出成功後直接關閉視窗 (無彈跳視窗，平順回到 LINE 聊天室)
-                  liffModule.closeWindow();
+                  // 顯示成功視窗，並且綁定關閉視窗的 callback 到「確定」按鈕上
+                  showAlert(`${successNotice}\n\n(點擊確定後將自動關閉視窗)`, '預約已成功送出', 'success', () => {
+                      liffModule.closeWindow();
+                  });
               } catch (err) {
-                  // 傳送失敗：切換靜態成功畫面並請用戶截圖
-                  setFallbackMessage(`⚠️ LINE 傳送失敗，請手動截圖給客服：\n\n${lineText}\n\n${successNotice}`);
-                  setSubmitSuccess(true);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  // 傳送失敗提示
+                  showAlert(`請手動截圖給客服：\n\n${lineText}\n\n${successNotice}`, '傳送失敗', 'error');
               }
           } else {
-              // 非 LINE 客戶端：顯示自訂的成功訊息
-              setFallbackMessage(`(一般瀏覽器環境)\n預約已送出，實際預約單內容如下：\n\n${lineText}\n\n${successNotice}`);
-              setSubmitSuccess(true);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
+              // 測試模式或非 LINE 環境下顯示的成功訊息
+              showAlert(`實際預約單內容如下：\n\n${lineText}\n\n${successNotice}`, '預約已送出', 'success');
           }
         } catch (err) { 
           showAlert('資料傳送過程中發生錯誤，請檢查網路連線。', '系統錯誤', 'error'); 
@@ -358,7 +355,7 @@
         }
       };
 
-      // ----- 重點修改區域：完整未填欄位提示 -----
+      // ----- 完整未填欄位提示 -----
       const handleSubmit = (e) => {
         e.preventDefault();
         
@@ -407,43 +404,26 @@
         
         executeSubmit(payload, lineText);
       };
-      // ----- 重點修改區域結束 -----
 
       const renderOptions = (currentOtherSum, max, excludeZero = false) => {
         const available = Math.max(0, max - currentOtherSum);
         return Array.from({length: available + 1}, (_, i) => i).filter(n => !(excludeZero && n === 0)).map(i => <option key={i} value={i}>{i}</option>);
       };
 
-      // 成功送出時，不彈出視窗，直接更換整個頁面顯示結果
-      if (submitSuccess) {
-        return (
-          <div className="pb-10 text-[#222] min-h-screen bg-gray-50 flex flex-col">
-            <header className="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
-              <h1 className="text-xl font-bold tracking-wider uppercase">預約完成</h1>
-            </header>
-            <main className="max-w-md w-full mx-auto mt-8 p-6 animate-in slide-in-from-bottom-4 duration-500">
-              <div className="bg-white p-8 rounded-lg shadow-xl text-center border border-gray-100">
-                <CheckCircle className="w-20 h-20 text-[#0ABAB5] mx-auto mb-6" />
-                <h2 className="text-2xl font-black text-[#0ABAB5] mb-2">預約已成功送出</h2>
-                <div className="text-left bg-gray-50 border border-gray-200 p-4 rounded-md mt-6 text-[13px] text-gray-700 font-mono whitespace-pre-wrap overflow-y-auto max-h-[50vh]">
-                  {fallbackMessage}
-                </div>
-                <button onClick={() => window.location.reload()} className="mt-8 w-full py-4 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform shadow-md">
-                  返回重新預約
-                </button>
-              </div>
-            </main>
-          </div>
-        );
-      }
-
-      // 正常預約表單畫面
+      // 正常預約表單畫面 (移除了滿版成功畫面，使用 CustomModal 處理各種提示)
       return (
         <div className="pb-10 text-[#222]">
           <CustomModal 
             isOpen={modal.open} title={modal.title} message={modal.message} type={modal.type} isSubmitting={isSubmitting} 
-            onClose={() => setModal({ open: false, title: '', message: '', type: 'info' })} 
-            onConfirm={() => setModal({ open: false, title: '', message: '', type: 'info' })} 
+            onClose={() => {
+              // 若有設定回呼函數 (例如 liffModule.closeWindow)，則執行它
+              if (modal.onConfirm) modal.onConfirm();
+              setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+            }} 
+            onConfirm={() => {
+              if (modal.onConfirm) modal.onConfirm();
+              setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+            }} 
           />
           
           <header className="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
@@ -492,7 +472,7 @@
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
                 <label className="block text-sm font-bold text-gray-700">乘車日期</label>
                 {/* 移除了原本 date 的 HTML 原生 required 屬性，改由系統統一彈窗提示 */}
-                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期" />
+                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期 (西元年/月/日)" />
                 <div className="flex gap-2">
                   <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
                   <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
