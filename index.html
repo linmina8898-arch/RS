@@ -85,7 +85,7 @@
             <select id="title" class="p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option>先生</option><option>小姐</option></select>
           </div>
           <input type="tel" id="phone" class="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="聯絡電話 09xx-xxx-xxx" maxlength="12">
-          <input type="email" id="email" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="MAIL 電子信箱">
+          <input type="email" id="email" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="MAIL 電子信箱 (必填)">
 
           <div class="pt-2 border-t border-gray-100 mt-2 relative">
             <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
@@ -287,7 +287,6 @@
       state.infants = parseInt(DOM.infants.value);
 
       const co = parseInt(DOM.carryOn.value)||0, cb = parseInt(DOM.checkedBag.value)||0;
-      // 核心互補防呆：總數上限 6，不鎖定單項上限
       renderOptions(DOM.carryOn, cb, 6, false);
       renderOptions(DOM.checkedBag, co, 6, false);
       state.carryOn = parseInt(DOM.carryOn.value);
@@ -379,7 +378,6 @@
         let city = (comps.find(c=>c.types.includes('administrative_area_level_1'))?.long_name || "").replace('台灣','').trim();
         let area = (comps.find(c=>c.types.includes('sublocality_level_1')) || comps.find(c=>c.types.includes('locality')))?.long_name || "";
         
-        // 精準區域匹配與自動校正
         if (full.includes("香山")) { zip = "300"; city = "新竹市"; area = "香山區"; }
         else if (full.includes("北區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "北區"; }
         else if (full.includes("東區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "東區"; }
@@ -456,6 +454,10 @@
       if (!state.name.trim()) return showAlert('請輸入乘車人姓名', '提示', 'error');
       const rawPhone = state.phone.replace(/\D/g, '');
       if (rawPhone.length !== 10) return showAlert('電話號碼格式錯誤 (請輸入10位數字)', '提示', 'error');
+      
+      // MAIL 強制必填檢查
+      if (!state.email.trim()) return showAlert('請輸入電子信箱', '提示', 'error');
+      
       if (!state.district) return showAlert('請透過地圖建議選單帶入接送地址', '地址錯誤', 'error');
       if (!state.date) return showAlert('請選擇乘車日期', '提示', 'error');
       if (!state.flightNumber.trim()) return showAlert('請填寫航班編號', '提示', 'error');
@@ -492,6 +494,8 @@
         action:'addReservation', 
         data:{ 
           ...state, 
+          // 時間加上單引號前綴，強制後端視為文字
+          time: "'" + state.timeHour + ":" + state.timeMinute,
           passengers:`大${state.adults},小${state.children},幼${state.infants}`, 
           luggage:`登機:${state.carryOn},託運:${state.checkedBag}`, 
           totalFee:totalStr, 
