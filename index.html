@@ -81,7 +81,7 @@
 
     const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwbTEF9LBnj2RB7cKgaFujfwCfG15sCMfL7REds-3oTeWQ-FTHU8c_DRPGgsH6LRsAZ_w/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
-    const LINE_LIFF_ID = '2009753964-IEeYinij';
+    const LINE_LIFF_ID = '2009753964-t3AYp61e';
 
     const generateReservationId = () => {
       const now = new Date();
@@ -118,7 +118,11 @@
               <div className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap">{message}</div>
             </div>
             <div className="p-4 bg-white border-t border-gray-100 shrink-0 flex gap-2">
-              <button onClick={onConfirm || onClose} disabled={isSubmitting} className="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2">
+              <button 
+                onClick={onConfirm || onClose} 
+                disabled={isSubmitting} 
+                className="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2"
+              >
                 {type === 'confirm' ? (isSubmitting ? '處理中...' : '確認無誤並送出') : '確定'}
               </button>
               {type === 'confirm' && (
@@ -190,7 +194,7 @@
           if (window.liff) {
             try {
               await window.liff.init({ liffId: LINE_LIFF_ID });
-              console.log('LIFF Initialized');
+              console.log('LIFF Initialized with ID:', LINE_LIFF_ID);
             } catch (err) {
               console.error('LIFF Init Error:', err);
             }
@@ -245,7 +249,7 @@
                         components.find(c => c.types.includes('locality'));
         let areaName = (areaComp ? areaComp.long_name : "").replace(/\d+/g, '').trim();
 
-        // 強制關鍵字校正
+        // 強制關鍵字校正 (確保完全匹配價目表格式)
         if (fullAddr.includes("香山區")) { zipCode = "300"; cityName = "新竹市"; areaName = "香山區"; }
         else if (fullAddr.includes("東區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "東區"; }
         else if (fullAddr.includes("北區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "北區"; }
@@ -339,8 +343,7 @@
         setIsSubmitting(true);
         
         try {
-          const isInLine = (window.liff && window.liff.isInClient()) || /Line/i.test(navigator.userAgent);
-          
+          // 1. 同步發送到後台 GAS
           const gasTask = fetch(GAS_WEBAPP_URL, { 
             method: 'POST', 
             mode: 'no-cors', 
@@ -349,29 +352,31 @@
           });
 
           let liffSent = false;
-          if (window.liff && window.liff.isInClient()) {
+          // 2. 處理 LINE 訊息發送 (關鍵修復：先發送再顯示彈窗)
+          if (window.liff) {
             try {
               if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
               
-              if (window.liff.isLoggedIn() && window.liff.getContext()) {
+              if (window.liff.isInClient()) {
                 await window.liff.sendMessages([{ type: 'text', text: lineText }]);
                 liffSent = true;
+                console.log('LINE Message Sent Successfully');
               }
             } catch (e) {
-              console.error('LINE回傳明細失敗 (請確認 Scope 授權):', e);
+              console.error('LINE回傳失敗 (可能是授權問題):', e);
             }
           }
 
-          await gasTask;
+          await gasTask; // 確保 GAS 也啟動完成
 
           if (liffSent) {
-            showAlert(`🌟 預約成功！明細已傳送至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
+            showAlert(`🌟 預約成功！明細已同步傳送至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
               if (window.liff) window.liff.closeWindow();
             });
-          } else if (isInLine) {
-             showAlert(`🌟 預約已送出！\n\n⚠️ 但明細無法自動回傳 (請檢查 LINE Developers Scopes 是否勾選 chat_message.write)。\n請截圖保存預約明細：\n\n${lineText}`, '預約成功', 'info');
+          } else if (window.liff?.isInClient()) {
+             showAlert(`🌟 預約已送出！\n\n⚠️ 但明細無法自動回傳至對話框。\n請截圖保存明細：\n\n${lineText}`, '預約成功', 'info');
           } else {
-            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 客戶端，請截圖保存明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約成功！\n\n(非 LINE App 開啟，請截圖保存預約明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
         } catch (err) { 
           showAlert('資料傳送發生錯誤，請檢查網路。', '系統錯誤', 'error'); 
@@ -447,9 +452,8 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               if (modal.type === 'confirm' && confirmData) {
                 setModal({ open: false, title: '', message: '', type: 'info' });
                 executeSubmit(confirmData.payload, confirmData.lineText);
-              } else if (typeof modal.onConfirm === 'function') {
+              } else if (modal.onConfirm) {
                 modal.onConfirm();
-                setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
               } else {
                 setModal({ open: false, title: '', message: '', type: 'info' });
               }
@@ -581,7 +585,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
                     <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
                     <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
-                    <p>4、為維護乘車品質，顧及每位貴賓權益，車內謿勿飲食。</p>
+                    <p>4、為維護乘車品質，顧及每位貴賓權益，車內請勿飲食。</p>
                     <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
                   </div>
                 </div>
