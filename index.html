@@ -42,12 +42,11 @@
     </div>
   </div>
 
-  <!-- 成功送出後返回 LINE 的純色過場 -->
+  <!-- 成功送出後返回 LINE 的過場 -->
   <div id="view-done" class="hidden-block min-h-screen bg-[#0ABAB5] flex-col items-center justify-center text-white">
      <svg class="w-20 h-20 mb-4 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
      <h2 class="text-2xl font-black tracking-widest">預約已送出</h2>
      <p class="mt-4 font-bold opacity-90">正在為您返回 LINE 聊天室...</p>
-     <p class="mt-2 text-xs opacity-60">(若畫面未自動關閉，請點擊右上角 X)</p>
   </div>
 
   <!-- 外部瀏覽器成功畫面 -->
@@ -59,15 +58,12 @@
       <div class="bg-white p-8 rounded-lg shadow-xl text-center border border-gray-100">
         <svg class="w-20 h-20 text-[#0ABAB5] mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         <h2 class="text-2xl font-black text-[#0ABAB5] mb-2">預約資料已送出</h2>
-        <div class="bg-red-50 text-red-600 p-4 rounded-md mb-6 mt-6 text-[13px] font-bold text-left border border-red-100 leading-relaxed">
-           💡 系統無法自動回傳至 LINE 聊天室：<br/><br/>原因通常是「使用了錯誤的網址」或「使用外部瀏覽器」。<br/><br/>👉 請確保您是在 LINE 對話框內點擊專屬網址 <span class="text-blue-600 break-all">https://liff.line.me/2009792282-jfKXBZiE</span> 來開啟本系統！
-        </div>
         <div id="fallback-message" class="text-left bg-gray-50 border border-gray-200 p-4 rounded-md text-[12px] text-gray-500 font-mono whitespace-pre-wrap overflow-y-auto max-h-[30vh]"></div>
       </div>
     </main>
   </div>
 
-  <!-- 正常表單畫面 -->
+  <!-- 表單畫面 -->
   <div id="view-form" class="pb-10 text-[#222]">
     <header class="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
       <h1 class="text-xl font-bold tracking-wider uppercase">RS 專車接送 預約系統</h1>
@@ -81,7 +77,6 @@
           <span id="display-reservationId" class="font-mono text-sm font-bold text-[#0ABAB5]"></span>
         </div>
 
-        <!-- 乘車人資訊 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 text-[#0ABAB5]"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> 乘車人資訊</h2>
           <div class="flex gap-2">
@@ -93,9 +88,7 @@
 
           <div class="pt-2 border-t border-gray-100 mt-2 relative">
             <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
-            <!-- 郵遞區號欄位設定為 readonly -->
-            <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-500 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (選取詳細地址後帶入)">
-            <!-- 客人在此輸入地址觸發 Google Map -->
+            <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (自動帶入)">
             <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請在此輸入詳細地址並點選選單">
 
             <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
@@ -105,18 +98,17 @@
               </label>
               <p class="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點上下車順序需由本公司安排。</p>
               <div id="extra-point-block" class="hidden-block mt-4 space-y-2">
-                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-100 text-gray-500 rounded-sm font-bold text-sm outline-none" readonly placeholder="加點區域 (選取地址後帶入)">
-                <input type="text" id="extraAddress" class="w-full p-3 border bg-white font-bold rounded-sm text-base focus:border-[#0ABAB5] outline-none transition-colors" placeholder="加點詳細地址 (請點選建議選單)">
+                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm font-bold text-sm outline-none" readonly placeholder="加點區域 (自動帶入)">
+                <input type="text" id="extraAddress" class="w-full p-3 border bg-white font-bold rounded-sm text-base focus:border-[#0ABAB5] outline-none" placeholder="加點詳細地址 (請點選建議選單)">
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 乘車資訊 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> 乘車資訊</h2>
           <label class="block text-sm font-bold text-gray-700">乘車日期</label>
-          <input type="date" id="date" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base is-empty" placeholder="請輸入乘車日期 (西元年/月/日)">
+          <input type="date" id="date" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base is-empty" placeholder="請輸入乘車日期">
           <div class="flex gap-2">
             <select id="timeHour" class="flex-1 p-3 border bg-white rounded-sm text-base"></select>
             <select id="timeMinute" class="flex-1 p-3 border bg-white rounded-sm text-base"></select>
@@ -128,26 +120,24 @@
           <input type="text" id="flightNumber" class="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="航班編號 EX: BR123">
         </section>
 
-        <!-- 車型與人數行李 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 0-4 0m-6 0a2 2 0 1 0-4 0"/></svg> 車型與人數行李 <span class="text-red-500 text-[10px] font-bold">(最多 6 人 6 件 **包含登機箱**)</span>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 0-4 0m-6 0a2 2 0 1 0-4 0"/></svg> 車型與人數行李 <span class="text-red-500 text-[10px] font-bold">(最多 6 人 6 件)</span>
           </h2>
           <select id="carType" class="w-full p-3 border font-bold rounded-sm bg-white text-base"><option value="小車">小車</option><option value="大車">大車</option></select>
           <p id="carType-msg" class="text-[11px] font-bold text-red-600 hidden-block"></p>
           
           <div class="grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-gray-700">
             <div>大人<select id="adults" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>小孩(4-12歲)<select id="children" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>幼童(4歲以下)<select id="infants" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>小孩<select id="children" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>幼童<select id="infants" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
           <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-gray-700">
             <div>登機箱<select id="carryOn" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>託運(21-29吋)<select id="checkedBag" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>託運<select id="checkedBag" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
         </section>
 
-        <!-- 費用報價 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> 費用報價</h2>
           <select id="payment" class="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option value="現金">現金</option><option value="轉帳">轉帳</option></select>
@@ -168,9 +158,7 @@
                 </div>
                 <span id="display-basePrice" class="font-bold text-xl text-white">待報價</span>
               </div>
-              <div id="fees-block" class="border-t border-dashed border-white/30 pt-4 space-y-2.5">
-                <!-- 動態插入附加費用 -->
-              </div>
+              <div id="fees-block" class="border-t border-dashed border-white/30 pt-4 space-y-2.5"></div>
               <div class="mt-8 pt-5 border-t-2 border-white/30 flex justify-between items-center">
                 <span class="font-black text-white text-lg">預估總額</span>
                 <div class="text-right">
@@ -182,16 +170,14 @@
           </div>
         </section>
 
-        <section class="mt-8 border-t-2 border-[#0ABAB5] pt-6">
-          <div class="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
+        <section class="mt-8 border-t-2 border-[#0ABAB5] pt-6 pb-4">
+          <div class="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner font-bold">
             <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 【注意事項】</h3>
-            <div class="space-y-4 font-bold text-gray-800">
-              <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
-              <p>2、依實際人數及行李件數尺寸預約車款。</p>
-              <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
-              <p>4、為維護乘車品質，顧及每位貴賓權益，車內請勿飲食。</p>
-              <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
-            </div>
+            <p>1、如預約時無加點行程、當天司機無法多停點，請體諒司機無法私自增加停靠點。</p>
+            <p>2、依實際人數及行李件數預約車款。</p>
+            <p>3、安全帶為法規強制規定，乘車請繫妥。</p>
+            <p>4、車內禁止飲食，維持乘車品質。</p>
+            <p>5、嬰幼兒強制使用安全座椅，如未依需求加購，責任由乘車人承擔。</p>
           </div>
           <label class="flex items-start gap-3 cursor-pointer p-4 border border-[#0ABAB5] font-black text-sm bg-white active:bg-[#0ABAB5]/5 transition-colors rounded-sm shadow-sm mt-4">
             <input type="checkbox" id="agreed" class="w-6 h-6 mt-0.5 accent-[#0ABAB5]">我同意以上資訊與免責聲明。
@@ -202,20 +188,14 @@
           確認預約並送出
         </button>
       </form>
-      <div class="mt-10 text-center border-t-4 border-[#0ABAB5] pt-8 pb-4">
-        <p class="text-xl font-black mb-2 text-[#0ABAB5]">24H 預約服務電話</p>
-        <a href="tel:0915926166" class="text-4xl sm:text-5xl font-black text-[#0ABAB5] hover:underline tracking-wider block font-black-stroke">0915-926-166</a>
-      </div>
     </main>
   </div>
 
   <script>
-    // --- 常數設定 ---
     const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzu7eCEHA-NyhO71yRUZVz2Na4ARl6W_zHKWvR4-ugqJKT5cH3Ejei5Va0fJqc5mBhNVA/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
-    // --- 狀態管理 ---
     const state = {
       reservationId: generateReservationId(),
       name: '', title: '先生', phone: '', email: '',
@@ -225,21 +205,12 @@
       serviceType: '送機', airport: '桃園機場', flightNumber: '',
       carType: '小車', adults: 1, children: 0, infants: 0, carryOn: 0, checkedBag: 0,
       payment: '現金', extraSignboard: false, signboardText: '', agreed: false,
-      priceMap: {}, isSubmitting: false,
-      modalCallback: null
+      priceMap: {}, isSubmitting: false
     };
 
-    // --- 輔助函式 ---
     function generateReservationId() {
       const now = new Date();
-      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-      const randomDigits = Math.floor(1000 + Math.random() * 9000);
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-      let randomChars = '';
-      for (let i = 0; i < 3; i++) {
-        randomChars += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return `RS${dateStr}${randomDigits}${randomChars}`;
+      return `RS${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${Math.floor(1000+Math.random()*9000)}`;
     }
 
     const DOM = {
@@ -286,418 +257,211 @@
       const available = Math.max(0, max - currentOtherSum);
       const val = element.value;
       element.innerHTML = '';
-      for(let i = excludeZero ? 1 : 0; i <= available; i++) {
-        element.add(new Option(i, i));
-      }
+      for(let i = (excludeZero?1:0); i <= available; i++) element.add(new Option(i, i));
       if(val && element.querySelector(`option[value="${val}"]`)) element.value = val;
-      else if(excludeZero) element.value = '1';
-      else element.value = '0';
     }
 
     function updatePeopleLuggageOptions() {
-      const a = parseInt(state.adults) || 1;
-      const c = parseInt(state.children) || 0;
-      const i = parseInt(state.infants) || 0;
-      const co = parseInt(state.carryOn) || 0;
-      const cb = parseInt(state.checkedBag) || 0;
-
-      renderOptions(DOM.adults, c + i, 6, true);
-      renderOptions(DOM.children, a + i, 6, false);
-      renderOptions(DOM.infants, a + c, 6, false);
+      const a = parseInt(state.adults)||1, c = parseInt(state.children)||0, i = parseInt(state.infants)||0;
+      const co = parseInt(state.carryOn)||0, cb = parseInt(state.checkedBag)||0;
+      renderOptions(DOM.adults, c+i, 6, true);
+      renderOptions(DOM.children, a+i, 6, false);
+      renderOptions(DOM.infants, a+c, 6, false);
       renderOptions(DOM.carryOn, cb, 6, false);
       renderOptions(DOM.checkedBag, co, 6, false);
-
       state.adults = parseInt(DOM.adults.value);
       state.children = parseInt(DOM.children.value);
       state.infants = parseInt(DOM.infants.value);
       state.carryOn = parseInt(DOM.carryOn.value);
       state.checkedBag = parseInt(DOM.checkedBag.value);
-
-      const totalPeople = state.adults + state.children + state.infants;
-
-      let isForced = false;
-      let reason = '';
-
-      if (totalPeople >= 5) {
-        isForced = true;
-        reason = '人數達 5 人以上';
-      } else if (state.checkedBag >= 3) {
-        isForced = true;
-        reason = '託運行李達 3 件 (含) 以上';
-      } else if (state.checkedBag === 2 && state.carryOn >= 1) {
-        isForced = true;
-        reason = '超過小車限制 (2託運+1登機箱需大車)';
-      } else if (state.checkedBag === 1 && state.carryOn >= 4) {
-        isForced = true;
-        reason = '超過小車限制 (最多 1託運+3登機箱)';
-      } else if (state.checkedBag === 0 && state.carryOn >= 5) {
-        isForced = true;
-        reason = '登機箱達 5 件 (含) 以上';
-      }
-
-      if (isForced) {
-        state.carType = '大車';
-        DOM.carType.value = '大車';
-        DOM.carType.disabled = true;
-        DOM.carType.classList.add('bg-[#0ABAB5]/5', 'text-[#0ABAB5]', 'cursor-not-allowed');
-        DOM.carType.classList.remove('bg-white');
-        DOM.carTypeMsg.innerText = `※ 因 ${reason}，系統已強制改為大車。`;
-        DOM.carTypeMsg.classList.remove('hidden-block');
+      const totalP = state.adults+state.children+state.infants;
+      let forced = false, reason = '';
+      if (totalP >= 5) { forced = true; reason = '人數達 5 人以上'; }
+      else if (state.checkedBag >= 3) { forced = true; reason = '託運行李達 3 件以上'; }
+      else if (state.checkedBag === 2 && state.carryOn >= 1) { forced = true; reason = '2託運+1登機需大車'; }
+      if (forced) {
+        state.carType = '大車'; DOM.carType.value = '大車'; DOM.carType.disabled = true;
+        DOM.carTypeMsg.innerText = `※ 因 ${reason}，系統已強制改為大車。`; DOM.carTypeMsg.classList.remove('hidden-block');
       } else {
-        DOM.carType.disabled = false;
-        DOM.carType.classList.remove('bg-[#0ABAB5]/5', 'text-[#0ABAB5]', 'cursor-not-allowed');
-        DOM.carType.classList.add('bg-white');
-        DOM.carTypeMsg.classList.add('hidden-block');
+        DOM.carType.disabled = false; DOM.carTypeMsg.classList.add('hidden-block');
       }
       calculatePrice();
     }
 
-    // --- 智慧尋找報價邏輯 ---
+    // --- 智慧尋找報價 (忽略台灣與空格) ---
     function findPriceData(airport, locString) {
       if (!locString || Object.keys(state.priceMap).length === 0) return null;
+      const aptPrefix = airport.replace('機場','');
+      // 將使用者輸入規格化：去掉空格、去掉台灣
+      const userNorm = locString.replace(/\s+/g,'').replace('台灣','');
+      const zipMatch = userNorm.match(/^(\d{3})/);
+      const userZip = zipMatch ? zipMatch[1] : '';
+      const areaMatch = userNorm.match(/[\u4e00-\u9fa5]{2,}(區|鄉|鎮|市)$/);
+      const userArea = areaMatch ? areaMatch[0] : '';
 
-      const userStr = locString.replace(/\s+/g, '').replace('台灣', '');
-      const userZipMatch = userStr.match(/^(\d{3,5})/);
-      const userZip = userZipMatch ? userZipMatch[1].substring(0, 3) : '';
-      const userText = userStr.replace(/^\d+/, '');
-
-      const aptPrefix = airport.replace('機場', '');
-
-      const availableKeys = Object.keys(state.priceMap).filter(k => {
+      const available = Object.keys(state.priceMap).filter(k => {
         const apt = k.split('_')[0];
-        return apt && (apt.includes(aptPrefix) || airport.includes(apt));
-      }).map(k => {
-          const locPart = k.split('_').slice(1).join('_').replace(/\s+/g, '').replace('台灣', '');
-          const zipMatch = locPart.match(/^(\d{3,5})/);
-          const zip = zipMatch ? zipMatch[1].substring(0, 3) : '';
-          const text = locPart.replace(/^\d+/, '');
-          return { originalKey: k, normalizedLoc: locPart, zip: zip, text: text };
-      });
+        return apt.includes(aptPrefix) || aptPrefix.includes(apt);
+      }).map(k => ({
+        key: k,
+        // 價目表規格化：去掉空格、去掉台灣
+        norm: k.split('_')[1].replace(/\s+/g,'').replace('台灣',''),
+        zip: k.split('_')[1].match(/\d{3}/)?.[0] || '',
+        text: k.split('_')[1].replace(/\d+/g,'').replace('台灣','')
+      }));
 
-      let match = availableKeys.find(k => k.normalizedLoc === userStr);
-      if (match) return state.priceMap[match.originalKey];
-
-      match = availableKeys.find(k => {
-         if (k.text && userText) {
-             if (k.text.length >= 2 && userText.includes(k.text)) return true;
-             if (userText.length >= 2 && k.text.includes(userText)) return true;
-         }
-         return false;
-      });
-      if (match) return state.priceMap[match.originalKey];
-
+      // 1. 完全命中
+      let m = available.find(x => x.norm === userNorm);
+      if (m) return state.priceMap[m.key];
+      // 2. 區域文字命中
+      if (userArea) {
+        m = available.find(x => x.text.includes(userArea) || userArea.includes(x.text));
+        if (m) return state.priceMap[m.key];
+      }
+      // 3. 郵遞區號命中
       if (userZip) {
-          match = availableKeys.find(k => k.zip === userZip);
-          if (match) return state.priceMap[match.originalKey];
+        m = available.find(x => x.zip === userZip);
+        if (m) return state.priceMap[m.key];
       }
       return null;
     }
 
-    function extractPrice(data, carType) {
-      if (!data) return 0;
-      if (typeof data === 'object') {
-         return carType === '大車' ? (data.large || data.price || 0) : (data.small || data.price || 0);
-      }
-      return Number(data) || 0;
-    }
-
     function calculatePrice() {
-      let p1 = 0, p2 = 0;
-      const dataMain = findPriceData(state.airport, state.district);
-      p1 = extractPrice(dataMain, state.carType);
-      
-      const dataExtra = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
-      p2 = extractPrice(dataExtra, state.carType);
-      
-      const baseInfo = (state.hasExtraPoint && p2 > p1) ? { price: p2, name: state.extraDistrict } : { price: p1, name: state.district };
-      
+      const mainData = findPriceData(state.airport, state.district);
+      const extraData = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
+      const extract = (d) => (state.carType==='大車'?(d?.large||0):(d?.small||0));
+      const p1 = extract(mainData), p2 = extract(extraData);
+      const baseInfo = (state.hasExtraPoint && p2 > p1) ? { p: p2, n: state.extraDistrict } : { p: p1, n: state.district };
       const h = parseInt(state.timeHour);
       const fees = {
-        pickup: state.serviceType === '接機' ? 200 : 0,
-        night: (h >= 22 || h < 6) ? 200 : 0,
-        infant: state.infants * 200,
-        signboard: state.extraSignboard ? 200 : 0,
-        extraPoint: (state.hasExtraPoint && state.district && state.extraDistrict) ? (state.district.substring(0, 3) === state.extraDistrict.substring(0, 3) ? 100 : 200) : 0
+        pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0,
+        infant: state.infants*200, signboard: state.extraSignboard?200:0,
+        extra: (state.hasExtraPoint && state.district && state.extraDistrict) ? 100 : 0
       };
-
-      const extraTotal = Object.values(fees).reduce((a, b) => a + b, 0);
-      const estimatedTotal = baseInfo.price > 0 ? baseInfo.price + extraTotal : null;
-
+      const total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : null;
       DOM.displayCarTypeName.innerText = `基本車資 (${state.carType})`;
-      let routeText = '未選 - ' + state.airport;
-      if(state.serviceType === '接機') routeText = `${state.airport} - ${baseInfo.name || '未選'}`;
-      else routeText = `${baseInfo.name || '未選'} - ${state.airport}`;
-      DOM.displayRoute.innerText = routeText;
-
-      DOM.displayBasePrice.innerText = baseInfo.price ? `$${baseInfo.price}` : '待報價';
-      DOM.displayPayment.innerText = `付款：${state.payment}`;
-      DOM.displayTotal.innerText = estimatedTotal ? `$${estimatedTotal}` : '待報價';
-
+      DOM.displayRoute.innerText = `${baseInfo.n || '未選'} ⇄ ${state.airport}`;
+      DOM.displayBasePrice.innerText = baseInfo.p ? `$${baseInfo.p}` : '待報價';
+      DOM.displayTotal.innerText = total ? `$${total}` : '待報價';
       DOM.feesBlock.innerHTML = '';
-      if(fees.pickup > 0) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-base font-bold text-white/90"><span>└ 接機服務費</span><span>+$200</span></div>`;
-      if(fees.night > 0) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-base font-bold text-white/90"><span>└ 夜間加成 (22-06)</span><span>+$200</span></div>`;
-      if(fees.infant > 0) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-base font-bold text-white/90"><span>└ 安全座椅 x ${state.infants}</span><span>+$${fees.infant}</span></div>`;
-      if(fees.signboard > 0) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-base font-bold text-white/90"><span>└ 機場舉牌服務</span><span>+$200</span></div>`;
-      if(fees.extraPoint > 0) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-base font-bold text-white/90"><span>└ 加點服務費</span><span>+$${fees.extraPoint}</span></div>`;
+      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>接機費</span><span>+$200</span></div>`;
+      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>夜間加成</span><span>+$200</span></div>`;
+      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>安座 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
+      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>加點服務</span><span>+$${fees.extra}</span></div>`;
     }
 
-    function bindEvents() {
-      const textInputs = ['name', 'title', 'email', 'district', 'address', 'extraDistrict', 'extraAddress', 'signboardText', 'remarks'];
-      textInputs.forEach(id => {
-        const el = document.getElementById(id);
-        if(el) el.addEventListener('input', e => {
-           state[id] = e.target.value;
-           if (id === 'district' || id === 'extraDistrict') calculatePrice();
-        });
-      });
-
-      document.getElementById('phone').addEventListener('input', e => {
-        let val = e.target.value.replace(/\D/g, '').slice(0, 10);
-        let formatted = val;
-        if (val.length > 7) formatted = `${val.slice(0, 4)}-${val.slice(4, 7)}-${val.slice(7)}`;
-        else if (val.length > 4) formatted = `${val.slice(0, 4)}-${val.slice(4)}`;
-        e.target.value = formatted;
-        state.phone = formatted;
-      });
-
-      document.getElementById('flightNumber').addEventListener('input', e => {
-        e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        state.flightNumber = e.target.value;
-      });
-
-      DOM.date.addEventListener('change', e => {
-        state.date = e.target.value;
-        if(state.date) DOM.date.classList.remove('is-empty');
-        else DOM.date.classList.add('is-empty');
-
-        if (state.date && state.timeHour && state.timeMinute) {
-          const selectedDate = new Date(`${state.date}T${state.timeHour}:${state.timeMinute}:00`);
-          if ((selectedDate.getTime() - new Date().getTime()) / (1000 * 60 * 60) < 24) {
-            showAlert('預約需大於 24 小時，急件請直撥 0915-926-166。', '時間限制', 'error');
-            DOM.date.value = '';
-            state.date = '';
-            DOM.date.classList.add('is-empty');
-          }
+    // --- Google Maps 解析 (保留縣市區域) ---
+    function initGoogleMaps() {
+      const parse = (place, dId, aId) => {
+        const comps = place.address_components || [];
+        const full = (place.formatted_address || "").replace('台灣','').trim();
+        
+        let zip = (comps.find(c=>c.types.includes('postal_code'))?.long_name || "").substring(0,3);
+        let city = (comps.find(c=>c.types.includes('administrative_area_level_1'))?.long_name || "").replace('台灣','').trim();
+        let area = (comps.find(c=>c.types.includes('sublocality_level_1')) || comps.find(c=>c.types.includes('locality')))?.long_name || "";
+        
+        // 新竹地區強規則
+        if (city.includes("新竹") || full.includes("新竹")) {
+           zip = "300"; city = "新竹市";
+           if (full.includes("香山")) area = "香山區";
+           else if (full.includes("北區")) area = "北區";
+           else if (full.includes("東區")) area = "東區";
         }
-      });
 
-      ['timeHour', 'timeMinute', 'serviceType', 'airport', 'carType', 'payment'].forEach(id => {
-        document.getElementById(id).addEventListener('change', e => {
-          state[id] = e.target.value;
-          calculatePrice();
-        });
-      });
+        const distStr = `${zip} ${city} ${area}`.trim();
+        // 詳細地址：直接拿 Google 格式化後的地址(已去台灣)，不再刪減縣市與區域
+        let addrStr = full.replace(/^\d{3,5}/, '').trim(); 
 
-      ['adults', 'children', 'infants', 'carryOn', 'checkedBag'].forEach(id => {
-        document.getElementById(id).addEventListener('change', () => updatePeopleLuggageOptions());
-      });
-
-      DOM.hasExtraPoint.addEventListener('change', e => {
-        state.hasExtraPoint = e.target.checked;
-        if(state.hasExtraPoint) DOM.extraPointBlock.classList.remove('hidden-block');
-        else DOM.extraPointBlock.classList.add('hidden-block');
+        document.getElementById(dId).value = distStr;
+        document.getElementById(aId).value = addrStr;
+        state[dId] = distStr; state[aId] = addrStr;
         calculatePrice();
-      });
-
-      DOM.extraSignboard.addEventListener('change', e => {
-        state.extraSignboard = e.target.checked;
-        if(state.extraSignboard) DOM.signboardText.classList.remove('hidden-block');
-        else DOM.signboardText.classList.add('hidden-block');
-        calculatePrice();
-      });
-
-      document.getElementById('agreed').addEventListener('change', e => state.agreed = e.target.checked);
-      document.getElementById('reservation-form').addEventListener('submit', handleSubmit);
+      };
+      const initAC = (inputId, dId) => {
+        const input = document.getElementById(inputId);
+        const ac = new window.google.maps.places.Autocomplete(input, { types:['geocode','establishment'], componentRestrictions:{country:'tw'} });
+        ac.addListener('place_changed', () => parse(ac.getPlace(), dId, inputId));
+      };
+      if (!window.google) {
+        const s = document.createElement('script');
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-TW`;
+        s.onload = () => { initAC('address','district'); initAC('extraAddress','extraDistrict'); };
+        document.head.appendChild(s);
+      } else { initAC('address','district'); initAC('extraAddress','extraDistrict'); }
     }
 
     async function loadPrices() {
-      DOM.refreshIcon.classList.add('animate-spin');
       try {
-        const url = `${GAS_WEBAPP_URL}?action=getPrices&t=${new Date().getTime()}`; 
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP 狀態碼錯誤: ${res.status}`);
-        const text = await res.text();
-        if (text.trim().startsWith('<')) {
-          throw new Error('權限設定錯誤！請將 Apps Script 設為「所有人」。');
-        }
-        let d;
-        try { d = JSON.parse(text); } catch(jsonErr) { throw new Error('回傳資料格式錯誤。'); }
-        if (d.status === 'error') throw new Error(d.message);
-        const prices = d.prices || d.priceMap || d.data || d; 
-        if (prices && Object.keys(prices).length > 0) {
-          state.priceMap = prices;
-        } else {
-          throw new Error('價目表為空。');
-        }
-      } catch(e) {
-        console.warn('報價載入失敗', e);
-        showAlert(`連線失敗：${e.message}`, '系統連線異常', 'error');
-      } finally {
-        calculatePrice();
-        DOM.refreshIcon.classList.remove('animate-spin');
-      }
+        const res = await fetch(`${GAS_WEBAPP_URL}?action=getPrices&t=${Date.now()}`);
+        const d = await res.json();
+        if (d.status === 'success') { state.priceMap = d.prices; calculatePrice(); }
+      } catch(e) { console.warn('報價載入失敗'); }
     }
 
-    // --- 終極修正：Google Map 解析與郵遞區號抓取 ---
-    function initGoogleMaps() {
-      const parsePlace = (place, distId, addrId) => {
-        const components = place.address_components || [];
-        const fullAddr = place.formatted_address || "";
-        
-        // 抓取郵遞區號 (Google 可能回傳 3 碼或 5 碼)
-        let zip = (components.find(c => c.types.includes('postal_code'))?.long_name || "").substring(0, 3);
-        
-        // 抓取縣市與行政區
-        let city = (components.find(c => c.types.includes('administrative_area_level_1'))?.long_name || "").replace('台灣', '').trim();
-        let area = (components.find(c => c.types.includes('sublocality_level_1')) || components.find(c => c.types.includes('locality')))?.long_name || "";
-        
-        // 解析路名、號碼作為純淨的詳細地址 (去除郵遞區號、縣市、區域、國名)
-        let cleanedAddress = fullAddr.replace(/^台灣\d{3,5}\s*/, '')
-                                     .replace(/^台灣/, '')
-                                     .replace(city, '')
-                                     .replace(area, '')
-                                     .replace(/^\d{3,5}/, '')
-                                     .trim();
-
-        const districtString = `${zip} ${city} ${area}`.trim();
-
-        // 強制更新唯讀欄位與詳細地址欄位
-        const dInput = document.getElementById(distId);
-        const aInput = document.getElementById(addrId);
-        
-        dInput.value = districtString;
-        aInput.value = cleanedAddress;
-        
-        state[distId] = districtString;
-        state[addrId] = cleanedAddress;
-        
-        calculatePrice();
-      };
-
-      const initAC = (inputId, distId) => {
-        const input = document.getElementById(inputId);
-        const ac = new window.google.maps.places.Autocomplete(input, { 
-          types: ['geocode', 'establishment'], 
-          componentRestrictions: { country: 'tw' },
-          fields: ['address_components', 'formatted_address', 'geometry']
-        });
-        ac.addListener('place_changed', () => {
-          const place = ac.getPlace();
-          if (place && place.formatted_address) parsePlace(place, distId, inputId);
-        });
-      };
-
-      if (!window.google) {
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-TW`;
-        script.async = true; script.defer = true;
-        script.onload = () => { initAC('address', 'district'); initAC('extraAddress', 'extraDistrict'); };
-        document.head.appendChild(script);
-      } else {
-        initAC('address', 'district'); initAC('extraAddress', 'extraDistrict');
-      }
-    }
-
-    let liffInitPromise = null;
     function initLiff() {
-      if (liffInitPromise) return liffInitPromise;
-      liffInitPromise = new Promise((resolve) => {
-        const script = document.createElement('script');
-        script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
-        script.onload = () => {
-          window.liff.init({ liffId: LINE_LIFF_ID })
-            .then(() => resolve(window.liff))
-            .catch((err) => resolve(window.liff));
-        };
-        script.onerror = () => resolve(null);
-        document.head.appendChild(script);
-      });
-      return liffInitPromise;
+      const s = document.createElement('script');
+      s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+      s.onload = () => window.liff.init({ liffId: LINE_LIFF_ID });
+      document.head.appendChild(s);
     }
 
-    function showAlert(msg, title = '提示', type = 'info', callback = null) {
-      DOM.modalTitle.innerText = title;
-      DOM.modalMessage.innerText = msg;
-      state.modalCallback = callback;
-      const header = document.getElementById('modal-header');
-      if(type === 'error') {
-        header.className = 'p-4 flex justify-between items-center text-white shrink-0 bg-red-500';
-        DOM.modalIcon.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
-      } else {
-        header.className = 'p-4 flex justify-between items-center text-white shrink-0 bg-[#0ABAB5]';
-        DOM.modalIcon.innerHTML = `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
-      }
+    function showAlert(msg, title='提示', type='info') {
+      DOM.modalTitle.innerText = title; DOM.modalMessage.innerText = msg;
+      document.getElementById('modal-header').className = `p-4 flex justify-between items-center text-white shrink-0 ${type==='error'?'bg-red-500':'bg-[#0ABAB5]'}`;
       DOM.modal.classList.remove('hidden-block');
     }
+    function closeModal() { DOM.modal.classList.add('hidden-block'); }
+    DOM.modalConfirmBtn.onclick = closeModal;
 
-    function closeModal() {
-      DOM.modal.classList.add('hidden-block');
-      if (state.modalCallback) { state.modalCallback(); state.modalCallback = null; }
-    }
-    DOM.modalConfirmBtn.addEventListener('click', closeModal);
-
-    function handleSubmit(e) {
+    document.getElementById('reservation-form').onsubmit = async (e) => {
       e.preventDefault();
-      const missing = [];
-      if (!state.name.trim()) missing.push('乘車人全名');
-      if (state.phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話');
-      if (!state.email.trim()) missing.push('電子信箱');
-      if (!state.district) missing.push('接送地址 (請透過地圖選單選取建議)');
-      if (!state.address.trim()) missing.push('詳細地址');
-      if (!state.date) missing.push('乘車日期');
-      if (!state.flightNumber.trim()) missing.push('航班編號');
-      if (missing.length > 0) return showAlert(`請確認以下欄位：\n\n• ${missing.join('\n• ')}`, '資料未填妥', 'error');
-      if (!state.agreed) return showAlert('請閱讀並勾選最下方同意資訊。', '提醒', 'error');
-
-      const totalStr = document.getElementById('display-total').innerText;
-      const lineText = `【RS專車接送 預約單】\n預約編號：${state.reservationId}\n乘車人：${state.name} ${state.title}\n電話：${state.phone}\n時間：${state.date} ${state.timeHour}:${state.timeMinute}\n行程：${state.serviceType} (${state.airport})\n地址：${state.district} ${state.address}\n車型：${state.carType}\n總額：${totalStr}`;
-      
-      const payload = { 
-        action: 'addReservation', 
-        data: { 
-          reservationId: state.reservationId, 
-          name: `${state.name} ${state.title}`, 
-          phone: state.phone, email: state.email, date: state.date, time: `${state.timeHour}:${state.timeMinute}`,
-          serviceType: state.serviceType, airport: state.airport, flightNumber: state.flightNumber,
-          district: state.district, address: state.address, carType: state.carType, 
-          passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
-          luggage: `登機:${state.carryOn},託運:${state.checkedBag}`, 
-          payment: state.payment, totalFee: totalStr, remarks: state.signboardText, timestamp: new Date().toLocaleString()
-        } 
-      };
-      executeSubmit(payload, lineText);
-    }
-
-    async function executeSubmit(payload, lineText) {
-      if (state.isSubmitting) return;
-      state.isSubmitting = true;
-      DOM.submitBtn.innerText = '預約資料傳送中...';
+      if (!state.district) return showAlert('請點選建議選單帶入地址','地址錯誤','error');
+      if (!document.getElementById('agreed').checked) return showAlert('請勾選同意條款','提醒');
+      state.isSubmitting = true; DOM.submitBtn.innerText = '傳送中...';
+      const totalStr = DOM.displayTotal.innerText;
+      const lineText = `【RS預約單】\n編號：${state.reservationId}\n乘客：${state.name} ${state.title}\n日期：${state.date} ${state.timeHour}:${state.timeMinute}\n行程：${state.serviceType} (${state.airport})\n地址：${state.address}\n車型：${state.carType}\n總額：${totalStr}`;
+      const payload = { action:'addReservation', data:{ ...state, passengers:`大${state.adults},小${state.children},幼${state.infants}`, luggage:`登機:${state.carryOn},託運:${state.checkedBag}`, totalFee:totalStr, timestamp:new Date().toLocaleString() }};
       try {
-        fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) }).catch(()=>{});
-        const liffModule = await initLiff();
-        if (liffModule && liffModule.isInClient()) {
-          await liffModule.sendMessages([{ type: 'text', text: lineText }]);
+        fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
+        if (window.liff.isInClient()) {
+          await window.liff.sendMessages([{ type:'text', text:lineText }]);
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-done').classList.remove('hidden-block');
           document.getElementById('view-done').classList.add('flex');
-          setTimeout(() => { liffModule.closeWindow(); }, 1500);
+          setTimeout(()=>window.liff.closeWindow(), 2000);
         } else {
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-success').classList.remove('hidden-block');
           document.getElementById('fallback-message').innerText = lineText;
         }
-      } catch (err) {
-        showAlert('預約傳送失敗，請檢查網路。', '傳送錯誤', 'error');
-        state.isSubmitting = false;
-        DOM.submitBtn.innerText = '確認預約並送出';
-      }
-    }
+      } catch(err) { showAlert('傳送失敗','錯誤','error'); state.isSubmitting=false; DOM.submitBtn.innerText='重新送出'; }
+    };
 
     initSelectOptions();
-    bindEvents();
     loadPrices();
     initGoogleMaps();
     initLiff();
+    
+    ['name','email','phone','flightNumber','signboardText'].forEach(id => {
+      document.getElementById(id).oninput = (e) => state[id] = e.target.value;
+    });
+    ['timeHour','timeMinute','serviceType','airport','carType','payment'].forEach(id => {
+      document.getElementById(id).onchange = (e) => { state[id] = e.target.value; calculatePrice(); };
+    });
+    ['adults','children','infants','carryOn','checkedBag'].forEach(id => {
+      document.getElementById(id).onchange = updatePeopleLuggageOptions;
+    });
+    DOM.hasExtraPoint.onchange = (e) => {
+      state.hasExtraPoint = e.target.checked;
+      DOM.extraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block';
+      calculatePrice();
+    };
+    DOM.extraSignboard.onchange = (e) => {
+      state.extraSignboard = e.target.checked;
+      DOM.signboardText.className = e.target.checked ? 'w-full mt-2 p-3 border rounded-sm' : 'hidden-block';
+      calculatePrice();
+    };
+    DOM.date.onchange = (e) => state.date = e.target.value;
   </script>
 </body>
 </html>
