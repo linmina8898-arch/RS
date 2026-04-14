@@ -29,7 +29,6 @@
     }
   </script>
 
-  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     .justify-text {
       text-align: justify;
@@ -176,20 +175,33 @@
         setPhone(formatted);
       };
 
+      // --- 動態載入 LIFF SDK ---
+      const loadLiff = useCallback(() => {
+        return new Promise((resolve, reject) => {
+          if (window.liff) return resolve(window.liff);
+          const script = document.createElement('script');
+          script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+          script.onload = () => resolve(window.liff);
+          script.onerror = () => reject(new Error('被瀏覽器或擋廣告軟體阻擋'));
+          document.head.appendChild(script);
+        });
+      }, []);
+
       useEffect(() => {
         const initLiff = async () => {
-          if (window.liff) {
-            try {
-              await window.liff.init({ liffId: LINE_LIFF_ID });
-              console.log('LIFF Initialized Successfully');
-            } catch (err) {
-              console.warn('LIFF Init Failed');
+          try {
+            const liffModule = await loadLiff();
+            if (!liffModule.id) {
+              await liffModule.init({ liffId: LINE_LIFF_ID });
             }
+            console.log('LIFF Initialized Successfully');
+          } catch (err) {
+            console.warn('LIFF Init Failed', err);
           }
         };
         initLiff();
         window.gm_authFailure = () => showAlert("地圖補全功能載入失敗，請手動輸入詳細地址。", "地圖服務", "error");
-      }, [showAlert]);
+      }, [showAlert, loadLiff]);
 
       // 人數與行李總數限制邏輯 (最多6)
       const totalPeople = useMemo(() => Number(adults) + Number(children) + Number(infants), [adults, children, infants]);
@@ -295,7 +307,7 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + extra : null;
       }, [basePriceInfo.price, fees]);
 
-      // ----- 重點修改區域開始 -----
+      // ----- 重點修改區域開始：更穩定的 LIFF 發送處理 -----
       const executeSubmit = async (payload, lineText) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
@@ -307,24 +319,22 @@
           let liffSent = false;
           let liffErrorMsg = '';
 
-          // 2. 處理 LINE LIFF 發送訊息
-          if (window.liff) {
-            try {
-              if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
-              
-              // 移除 login()，避免未登入時跳轉打斷流程
-              if (window.liff.isInClient()) {
-                await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-                liffSent = true;
-              } else {
-                liffErrorMsg = '系統偵測非 LINE 聊天室開啟。';
-              }
-            } catch (e) { 
-              console.error('LINE發送失敗', e); 
-              liffErrorMsg = '發生錯誤，請確認 LINE 後台是否開啟 chat_message.write 權限。';
+          // 2. 處理 LINE LIFF 發送訊息 (動態載入確保有 liff 可用)
+          try {
+            const liffModule = await loadLiff();
+            if (!liffModule.id) {
+               await liffModule.init({ liffId: LINE_LIFF_ID });
             }
-          } else {
-            liffErrorMsg = '無法載入 LINE LIFF 模組。';
+            
+            if (liffModule.isInClient()) {
+              await liffModule.sendMessages([{ type: 'text', text: lineText }]);
+              liffSent = true;
+            } else {
+              liffErrorMsg = '非 LINE 聊天室環境（例如在一般瀏覽器中開啟）。';
+            }
+          } catch (e) { 
+            console.error('LINE 發送失敗', e); 
+            liffErrorMsg = e.message.includes('被阻擋') ? e.message : '請確認 LINE 後台是否開啟 chat_message.write 權限。';
           }
           
           // 3. 顯示結果
@@ -333,7 +343,7 @@
               if (window.liff) window.liff.closeWindow();
             });
           } else {
-             showAlert(`🌟 預約已送出至系統！\n\n⚠️ 無法自動回傳：\n${liffErrorMsg}\n\n請自行截圖保存明細：\n\n${lineText}`, '預約成功 (請自行截圖)', 'info');
+             showAlert(`🌟 預約已成功送出至系統！\n\n⚠️ 但無法自動回傳 LINE 訊息：\n（原因：${liffErrorMsg}）\n\n請您自行截圖下方明細保存：\n\n${lineText}`, '預約成功 (請自行截圖)', 'info');
           }
         } catch (err) { 
           showAlert('資料傳送過程中發生錯誤，請檢查網路連線。', '系統錯誤', 'error'); 
