@@ -90,12 +90,12 @@
           <div class="pt-2 border-t border-gray-100 mt-2 relative">
             <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
             <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (自動解析)">
-            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請輸入詳細地址並從選單選取">
+            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請在此輸入詳細地址並從選單選取">
 
             <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
               <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
                 <input type="checkbox" id="hasExtraPoint" class="w-5 h-5 accent-[#0ABAB5]">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> 需加點服務 (每點 +$100起)
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> 需加點服務 (同區+$100/跨區+$200)
               </label>
               <p class="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點上下車順序需由本公司安排。</p>
               <div id="extra-point-block" class="hidden-block mt-4 space-y-2">
@@ -186,7 +186,7 @@
             <br>
             <p>4、為維護乘車品質，顧及每位貴賓權益，車內請勿飲食。</p>
             <br>
-            <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
+            <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶過使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
           </div>
           <label class="flex items-start gap-3 cursor-pointer p-4 border border-[#0ABAB5] font-black text-sm bg-white active:bg-[#0ABAB5]/5 transition-colors rounded-sm shadow-sm mt-4">
             <input type="checkbox" id="agreed" class="w-6 h-6 mt-0.5 accent-[#0ABAB5]">我同意以上資訊與免責聲明。
@@ -344,10 +344,28 @@
       const p1 = extract(mainData), p2 = extract(extraData);
       const baseInfo = (state.hasExtraPoint && p2 > p1) ? { p: p2, n: state.extraDistrict } : { p: p1, n: state.district };
       const h = parseInt(state.timeHour);
+      
+      // 加點費用計算邏輯 (同區 100 / 跨區 200)
+      let extraFee = 0;
+      let extraLabel = "加點服務費";
+      if (state.hasExtraPoint && state.district && state.extraDistrict) {
+        const zip1 = state.district.substring(0, 3);
+        const zip2 = state.extraDistrict.substring(0, 3);
+        if (zip1 === zip2) {
+          extraFee = 100;
+          extraLabel = "加點服務(同區)";
+        } else {
+          extraFee = 200;
+          extraLabel = "加點服務(跨區)";
+        }
+      }
+
       const fees = {
-        pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0,
-        infant: state.infants*200, signboard: state.extraSignboard?200:0,
-        extra: (state.hasExtraPoint && state.district && state.extraDistrict) ? 100 : 0
+        pickup: state.serviceType==='接機'?200:0, 
+        night: (h>=22||h<6)?200:0,
+        infant: state.infants*200, 
+        signboard: state.extraSignboard?200:0,
+        extra: extraFee
       };
       const total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : null;
       
@@ -363,11 +381,11 @@
       DOM.displayPayment.innerText = `付款：${state.payment}`;
 
       DOM.feesBlock.innerHTML = '';
-      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>接機服務費</span><span>+$200</span></div>`;
-      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>夜間加成 (22-06)</span><span>+$200</span></div>`;
-      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>安全座椅 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
-      if(fees.signboard) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>機場舉牌服務</span><span>+$200</span></div>`;
-      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>加點服務費</span><span>+$${fees.extra}</span></div>`;
+      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 接機服務費</span><span>+$200</span></div>`;
+      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 夜間加成 (22-06)</span><span>+$200</span></div>`;
+      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 安全座椅 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
+      if(fees.signboard) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 機場舉牌服務</span><span>+$200</span></div>`;
+      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${extraLabel}</span><span>+$${fees.extra}</span></div>`;
     }
 
     function initGoogleMaps() {
@@ -454,10 +472,7 @@
       if (!state.name.trim()) return showAlert('請輸入乘車人姓名', '提示', 'error');
       const rawPhone = state.phone.replace(/\D/g, '');
       if (rawPhone.length !== 10) return showAlert('電話號碼格式錯誤 (請輸入10位數字)', '提示', 'error');
-      
-      // MAIL 強制必填檢查
       if (!state.email.trim()) return showAlert('請輸入電子信箱', '提示', 'error');
-      
       if (!state.district) return showAlert('請透過地圖建議選單帶入接送地址', '地址錯誤', 'error');
       if (!state.date) return showAlert('請選擇乘車日期', '提示', 'error');
       if (!state.flightNumber.trim()) return showAlert('請填寫航班編號', '提示', 'error');
@@ -490,15 +505,21 @@
 
       const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
 
+      // 整合加點明細到備註，確保後台一定收得到
+      let finalRemarks = state.extraSignboard ? "[舉牌:" + state.signboardText + "]" : "無";
+      if (state.hasExtraPoint) {
+        finalRemarks += ` | 加點地址：${state.extraDistrict} ${state.extraAddress}`;
+      }
+
       const payload = { 
         action:'addReservation', 
         data:{ 
           ...state, 
-          // 時間加上單引號前綴，強制後端視為文字
           time: "'" + state.timeHour + ":" + state.timeMinute,
           passengers:`大${state.adults},小${state.children},幼${state.infants}`, 
           luggage:`登機:${state.carryOn},託運:${state.checkedBag}`, 
           totalFee:totalStr, 
+          remarks: finalRemarks,
           timestamp:new Date().toLocaleString() 
         }
       };
