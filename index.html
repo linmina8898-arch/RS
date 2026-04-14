@@ -306,45 +306,51 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + extra : null;
       }, [basePriceInfo.price, fees]);
 
-      // ----- 重點修改區域開始：無彈跳視窗、直接處理發送 -----
+      // ----- 重點修改區域開始：整合兩段式發送並符合 React 狀態操作 -----
       const executeSubmit = async (payload, lineText) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
         try {
-          // 1. 先發送資料給 Google Apps Script (背景執行)
+          // 1. 發送資料給 Google Apps Script (背景執行)
           const gasTask = fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           await gasTask;
 
-          let liffSent = false;
-          let liffErrorMsg = '';
+          // 準備要傳送的第二段通知訊息
+          const successNotice = "✅ 感謝您的線上預約！\n客服人員將會盡快為您安排專屬座車，並與您聯繫確認細節。有任何問題請隨時與我們聯繫！";
 
-          // 2. 處理 LINE LIFF 發送訊息
+          // 2. 確保 LIFF 模組載入
+          let liffModule = window.liff;
           try {
-            const liffModule = await loadLiff();
-            if (!liffModule.id) {
-               await liffModule.init({ liffId: LINE_LIFF_ID });
-            }
-            
-            if (liffModule.isInClient()) {
-              await liffModule.sendMessages([{ type: 'text', text: lineText }]);
-              liffSent = true;
-            } else {
-              liffErrorMsg = '非 LINE 聊天室環境（例如在一般瀏覽器中開啟）。';
-            }
-          } catch (e) { 
-            console.error('LINE 發送失敗', e); 
-            liffErrorMsg = e.message.includes('被阻擋') ? e.message : '請確認 LINE 後台是否開啟 chat_message.write 權限。';
+             if (!liffModule) liffModule = await loadLiff();
+             if (!liffModule.id) await liffModule.init({ liffId: LINE_LIFF_ID });
+          } catch (e) {
+             console.warn('LIFF 載入失敗', e);
           }
-          
-          // 3. 處理畫面反饋 (無彈出視窗)
-          if (liffSent) {
-            // 在 LINE 環境內：直接秒關網頁，將明細丟回聊天室
-            if (window.liff) window.liff.closeWindow();
+
+          // 3. 傳送 LINE 訊息 (使用兩段式獨立訊息發送)
+          if (liffModule && liffModule.isInClient()) {
+              try {
+                  // ★ 兩段式獨立訊息發送 ★
+                  const messagesToSend = [
+                      { type: 'text', text: lineText },     // 第一段：預約單明細
+                      { type: 'text', text: successNotice } // 第二段：感謝與後續通知
+                  ];
+                  
+                  await liffModule.sendMessages(messagesToSend);
+                  
+                  // 送出成功後直接關閉視窗 (無彈跳視窗)
+                  liffModule.closeWindow();
+              } catch (err) {
+                  // 傳送失敗：切換靜態成功畫面並請用戶截圖
+                  setFallbackMessage(`⚠️ LINE 傳送失敗，請手動截圖給客服：\n\n${lineText}\n\n${successNotice}`);
+                  setSubmitSuccess(true);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
           } else {
-             // 不在 LINE 內或失敗：不彈視窗，直接將表單切換為成功靜態畫面
-             setFallbackMessage(`⚠️ 無法自動回傳 LINE 訊息\n（原因：${liffErrorMsg}）\n\n預約資料已成功傳送至系統，請自行截圖下方明細保存：\n\n${lineText}`);
-             setSubmitSuccess(true);
-             window.scrollTo({ top: 0, behavior: 'smooth' });
+              // 測試模式下顯示自訂的成功訊息 (非 LINE 客戶端)
+              setFallbackMessage(`(測試模式/非LINE環境)\n預約已送出，實際預約單內容如下：\n\n${lineText}\n\n${successNotice}`);
+              setSubmitSuccess(true);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
           }
         } catch (err) { 
           showAlert('資料傳送過程中發生錯誤，請檢查網路連線。', '系統錯誤', 'error'); 
@@ -352,6 +358,7 @@
           setIsSubmitting(false); 
         }
       };
+      // ----- 重點修改區域結束 -----
 
       const handleSubmit = (e) => {
         e.preventDefault();
@@ -378,7 +385,6 @@
         
         executeSubmit(payload, lineText);
       };
-      // ----- 重點修改區域結束 -----
 
       const renderOptions = (currentOtherSum, max, excludeZero = false) => {
         const available = Math.max(0, max - currentOtherSum);
