@@ -215,32 +215,50 @@
         }
       }, [date, timeHour, timeMinute, showAlert]);
 
-      // 精準行政區抓取邏輯：杜絕重複郵遞區號 (解決 310 310 問題)
+      // 精準行政區抓取邏輯：強制顯示標準格式，解決重複區號問題
       const parsePlaceToDistrictAndAddress = useCallback((place, distSetter, addrSetter) => {
         const components = place.address_components || [];
         const fullAddr = place.formatted_address || "";
         
-        // 1. 抓取 3 碼郵遞區號
+        // 1. 基礎提取
         const postCodeObj = components.find(c => c.types.includes('postal_code'));
         let zipCode = postCodeObj ? postCodeObj.long_name.substring(0, 3) : '';
-        if (!zipCode) {
-          const match = fullAddr.match(/(\d{3,5})/);
-          if (match) zipCode = match[1].substring(0, 3);
-        }
-
-        // 2. 抓取縣市與區域，並清理數字干擾
+        
         const cityComp = components.find(c => c.types.includes('administrative_area_level_1'));
+        let cityName = (cityComp ? cityComp.long_name : "").replace(/\d+/g, '').replace('台灣', '').trim();
+
         const areaComp = components.find(c => c.types.includes('sublocality_level_1')) || 
                         components.find(c => c.types.includes('locality'));
-        
-        const cityName = (cityComp ? cityComp.long_name : "").replace(/\d+/g, '').replace('台灣', '').trim();
-        const areaName = (areaComp ? areaComp.long_name : "").replace(/\d+/g, '').trim();
+        let areaName = (areaComp ? areaComp.long_name : "").replace(/\d+/g, '').trim();
 
-        // 3. 組合價目表標準格式：310 新竹縣 竹東鎮
-        const priceListFormat = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
-        distSetter(priceListFormat);
+        // 2. 強制判定邏輯：根據地址內容強制修正
+        if (fullAddr.includes("香山區")) {
+          zipCode = "300"; cityName = "新竹市"; areaName = "香山區";
+        } else if (fullAddr.includes("東區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) {
+          zipCode = "300"; cityName = "新竹市"; areaName = "東區";
+        } else if (fullAddr.includes("北區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) {
+          zipCode = "300"; cityName = "新竹市"; areaName = "北區";
+        } else if (fullAddr.includes("竹南")) {
+          zipCode = "350"; cityName = "苗栗縣"; areaName = "竹南鎮";
+        } else if (fullAddr.includes("頭份")) {
+          zipCode = "350"; cityName = "苗栗縣"; areaName = "頭份市";
+        } else if (fullAddr.includes("竹北")) {
+          zipCode = "302"; cityName = "新竹縣"; areaName = "竹北市";
+        } else if (fullAddr.includes("湖口")) {
+          zipCode = "303"; cityName = "新竹縣"; areaName = "湖口鄉";
+        } else if (fullAddr.includes("新豐")) {
+          zipCode = "304"; cityName = "新竹縣"; areaName = "新豐鄉";
+        } else if (fullAddr.includes("寶山")) {
+          zipCode = "308"; cityName = "新竹縣"; areaName = "寶山鄉";
+        } else if (fullAddr.includes("竹東")) {
+          zipCode = "310"; cityName = "新竹縣"; areaName = "竹東鎮";
+        }
+
+        // 3. 組合標準格式：[郵遞區號] [縣市] [區域]
+        const finalDistrict = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
+        distSetter(finalDistrict);
         
-        // 4. 清理詳細地址 (避免開頭重複資訊)
+        // 4. 清理詳細地址 (避免重複呈現已在上方顯示的縣市區域)
         let cleanAddr = fullAddr
           .replace(/^台灣\d{3,5}\s*/, '')
           .replace(/^台灣/, '')
@@ -360,7 +378,7 @@
               if (window.liff && window.liff.isInClient()) window.liff.closeWindow();
             });
           } else {
-            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請截圖保存預約明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請手動截圖保存預約明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
         } catch (err) { showAlert('資料傳送發生錯誤，請檢查網路。', '系統錯誤', 'error'); } 
         finally { setIsSubmitting(false); setConfirmData(null); }
@@ -448,7 +466,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
 
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4 text-[#0ABAB5]" /> 接送地址</label>
-                  <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed" value={district} readOnly placeholder="區域區號 (由下方自動帶入)" />
+                  <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed" value={district} readOnly placeholder="郵遞區號 縣市 區域 (自動帶入)" />
                   <input ref={addressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5]" value={address} onChange={e=>setAddress(e.target.value)} placeholder="輸入詳細地址 (點選自動帶入區號)" />
 
                   <div className="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
@@ -539,9 +557,9 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               </section>
 
               <section className="mt-8 border-t-2 border-[#0ABAB5] pt-6">
-                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm">
+                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
                   <h3 className="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><ShieldAlert className="w-4 h-4" /> 【注意事項】</h3>
-                  <div className="space-y-4 font-bold text-gray-800">
+                  <div className="space-y-4 text-sm font-bold text-gray-800">
                     <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
                     <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
