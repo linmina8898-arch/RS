@@ -111,7 +111,7 @@
                 disabled={isSubmitting} 
                 className="flex-1 py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2"
               >
-                確定
+                我知道了
               </button>
             </div>
           </div>
@@ -306,7 +306,7 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + extra : null;
       }, [basePriceInfo.price, fees]);
 
-      // ----- 重點修改區域開始：整合兩段式發送並符合 React 狀態操作 -----
+      // ----- 執行發送與 LINE 互動邏輯 -----
       const executeSubmit = async (payload, lineText) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
@@ -327,10 +327,9 @@
              console.warn('LIFF 載入失敗', e);
           }
 
-          // 3. 傳送 LINE 訊息 (使用兩段式獨立訊息發送)
+          // 3. 傳送 LINE 訊息 (兩段式獨立訊息發送並直接關閉)
           if (liffModule && liffModule.isInClient()) {
               try {
-                  // ★ 兩段式獨立訊息發送 ★
                   const messagesToSend = [
                       { type: 'text', text: lineText },     // 第一段：預約單明細
                       { type: 'text', text: successNotice } // 第二段：感謝與後續通知
@@ -338,7 +337,7 @@
                   
                   await liffModule.sendMessages(messagesToSend);
                   
-                  // 送出成功後直接關閉視窗 (無彈跳視窗)
+                  // 送出成功後直接關閉視窗 (無彈跳視窗，平順回到 LINE 聊天室)
                   liffModule.closeWindow();
               } catch (err) {
                   // 傳送失敗：切換靜態成功畫面並請用戶截圖
@@ -347,8 +346,8 @@
                   window.scrollTo({ top: 0, behavior: 'smooth' });
               }
           } else {
-              // 測試模式下顯示自訂的成功訊息 (非 LINE 客戶端)
-              setFallbackMessage(`(測試模式/非LINE環境)\n預約已送出，實際預約單內容如下：\n\n${lineText}\n\n${successNotice}`);
+              // 非 LINE 客戶端：顯示自訂的成功訊息
+              setFallbackMessage(`(一般瀏覽器環境)\n預約已送出，實際預約單內容如下：\n\n${lineText}\n\n${successNotice}`);
               setSubmitSuccess(true);
               window.scrollTo({ top: 0, behavior: 'smooth' });
           }
@@ -358,33 +357,57 @@
           setIsSubmitting(false); 
         }
       };
-      // ----- 重點修改區域結束 -----
 
+      // ----- 重點修改區域：完整未填欄位提示 -----
       const handleSubmit = (e) => {
         e.preventDefault();
-        // 基本資料驗證（錯誤才會彈提示）
-        if (!agreed) return showAlert('請先閱讀並勾選最下方的「我同意以上資訊與免責聲明」後再送出預約。', '提醒', 'error');
+        
         const missing = [];
+        
+        // 1. 基本資料檢查
         if (!name.trim()) missing.push('乘車人全名');
-        if (phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話 (需10碼)');
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) missing.push('信箱格式錯誤');
+        if (phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話 (需完整10碼)');
+        if (!email.trim()) missing.push('電子信箱 (MAIL)');
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) missing.push('信箱格式錯誤');
+        
+        // 2. 接送地址檢查
         if (!district) missing.push('接送區域 (請透過地圖選取)');
-        if (!address) missing.push('詳細地址');
+        if (!address.trim()) missing.push('詳細地址');
+        
+        // 3. 加點地址檢查 (如果有勾選加點)
+        if (hasExtraPoint) {
+          if (!extraDistrict) missing.push('加點區域 (請透過地圖選取)');
+          if (!extraAddress.trim()) missing.push('加點詳細地址');
+        }
+        
+        // 4. 乘車資訊檢查
         if (!date) missing.push('乘車日期');
-        if (!flightNumber) missing.push('航班編號');
+        if (!flightNumber.trim()) missing.push('航班編號');
+        
+        // 5. 其他服務檢查
         if (extraSignboard && !signboardText.trim()) missing.push('舉牌服務內容');
         
-        if (totalPeople > 6) missing.push(`人數總計不可超過 6 位 (目前: ${totalPeople})`);
-        if (totalLuggage > 6) missing.push(`行李總計不可超過 6 件 (目前: ${totalLuggage})`);
+        // 6. 限制人數/行李檢查
+        if (totalPeople > 6) missing.push(`人數總計不可超過 6 位 (目前: ${totalPeople}位)`);
+        if (totalLuggage > 6) missing.push(`行李總計不可超過 6 件 (目前: ${totalLuggage}件)`);
 
-        if (missing.length > 0) return showAlert(`請填寫以下欄位：\n• ${missing.join('\n• ')}`, '資料不全', 'error');
+        // 統整報錯：如果有未填寫的欄位，統一跳出一次完整提示！
+        if (missing.length > 0) {
+          return showAlert(`請確認以下欄位是否已填寫正確：\n\n• ${missing.join('\n• ')}`, '資料尚未填妥', 'error');
+        }
 
-        // 驗證通過，不顯示確認視窗，直接送出！
+        // 最後檢查是否勾選同意條款
+        if (!agreed) {
+          return showAlert('請先閱讀並勾選最下方的「我同意以上資訊與免責聲明」後再送出預約。', '提醒', 'error');
+        }
+
+        // 驗證全部通過，直接建構訊息並送出！(不再有確認視窗)
         const lineText = `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n全名：${name} ${title}\n電話：${phone}\n日期：${date}\n時間：${timeHour}:${timeMinute}\n服務：${serviceType}\n機場：${airport}\n航班：${flightNumber}\n地址：${district} ${address}\n${hasExtraPoint ? `加點：${extraDistrict} ${extraAddress}\n` : ''}車型：${carType}\n人數：大${adults},小${children},幼${infants}\n行李：登機箱${carryOn},託運${checkedBag}\n總額：${estimatedTotal ? '$'+estimatedTotal : '待報價'} (${payment})`;
         const payload = { action: 'addReservation', data: { reservationId, name: `${name} ${title}`, phone, email, date, time: `'${timeHour}:${timeMinute}`, serviceType, airport, flightNumber, district, address, carType, luggage: `登機:${carryOn},託運:${checkedBag}`, payment, totalFee: estimatedTotal || '待報價', remarks: `${remarks}${extraSignboard ? ` [舉牌:${signboardText}]` : ''}`, timestamp: new Date().toLocaleString() } };
         
         executeSubmit(payload, lineText);
       };
+      // ----- 重點修改區域結束 -----
 
       const renderOptions = (currentOtherSum, max, excludeZero = false) => {
         const available = Math.max(0, max - currentOtherSum);
@@ -468,7 +491,8 @@
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
                 <label className="block text-sm font-bold text-gray-700">乘車日期</label>
-                <input type="date" required className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期" />
+                {/* 移除了原本 date 的 HTML 原生 required 屬性，改由系統統一彈窗提示 */}
+                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期" />
                 <div className="flex gap-2">
                   <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
                   <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
