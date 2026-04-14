@@ -46,13 +46,19 @@
       border-radius: 10px;
     }
     /* 修正日期輸入框 placeholder 顯示 */
-    input[type="date"]::before {
+    input[type="date"].is-empty {
+      color: transparent;
+    }
+    input[type="date"].is-empty::before {
       content: attr(placeholder);
       width: 100%;
       color: #9ca3af;
+      display: block;
     }
-    input[type="date"]:focus::before,
-    input[type="date"]:valid::before {
+    input[type="date"]:focus {
+      color: inherit;
+    }
+    input[type="date"]:focus::before {
       display: none;
     }
   </style>
@@ -304,7 +310,7 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + extra : null;
       }, [basePriceInfo.price, fees]);
 
-      // ----- 執行發送與 LINE 互動邏輯 (替換為您的 snippet 邏輯) -----
+      // ----- 執行發送與 LINE 互動邏輯 -----
       const executeSubmit = async (payload, lineText) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
@@ -325,21 +331,16 @@
              console.warn('LIFF 載入失敗', e);
           }
 
-          // 3. 傳送 LINE 訊息 (使用您提供的兩段式獨立訊息發送)
+          // 3. 傳送 LINE 訊息
           if (liffModule && liffModule.isInClient()) {
               try {
-                  // ★ 兩段式獨立訊息發送 ★
-                  const messagesToSend = [{ type: 'text', text: lineText }]; // 相當於您的 orderMsg
-                  
-                  // 因進入這個函式代表已同意，直接加入成功提示
+                  const messagesToSend = [{ type: 'text', text: lineText }];
                   messagesToSend.push({ type: 'text', text: successNotice });
                   
                   await liffModule.sendMessages(messagesToSend);
                   
-                  // 顯示成功視窗，並且綁定關閉視窗的 callback 到「確定」按鈕上
-                  showAlert(`${successNotice}\n\n(點擊確定後將自動關閉視窗)`, '預約已成功送出', 'success', () => {
-                      liffModule.closeWindow();
-                  });
+                  // 傳送成功後，直接關閉視窗回到 LINE 對話，不再顯示彈出視窗
+                  liffModule.closeWindow();
               } catch (err) {
                   // 傳送失敗提示
                   showAlert(`請手動截圖給客服：\n\n${lineText}\n\n${successNotice}`, '傳送失敗', 'error');
@@ -398,7 +399,7 @@
           return showAlert('請先閱讀並勾選最下方的「我同意以上資訊與免責聲明」後再送出預約。', '提醒', 'error');
         }
 
-        // 驗證全部通過，直接建構訊息並送出！(不再有確認視窗)
+        // 驗證全部通過，直接建構訊息並送出！
         const lineText = `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n全名：${name} ${title}\n電話：${phone}\n日期：${date}\n時間：${timeHour}:${timeMinute}\n服務：${serviceType}\n機場：${airport}\n航班：${flightNumber}\n地址：${district} ${address}\n${hasExtraPoint ? `加點：${extraDistrict} ${extraAddress}\n` : ''}車型：${carType}\n人數：大${adults},小${children},幼${infants}\n行李：登機箱${carryOn},託運${checkedBag}\n總額：${estimatedTotal ? '$'+estimatedTotal : '待報價'} (${payment})`;
         const payload = { action: 'addReservation', data: { reservationId, name: `${name} ${title}`, phone, email, date, time: `'${timeHour}:${timeMinute}`, serviceType, airport, flightNumber, district, address, carType, luggage: `登機:${carryOn},託運:${checkedBag}`, payment, totalFee: estimatedTotal || '待報價', remarks: `${remarks}${extraSignboard ? ` [舉牌:${signboardText}]` : ''}`, timestamp: new Date().toLocaleString() } };
         
@@ -410,13 +411,11 @@
         return Array.from({length: available + 1}, (_, i) => i).filter(n => !(excludeZero && n === 0)).map(i => <option key={i} value={i}>{i}</option>);
       };
 
-      // 正常預約表單畫面 (移除了滿版成功畫面，使用 CustomModal 處理各種提示)
       return (
         <div className="pb-10 text-[#222]">
           <CustomModal 
             isOpen={modal.open} title={modal.title} message={modal.message} type={modal.type} isSubmitting={isSubmitting} 
             onClose={() => {
-              // 若有設定回呼函數 (例如 liffModule.closeWindow)，則執行它
               if (modal.onConfirm) modal.onConfirm();
               setModal({ open: false, title: '', message: '', type: 'info', onConfirm: null });
             }} 
@@ -471,8 +470,7 @@
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
                 <label className="block text-sm font-bold text-gray-700">乘車日期</label>
-                {/* 移除了原本 date 的 HTML 原生 required 屬性，改由系統統一彈窗提示 */}
-                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期 (西元年/月/日)" />
+                <input type="date" className={`w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base ${!date ? 'is-empty' : ''}`} value={date} onChange={e=>setDate(e.target.value)} placeholder="輸入乘車日期" />
                 <div className="flex gap-2">
                   <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
                   <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
