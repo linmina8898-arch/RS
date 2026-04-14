@@ -53,6 +53,16 @@
       background: #0ABAB5;
       border-radius: 10px;
     }
+    /* 修正日期輸入框 placeholder 顯示 */
+    input[type="date"]::before {
+      content: attr(placeholder);
+      width: 100%;
+      color: #9ca3af;
+    }
+    input[type="date"]:focus::before,
+    input[type="date"]:valid::before {
+      display: none;
+    }
   </style>
 </head>
 <body class="bg-gray-50 text-black font-sans">
@@ -73,11 +83,6 @@
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009753964-IEeYinij';
 
-    const DISTRICTS_FALLBACK = {
-      "台北市": ["100 台北市 中正區", "103 台北市 大同區", "104 台北市 中山區", "105 台北市 松山區", "106 台北市 大安區", "108 台北市 萬華區", "110 台北市 信義區", "111 台北市 士林區", "112 台北市 北投區", "114 台北市 內湖區", "115 台北市 南港區", "116 台北市 文山區"],
-      "新北市": ["207 新北市 萬里區", "208 新北市 金山區", "220 新北市 板橋區", "221 新北市 汐止區", "222 新北市 深坑區", "223 新北市 石碇區", "224 新北市 瑞芳區", "226 新北市 平溪區", "227 新北市 雙溪區", "228 新北市 貢寮區", "231 新北市 新店區", "232 新北市 坪林區", "233 新北市 烏來區", "234 新北市 永和區", "235 新北市 中和區", "236 新北市 土城區", "237 新北市 三峽區", "238 新北市 樹林區", "239 新北市 鶯歌區", "241 新北市 三重區", "242 新北市 新莊區", "243 新北市 泰山區", "244 新北市 林口區", "247 新北市 蘆洲區", "248 新北市 五股區", "249 新北市 八里區", "251 新北市 淡水區", "252 新北市 三芝區", "253 新北市 石門區"]
-    };
-
     const generateReservationId = () => {
       const now = new Date();
       const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
@@ -95,11 +100,11 @@
       return (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center">
           <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-            <div className="bg-[#0ABAB5] p-4 flex justify-between items-center text-white shrink-0">
+            <div className={`p-4 flex justify-between items-center text-white shrink-0 ${type === 'error' ? 'bg-red-500' : 'bg-[#0ABAB5]'}`}>
               <div className="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
-                {type === 'error' ? <AlertCircle className="w-4 h-4 text-red-100" /> : 
-                 type === 'confirm' ? <FileText className="w-4 h-4 text-white" /> :
-                 <CheckCircle className="w-4 h-4 text-white" />}
+                {type === 'error' ? <AlertCircle className="w-4 h-4" /> : 
+                 type === 'confirm' ? <FileText className="w-4 h-4" /> :
+                 <CheckCircle className="w-4 h-4" />}
                 {title}
               </div>
               <button onClick={onClose} disabled={isSubmitting}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
@@ -112,7 +117,7 @@
                 <>
                   <button onClick={onClose} disabled={isSubmitting} className="w-1/3 py-3 bg-gray-100 text-gray-700 font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 border border-gray-200">返回修改</button>
                   <button onClick={onConfirm} disabled={isSubmitting} className="w-2/3 py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2">
-                    {isSubmitting ? '處理中...' : '確認無誤並送出'}
+                    {isSubmitting ? '預約傳送中...' : '確認無誤並送出'}
                   </button>
                 </>
               ) : (
@@ -170,13 +175,15 @@
         setFlightNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
       };
 
-      // 集中管理 LIFF 初始化
+      // 初始化 LIFF
       useEffect(() => {
         const initLiff = async () => {
           if (window.liff) {
             try {
               await window.liff.init({ liffId: LINE_LIFF_ID });
-              console.log('LIFF Initialized Successfully');
+              if (!window.liff.isLoggedIn()) {
+                console.log('User not logged in LIFF');
+              }
             } catch (err) {
               console.error('LIFF Init Error:', err);
             }
@@ -186,7 +193,7 @@
         
         window.gm_authFailure = () => {
           setMapsError(true);
-          showAlert("【地圖提示】地址自動補全功能無法載入，請手動輸入地址預約。", "地圖服務", "error");
+          showAlert("【地圖提示】地圖補全功能目前無法載入，請改手動輸入詳細地址即可預約。", "地圖服務", "error");
         };
       }, [showAlert]);
 
@@ -215,14 +222,14 @@
         }
       }, [date, timeHour, timeMinute, showAlert]);
 
-      // 精準行政區抓取邏輯：強制顯示標準格式，解決重複區號問題
+      // 精準行政區強制顯示邏輯
       const parsePlaceToDistrictAndAddress = useCallback((place, distSetter, addrSetter) => {
         const components = place.address_components || [];
         const fullAddr = place.formatted_address || "";
         
-        // 1. 基礎提取
+        let zipCode = "";
         const postCodeObj = components.find(c => c.types.includes('postal_code'));
-        let zipCode = postCodeObj ? postCodeObj.long_name.substring(0, 3) : '';
+        if (postCodeObj) zipCode = postCodeObj.long_name.substring(0, 3);
         
         const cityComp = components.find(c => c.types.includes('administrative_area_level_1'));
         let cityName = (cityComp ? cityComp.long_name : "").replace(/\d+/g, '').replace('台灣', '').trim();
@@ -231,34 +238,18 @@
                         components.find(c => c.types.includes('locality'));
         let areaName = (areaComp ? areaComp.long_name : "").replace(/\d+/g, '').trim();
 
-        // 2. 強制判定邏輯：根據地址內容強制修正
-        if (fullAddr.includes("香山區")) {
-          zipCode = "300"; cityName = "新竹市"; areaName = "香山區";
-        } else if (fullAddr.includes("東區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) {
-          zipCode = "300"; cityName = "新竹市"; areaName = "東區";
-        } else if (fullAddr.includes("北區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) {
-          zipCode = "300"; cityName = "新竹市"; areaName = "北區";
-        } else if (fullAddr.includes("竹南")) {
-          zipCode = "350"; cityName = "苗栗縣"; areaName = "竹南鎮";
-        } else if (fullAddr.includes("頭份")) {
-          zipCode = "350"; cityName = "苗栗縣"; areaName = "頭份市";
-        } else if (fullAddr.includes("竹北")) {
-          zipCode = "302"; cityName = "新竹縣"; areaName = "竹北市";
-        } else if (fullAddr.includes("湖口")) {
-          zipCode = "303"; cityName = "新竹縣"; areaName = "湖口鄉";
-        } else if (fullAddr.includes("新豐")) {
-          zipCode = "304"; cityName = "新竹縣"; areaName = "新豐鄉";
-        } else if (fullAddr.includes("寶山")) {
-          zipCode = "308"; cityName = "新竹縣"; areaName = "寶山鄉";
-        } else if (fullAddr.includes("竹東")) {
-          zipCode = "310"; cityName = "新竹縣"; areaName = "竹東鎮";
-        }
+        // 強制關鍵字校正 (確保完全匹配價目表)
+        if (fullAddr.includes("香山區")) { zipCode = "300"; cityName = "新竹市"; areaName = "香山區"; }
+        else if (fullAddr.includes("東區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "東區"; }
+        else if (fullAddr.includes("北區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "北區"; }
+        else if (fullAddr.includes("竹南")) { zipCode = "350"; cityName = "苗栗縣"; areaName = "竹南鎮"; }
+        else if (fullAddr.includes("頭份")) { zipCode = "350"; cityName = "苗栗縣"; areaName = "頭份市"; }
+        else if (fullAddr.includes("竹北")) { zipCode = "302"; cityName = "新竹縣"; areaName = "竹北市"; }
+        else if (fullAddr.includes("竹東")) { zipCode = "310"; cityName = "新竹縣"; areaName = "竹東鎮"; }
 
-        // 3. 組合標準格式：[郵遞區號] [縣市] [區域]
         const finalDistrict = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
         distSetter(finalDistrict);
         
-        // 4. 清理詳細地址 (避免重複呈現已在上方顯示的縣市區域)
         let cleanAddr = fullAddr
           .replace(/^台灣\d{3,5}\s*/, '')
           .replace(/^台灣/, '')
@@ -266,7 +257,6 @@
           .replace(areaName, '')
           .replace(/^\d{3,5}/, '')
           .trim();
-          
         addrSetter(cleanAddr);
       }, []);
 
@@ -350,6 +340,9 @@
         setIsSubmitting(true);
         
         try {
+          const isInLine = (window.liff && window.liff.isInClient()) || /Line/i.test(navigator.userAgent);
+          
+          // 非同步啟動後台發送
           const gasTask = fetch(GAS_WEBAPP_URL, { 
             method: 'POST', 
             mode: 'no-cors', 
@@ -358,29 +351,29 @@
           });
 
           let liffSent = false;
-          if (window.liff) {
-            const isInLine = (window.liff.isInClient() || /Line/i.test(navigator.userAgent));
-            if (isInLine) {
-              try {
-                if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
-                if (window.liff.isInClient()) {
-                  await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-                  liffSent = true;
-                }
-              } catch (e) { console.error('LINE回傳失敗:', e); }
+          if (window.liff && window.liff.isInClient()) {
+            try {
+              // 在發送前確認 LIFF 已準備好
+              if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
+              await window.liff.sendMessages([{ type: 'text', text: lineText }]);
+              liffSent = true;
+            } catch (e) {
+              console.error('LINE回傳明細失敗:', e);
             }
           }
 
           await gasTask;
 
           if (liffSent) {
-            showAlert(`🌟 預約成功！明細已同步回傳至您的 LINE 聊天室。\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
-              if (window.liff && window.liff.isInClient()) window.liff.closeWindow();
+            showAlert(`🌟 預約成功！明細已傳送至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
+              window.liff.closeWindow();
             });
+          } else if (isInLine) {
+             showAlert(`🌟 預約已送出！\n\n⚠️ 但明細無法自動回傳 (請檢查 LINE 聊天室授權)。\n請截圖此畫面保存預約明細：\n\n${lineText}`, '預約成功', 'info');
           } else {
-            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請手動截圖保存預約明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請截圖保存預約明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
-        } catch (err) { showAlert('資料傳送發生錯誤，請檢查網路。', '系統錯誤', 'error'); } 
+        } catch (err) { showAlert('資料傳送過程中發生錯誤，請檢查網路。', '系統錯誤', 'error'); } 
         finally { setIsSubmitting(false); setConfirmData(null); }
       };
 
@@ -444,7 +437,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
           />
           
           <header className="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
-            <h1 className="text-xl font-bold tracking-wider">RS專車接送 詢價/預約</h1>
+            <h1 className="text-xl font-bold tracking-wider uppercase">RS 專車接送 預約系統</h1>
             <button onClick={fetchPrices} className="absolute right-4"><RefreshCw className={`w-5 h-5 ${isLoadingPrices?'animate-spin':''}`} /></button>
           </header>
 
@@ -466,7 +459,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
 
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4 text-[#0ABAB5]" /> 接送地址</label>
-                  <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed" value={district} readOnly placeholder="郵遞區號 縣市 區域 (自動帶入)" />
+                  <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed font-bold" value={district} readOnly placeholder="郵遞區號 縣市 區域 (自動帶入)" />
                   <input ref={addressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5]" value={address} onChange={e=>setAddress(e.target.value)} placeholder="輸入詳細地址 (點選自動帶入區號)" />
 
                   <div className="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
@@ -477,7 +470,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
                     <p className="text-[11px] text-red-500 font-bold ml-7 mt-1 animate-pulse-red">※ 加點上下車順序需由本公司安排。</p>
                     {hasExtraPoint && (
                       <div className="mt-4 space-y-2 animate-in slide-in-from-top-2">
-                        <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm" value={extraDistrict} readOnly placeholder="加點區域" />
+                        <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm font-bold" value={extraDistrict} readOnly placeholder="加點區域" />
                         <input ref={extraAddressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm" value={extraAddress} onChange={e=>setExtraAddress(e.target.value)} placeholder="加點詳細地址 (點選帶入)" />
                       </div>
                     )}
@@ -487,7 +480,8 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
-                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={date} onChange={e=>setDate(e.target.value)} />
+                <label className="block text-sm font-bold text-gray-700">乘車日期</label>
+                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入日期" />
                 <div className="flex gap-2">
                   <select className="flex-1 p-3 border bg-white rounded-sm" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
                   <select className="flex-1 p-3 border bg-white rounded-sm" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
@@ -534,7 +528,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
                     <div className="flex justify-between items-start">
                       <div className="flex flex-col">
                         <span className="font-bold text-base text-white">基本車資 ({carType})</span>
-                        <span className="text-xs text-white/70">{basePriceInfo.name || '未選區'} - {airport}</span>
+                        <span className="text-xs text-white/70">{basePriceInfo.name || '未選'} - {airport}</span>
                       </div>
                       <span className="font-bold text-xl text-white">{basePriceInfo.price ? `$${basePriceInfo.price}` : '待報價'}</span>
                     </div>
@@ -557,9 +551,9 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               </section>
 
               <section className="mt-8 border-t-2 border-[#0ABAB5] pt-6">
-                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
+                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm">
                   <h3 className="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><ShieldAlert className="w-4 h-4" /> 【注意事項】</h3>
-                  <div className="space-y-4 text-sm font-bold text-gray-800">
+                  <div className="space-y-4 font-bold text-gray-800">
                     <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
                     <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
