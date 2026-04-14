@@ -85,7 +85,7 @@
             <input type="text" id="name" class="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="全名">
             <select id="title" class="p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option>先生</option><option>小姐</option></select>
           </div>
-          <input type="tel" id="phone" class="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="聯絡電話 0900-000-000">
+          <input type="tel" id="phone" class="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="聯絡電話 0900-000-000" maxlength="12">
           <input type="email" id="email" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="MAIL 電子信箱">
 
           <div class="pt-2 border-t border-gray-100 mt-2 relative">
@@ -137,8 +137,8 @@
             <div>幼童(4歲以下)<select id="infants" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
           <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-gray-700">
-            <div>登機箱(最多1)<select id="carryOn" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>託運(21~29吋,最多5)<select id="checkedBag" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>登機箱<select id="carryOn" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>託運(21~29吋)<select id="checkedBag" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
         </section>
 
@@ -175,7 +175,7 @@
           </div>
         </section>
 
-        <!-- 注意事項 (更新版) -->
+        <!-- 注意事項 -->
         <section class="mt-8 border-t-2 border-[#0ABAB5] pt-6 pb-4">
           <div class="bg-[#0ABAB5]/5 p-4 h-96 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner font-bold">
             <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 【注意事項】</h3>
@@ -218,7 +218,12 @@
 
     function generateReservationId() {
       const now = new Date();
-      return `RS${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}${Math.floor(1000+Math.random()*9000)}`;
+      const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+      const num = Math.floor(100 + Math.random() * 900); // 3碼流水號
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+      let str = '';
+      for(let i=0; i<3; i++) str += chars.charAt(Math.floor(Math.random() * chars.length)); // 3碼大小寫英文
+      return `RS${dateStr}${num}${str}`;
     }
 
     const DOM = {
@@ -261,8 +266,8 @@
       updatePeopleLuggageOptions();
     }
 
-    function renderOptions(element, currentOtherSum, maxTotal, maxSelf, excludeZero) {
-      const available = Math.min(maxSelf, maxTotal - currentOtherSum);
+    function renderOptions(element, currentOtherSum, maxTotal, excludeZero) {
+      const available = Math.max(0, maxTotal - currentOtherSum);
       const val = element.value;
       element.innerHTML = '';
       for(let i = (excludeZero?1:0); i <= available; i++) element.add(new Option(i, i));
@@ -273,16 +278,17 @@
 
     function updatePeopleLuggageOptions() {
       const a = parseInt(DOM.adults.value)||1, c = parseInt(DOM.children.value)||0, i = parseInt(DOM.infants.value)||0;
-      renderOptions(DOM.adults, c+i, 6, 6, true);
-      renderOptions(DOM.children, a+i, 6, 6, false);
-      renderOptions(DOM.infants, a+c, 6, 6, false);
+      renderOptions(DOM.adults, c+i, 6, true);
+      renderOptions(DOM.children, a+i, 6, false);
+      renderOptions(DOM.infants, a+c, 6, false);
       state.adults = parseInt(DOM.adults.value);
       state.children = parseInt(DOM.children.value);
       state.infants = parseInt(DOM.infants.value);
 
       const co = parseInt(DOM.carryOn.value)||0, cb = parseInt(DOM.checkedBag.value)||0;
-      renderOptions(DOM.carryOn, cb, 6, 1, false);
-      renderOptions(DOM.checkedBag, co, 6, 5, false);
+      // 行李防呆邏輯：總量不超過 6 件，兩者互相牽制
+      renderOptions(DOM.carryOn, cb, 6, false);
+      renderOptions(DOM.checkedBag, co, 6, false);
       state.carryOn = parseInt(DOM.carryOn.value);
       state.checkedBag = parseInt(DOM.checkedBag.value);
 
@@ -347,7 +353,6 @@
       
       DOM.displayCarTypeName.innerText = `基本車資 (${state.carType})`;
       
-      // 更新路線顯示邏輯
       if (state.serviceType === '接機') {
         DOM.displayRoute.innerText = `${state.airport} → ${baseInfo.n || '未選'}`;
       } else {
@@ -442,8 +447,9 @@
       if (!state.name.trim()) return showAlert('請輸入乘車人姓名', '提示', 'error');
       const rawPhone = state.phone.replace(/\D/g, '');
       if (rawPhone.length !== 10) return showAlert('電話號碼格式錯誤 (請輸入10位數字)', '提示', 'error');
-      if (!state.district) return showAlert('請透過地圖選單帶入接送地址', '地址錯誤', 'error');
+      if (!state.district) return showAlert('請透過地圖建議選單帶入接送地址', '地址錯誤', 'error');
       if (!state.date) return showAlert('請選擇乘車日期', '提示', 'error');
+      if (!state.flightNumber.trim()) return showAlert('請輸入航班編號', '提示', 'error');
       if (!check24HoursLimit()) return;
       if (!document.getElementById('agreed').checked) return showAlert('請閱讀並勾選同意條款', '提醒');
 
@@ -451,19 +457,27 @@
       DOM.submitBtn.innerText = '資料傳送中...';
       const totalStr = DOM.displayTotal.innerText;
       
-      const lineText = `【RS專車接送 線上預約單】\n` +
-                       `編號：${state.reservationId}\n` +
-                       `乘車人：${state.name} ${state.title}\n` +
-                       `聯絡電話：${state.phone}\n` +
-                       `預約時間：${state.date} ${state.timeHour}:${state.timeMinute}\n` +
-                       `行程：${state.serviceType} (${state.airport})\n` +
-                       `航班：${state.flightNumber}\n` +
-                       `地址：${state.address}\n` +
-                       `車型：${state.carType}\n` +
-                       `人數：大${state.adults}, 小${state.children}, 幼${state.infants}\n` +
-                       `行李：登機${state.carryOn}, 託運${state.checkedBag}\n` +
-                       `總額：${totalStr} (${state.payment})\n` +
-                       `備註：${state.extraSignboard ? state.signboardText : '無'}`;
+      let lineText = `【RS專車接送 線上預約單】\n` +
+                     `預約編號：${state.reservationId}\n` +
+                     `全名：${state.name} ${state.title}\n` +
+                     `電話：${state.phone}\n` +
+                     `日期：${state.date}\n` +
+                     `時間：${state.timeHour}:${state.timeMinute}\n` +
+                     `服務：${state.serviceType}\n` +
+                     `機場：${state.airport}\n` +
+                     `航班：${state.flightNumber}\n` +
+                     `地址：${state.district} ${state.address}\n`;
+
+      if (state.hasExtraPoint) {
+        lineText += `加點：${state.extraDistrict} ${state.extraAddress}\n`;
+      }
+
+      lineText += `車型：${state.carType}\n` +
+                  `人數：大${state.adults},小${state.children},幼${state.infants}\n` +
+                  `行李：登機箱${state.carryOn},託運${state.checkedBag}\n` +
+                  `總額：${totalStr} (${state.payment})`;
+
+      const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
 
       const payload = { 
         action:'addReservation', 
@@ -479,7 +493,10 @@
       try {
         fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) }).catch(()=>{});
         if (window.liff.isInClient()) {
-          await window.liff.sendMessages([{ type:'text', text:lineText }]);
+          await window.liff.sendMessages([
+            { type:'text', text:lineText },
+            { type:'text', text:secondMessage }
+          ]);
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-done').classList.remove('hidden-block');
           document.getElementById('view-done').classList.add('flex');
@@ -487,7 +504,7 @@
         } else {
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-success').classList.remove('hidden-block');
-          document.getElementById('fallback-message').innerText = lineText;
+          document.getElementById('fallback-message').innerText = lineText + '\n\n' + secondMessage;
         }
       } catch(err) { 
         showAlert('傳送失敗，請檢查網路。','錯誤','error'); 
