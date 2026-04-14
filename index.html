@@ -449,8 +449,17 @@
                 <div className="text-left bg-gray-50 border border-gray-200 p-4 rounded-md mt-6 text-[13px] text-gray-700 font-mono whitespace-pre-wrap overflow-y-auto max-h-[50vh]">
                   {fallbackMessage}
                 </div>
-                <button onClick={() => window.location.reload()} className="mt-8 w-full py-4 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform shadow-md">
-                  返回重新預約
+                <button 
+                  onClick={() => {
+                    if (window.liff) {
+                      window.liff.closeWindow();
+                    } else {
+                      window.close();
+                    }
+                  }} 
+                  className="mt-8 w-full py-4 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform shadow-md"
+                >
+                  關閉視窗返回 LINE
                 </button>
               </div>
             </main>
