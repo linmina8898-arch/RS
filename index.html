@@ -38,13 +38,6 @@
     .font-black-stroke {
       -webkit-text-stroke: 1.5px #0ABAB5;
     }
-    @keyframes pulse-red {
-      0%, 100% { opacity: 1; color: #dc2626; }
-      50% { opacity: 0.3; color: #b91c1c; }
-    }
-    .animate-pulse-red {
-      animation: pulse-red 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
     /* 自定義捲軸 */
     ::-webkit-scrollbar {
       width: 6px;
@@ -72,7 +65,7 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef, useCallback } = React;
     
-    // --- 核心工具函式 (確保在 App 載入前定義) ---
+    // --- 核心工具函式 ---
     function generateReservationId() {
       const now = new Date();
       const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
@@ -99,7 +92,7 @@
     function CustomModal({ isOpen, onClose, onConfirm, title, message, type = 'info', isSubmitting = false }) {
       if (!isOpen) return null;
       return (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center text-[#222]">
           <div className="bg-white w-full max-w-sm rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
             <div className={`p-4 flex justify-between items-center text-white shrink-0 ${type === 'error' ? 'bg-red-500' : 'bg-[#0ABAB5]'}`}>
               <div className="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
@@ -111,13 +104,13 @@
               <button onClick={onClose} disabled={isSubmitting}><X className="w-5 h-5 opacity-70 hover:opacity-100" /></button>
             </div>
             <div className="p-6 flex-1 overflow-y-auto text-left text-sm">
-              <div className="text-gray-700 leading-relaxed font-bold whitespace-pre-wrap">{message}</div>
+              <div className="leading-relaxed font-bold whitespace-pre-wrap">{message}</div>
             </div>
             <div className="p-4 bg-white border-t border-gray-100 shrink-0 flex gap-2">
               <button 
                 onClick={onConfirm || onClose} 
                 disabled={isSubmitting} 
-                className="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2"
+                className="flex-1 py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2"
               >
                 {type === 'confirm' ? (isSubmitting ? '預約處理中...' : '確認無誤並送出') : '確定'}
               </button>
@@ -161,7 +154,6 @@
       const [priceMap, setPriceMap] = useState({});
       const [isLoadingPrices, setIsLoadingPrices] = useState(false);
       const [isSubmitting, setIsSubmitting] = useState(false);
-      const [mapsError, setMapsError] = useState(false);
       const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
       const [confirmData, setConfirmData] = useState(null); 
       
@@ -189,28 +181,27 @@
           if (window.liff) {
             try {
               await window.liff.init({ liffId: LINE_LIFF_ID });
-              console.log('LIFF Ready');
+              console.log('LIFF Initialized Successfully');
             } catch (err) {
-              console.warn('LIFF Init Error:', err);
+              console.warn('LIFF Init Failed');
             }
           }
         };
         initLiff();
-        
-        window.gm_authFailure = () => {
-          setMapsError(true);
-          showAlert("【地圖提示】地圖補全功能無法載入，請手動輸入地址即可預約。", "地圖服務", "error");
-        };
+        window.gm_authFailure = () => showAlert("地圖補全功能載入失敗，請手動輸入詳細地址。", "地圖服務", "error");
       }, [showAlert]);
 
+      // 人數與行李總數限制邏輯 (最多6)
+      const totalPeople = useMemo(() => Number(adults) + Number(children) + Number(infants), [adults, children, infants]);
+      const totalLuggage = useMemo(() => Number(carryOn) + Number(checkedBag), [carryOn, checkedBag]);
+
       const carTypeConstraint = useMemo(() => {
-        const totalLuggage = Number(carryOn) + Number(checkedBag);
-        const totalPeople = Number(adults) + Number(children) + Number(infants);
+        // 設定條件：行李 >= 3 強制大車，人數 >= 5 強制大車
         if (totalLuggage >= 3 || totalPeople >= 5) {
           return { isForced: true, reason: totalLuggage >= 3 ? "行李達 3 件以上" : "人數達 5 人以上" };
         }
         return { isForced: false, reason: '' };
-      }, [carryOn, checkedBag, adults, children, infants]);
+      }, [totalPeople, totalLuggage]);
 
       useEffect(() => {
         if (carTypeConstraint.isForced) setCarType('大車');
@@ -220,8 +211,7 @@
         if (date && timeHour && timeMinute) {
           const selectedDate = new Date(`${date}T${timeHour}:${timeMinute}:00`);
           const now = new Date();
-          const diffHours = (selectedDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-          if (diffHours < 24) {
+          if ((selectedDate.getTime() - now.getTime()) / (1000 * 60 * 60) < 24) {
             showAlert('預約需大於 24 小時，急件請直撥 0915-926-166。', '時間限制', 'error');
             setDate(''); 
           }
@@ -232,52 +222,30 @@
       const parsePlaceToDistrictAndAddress = useCallback((place, distSetter, addrSetter) => {
         const components = place.address_components || [];
         const fullAddr = place.formatted_address || "";
-        
-        let zipCode = "";
-        const postCodeObj = components.find(c => c.types.includes('postal_code'));
-        if (postCodeObj) zipCode = postCodeObj.long_name.substring(0, 3);
-        
-        const cityComp = components.find(c => c.types.includes('administrative_area_level_1'));
-        let cityName = (cityComp ? cityComp.long_name : "").replace(/\d+/g, '').replace('台灣', '').trim();
+        let zip = (components.find(c => c.types.includes('postal_code'))?.long_name || fullAddr.match(/(\d{3,5})/)?.[1] || "").substring(0, 3);
+        let city = (components.find(c => c.types.includes('administrative_area_level_1'))?.long_name || "").replace(/\d+/g, '').replace('台灣', '').trim();
+        let area = (components.find(c => c.types.includes('sublocality_level_1')) || components.find(c => c.types.includes('locality')))?.long_name || "";
+        area = area.replace(/\d+/g, '').trim();
 
-        const areaComp = components.find(c => c.types.includes('sublocality_level_1')) || 
-                        components.find(c => c.types.includes('locality'));
-        let areaName = (areaComp ? areaComp.long_name : "").replace(/\d+/g, '').trim();
+        if (fullAddr.includes("香山區")) { zip = "300"; city = "新竹市"; area = "香山區"; }
+        else if (fullAddr.includes("東區") && (fullAddr.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "東區"; }
+        else if (fullAddr.includes("北區") && (fullAddr.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "北區"; }
+        else if (fullAddr.includes("竹南")) { zip = "350"; city = "苗栗縣"; area = "竹南鎮"; }
+        else if (fullAddr.includes("頭份")) { zip = "350"; city = "苗栗縣"; area = "頭份市"; }
+        else if (fullAddr.includes("竹北")) { zip = "302"; city = "新竹縣"; area = "竹北市"; }
+        else if (fullAddr.includes("竹東")) { zip = "310"; city = "新竹縣"; area = "竹東鎮"; }
 
-        // 強制關鍵字校正 (嚴格匹配價目表)
-        if (fullAddr.includes("香山區")) { zipCode = "300"; cityName = "新竹市"; areaName = "香山區"; }
-        else if (fullAddr.includes("東區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "東區"; }
-        else if (fullAddr.includes("北區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "北區"; }
-        else if (fullAddr.includes("竹南")) { zipCode = "350"; cityName = "苗栗縣"; areaName = "竹南鎮"; }
-        else if (fullAddr.includes("頭份")) { zipCode = "350"; cityName = "苗栗縣"; areaName = "頭份市"; }
-        else if (fullAddr.includes("竹北")) { zipCode = "302"; cityName = "新竹縣"; areaName = "竹北市"; }
-        else if (fullAddr.includes("竹東")) { zipCode = "310"; cityName = "新竹縣"; areaName = "竹東鎮"; }
-
-        const finalDistrict = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
-        distSetter(finalDistrict);
-        
-        let cleanAddr = fullAddr
-          .replace(/^台灣\d{3,5}\s*/, '')
-          .replace(/^台灣/, '')
-          .replace(cityName, '')
-          .replace(areaName, '')
-          .replace(/^\d{3,5}/, '')
-          .trim();
-        addrSetter(cleanAddr);
+        distSetter(`${zip} ${city} ${area}`.replace(/\s+/g, ' ').trim());
+        addrSetter(fullAddr.replace(/^台灣\d{3,5}\s*/, '').replace(/^台灣/, '').replace(city, '').replace(area, '').replace(/^\d{3,5}/, '').trim());
       }, []);
 
       useEffect(() => {
         const initAutocomplete = (ref, addrSetter, distSetter) => {
           if (ref.current && window.google?.maps?.places) {
-            const autocomplete = new window.google.maps.places.Autocomplete(ref.current, {
-              types: ['geocode', 'establishment'],
-              componentRestrictions: { country: 'tw' }
-            });
+            const autocomplete = new window.google.maps.places.Autocomplete(ref.current, { types: ['geocode', 'establishment'], componentRestrictions: { country: 'tw' } });
             autocomplete.addListener('place_changed', () => {
               const place = autocomplete.getPlace();
-              if (place.formatted_address) {
-                parsePlaceToDistrictAndAddress(place, distSetter, addrSetter);
-              }
+              if (place.formatted_address) parsePlaceToDistrictAndAddress(place, distSetter, addrSetter);
             });
           }
         };
@@ -296,36 +264,30 @@
         }
       }, [hasExtraPoint, parsePlaceToDistrictAndAddress]);
 
-      useEffect(() => { fetchPrices(); }, []);
-
-      const fetchPrices = async () => {
-        setIsLoadingPrices(true);
-        try {
-          const response = await fetch(`${GAS_WEBAPP_URL}?action=getPrices`);
-          const data = await response.json();
-          if (data.status === 'success') setPriceMap(data.prices);
-        } catch (err) { console.error(err); } finally { setIsLoadingPrices(false); }
-      };
+      useEffect(() => {
+        (async () => {
+          setIsLoadingPrices(true);
+          try {
+            const res = await fetch(`${GAS_WEBAPP_URL}?action=getPrices`);
+            const d = await res.json();
+            if (d.status === 'success') setPriceMap(d.prices);
+          } catch(e) {} finally { setIsLoadingPrices(false); }
+        })();
+      }, []);
 
       const basePriceInfo = useMemo(() => {
-        let mainPrice = 0, extraPrice = 0;
-        if (district) {
-          const data = priceMap[`${airport}_${district}`];
-          if (data) mainPrice = carType === '大車' ? data.large : data.small;
-        }
-        if (hasExtraPoint && extraDistrict) {
-          const data = priceMap[`${airport}_${extraDistrict}`];
-          if (data) extraPrice = carType === '大車' ? data.large : data.small;
-        }
-        return (hasExtraPoint && extraPrice > mainPrice) ? { price: extraPrice, name: extraDistrict } : { price: mainPrice, name: district };
+        let p1 = 0, p2 = 0;
+        if (district) { const d = priceMap[`${airport}_${district}`]; if(d) p1 = carType === '大車' ? d.large : d.small; }
+        if (hasExtraPoint && extraDistrict) { const d = priceMap[`${airport}_${extraDistrict}`]; if(d) p2 = carType === '大車' ? d.large : d.small; }
+        return (hasExtraPoint && p2 > p1) ? { price: p2, name: extraDistrict } : { price: p1, name: district };
       }, [priceMap, airport, district, extraDistrict, hasExtraPoint, carType]);
 
       const fees = useMemo(() => {
-        const pickupFee = serviceType === '接機' ? 200 : 0;
+        const pickup = serviceType === '接機' ? 200 : 0;
         const h = parseInt(timeHour);
-        const nightFee = (h >= 22 || h < 6) ? 200 : 0;
-        const extraPointFee = (hasExtraPoint && district && extraDistrict) ? (district.substring(0, 3) === extraDistrict.substring(0, 3) ? 100 : 200) : 0;
-        return { pickupFee, nightFee, infantSeatFee: infants * 200, signboardFee: extraSignboard ? 200 : 0, extraPointFee };
+        const night = (h >= 22 || h < 6) ? 200 : 0;
+        const extraPoint = (hasExtraPoint && district && extraDistrict) ? (district.substring(0, 3) === extraDistrict.substring(0, 3) ? 100 : 200) : 0;
+        return { pickup, night, infant: infants * 200, signboard: extraSignboard ? 200 : 0, extraPoint };
       }, [serviceType, timeHour, infants, extraSignboard, hasExtraPoint, district, extraDistrict]);
 
       const estimatedTotal = useMemo(() => {
@@ -333,46 +295,45 @@
         return basePriceInfo.price > 0 ? basePriceInfo.price + extra : null;
       }, [basePriceInfo.price, fees]);
 
+      // ----- 重點修改區域開始 -----
       const executeSubmit = async (payload, lineText) => {
         if (isSubmitting) return;
         setIsSubmitting(true);
-        
         try {
-          const isInLine = (window.liff && window.liff.isInClient()) || /Line/i.test(navigator.userAgent);
-          
-          // 啟動 GAS 後端傳送
-          const gasTask = fetch(GAS_WEBAPP_URL, { 
-            method: 'POST', 
-            mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(payload) 
-          });
-
-          let liffSent = false;
-          if (window.liff && window.liff.isInClient()) {
-            try {
-              // 確保發送前 LIFF 已就緒
-              if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
-              
-              if (window.liff.isLoggedIn() && window.liff.getContext()) {
-                await window.liff.sendMessages([{ type: 'text', text: lineText }]);
-                liffSent = true;
-              }
-            } catch (e) {
-              console.error('LINE回傳明細失敗:', e);
-            }
-          }
-
+          // 1. 先發送資料給 Google Apps Script (背景執行)
+          const gasTask = fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           await gasTask;
 
+          let liffSent = false;
+          let liffErrorMsg = '';
+
+          // 2. 處理 LINE LIFF 發送訊息
+          if (window.liff) {
+            try {
+              if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
+              
+              // 移除 login()，避免未登入時跳轉打斷流程
+              if (window.liff.isInClient()) {
+                await window.liff.sendMessages([{ type: 'text', text: lineText }]);
+                liffSent = true;
+              } else {
+                liffErrorMsg = '系統偵測非 LINE 聊天室開啟。';
+              }
+            } catch (e) { 
+              console.error('LINE發送失敗', e); 
+              liffErrorMsg = '發生錯誤，請確認 LINE 後台是否開啟 chat_message.write 權限。';
+            }
+          } else {
+            liffErrorMsg = '無法載入 LINE LIFF 模組。';
+          }
+          
+          // 3. 顯示結果
           if (liffSent) {
-            showAlert(`🌟 預約成功！預約明細已自動傳送到您的 LINE 聊天室中。\n\n(點擊確定後將自動關閉視窗)`, '預約成功', 'success', () => {
+            showAlert(`🌟 預約成功！明細已傳送至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
               if (window.liff) window.liff.closeWindow();
             });
-          } else if (isInLine) {
-             showAlert(`🌟 預約已送出！\n\n⚠️ 提示：明細無法回傳 (請確認 LINE Scopes 設定勾選 chat_message.write)。\n請截圖保存此畫面預約明細：\n\n${lineText}`, '預約成功', 'info');
           } else {
-            showAlert(`🌟 預約成功！\n\n(非 LINE App 開啟，請截圖保存明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+             showAlert(`🌟 預約已送出至系統！\n\n⚠️ 無法自動回傳：\n${liffErrorMsg}\n\n請自行截圖保存明細：\n\n${lineText}`, '預約成功 (請自行截圖)', 'info');
           }
         } catch (err) { 
           showAlert('資料傳送過程中發生錯誤，請檢查網路連線。', '系統錯誤', 'error'); 
@@ -381,84 +342,56 @@
           setConfirmData(null);
         }
       };
+      // ----- 重點修改區域結束 -----
 
-      const handleSubmit = async (e) => {
+      const handleSubmit = (e) => {
         e.preventDefault();
-        
-        if (!agreed) {
-          showAlert('請先勾選最下方的「我同意以上資訊與免責聲明」後再送出預約。', '提醒', 'error');
-          return;
-        }
-
+        if (!agreed) return showAlert('請先閱讀並勾選最下方的「我同意以上資訊與免責聲明」後再送出預約。', '提醒', 'error');
         const missing = [];
         if (!name.trim()) missing.push('乘車人全名');
         if (phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話 (需10碼)');
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) missing.push('信箱格式');
-        if (!district) missing.push('接送區域 (自動解析)');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) missing.push('信箱格式錯誤');
+        if (!district) missing.push('接送區域 (請透過地圖選取)');
         if (!address) missing.push('詳細地址');
         if (!date) missing.push('乘車日期');
         if (!flightNumber) missing.push('航班編號');
-        if (extraSignboard && !signboardText.trim()) missing.push('舉牌內容');
+        if (extraSignboard && !signboardText.trim()) missing.push('舉牌服務內容');
+        
+        if (totalPeople > 6) missing.push(`人數總計不可超過 6 位 (目前: ${totalPeople})`);
+        if (totalLuggage > 6) missing.push(`行李總計不可超過 6 件 (目前: ${totalLuggage})`);
 
         if (missing.length > 0) return showAlert(`請填寫以下欄位：\n• ${missing.join('\n• ')}`, '資料不全', 'error');
 
-        const lineText = `【RS專車接送 線上預約單】
-預約編號：${reservationId}
-乘車人姓名：${name} ${title}
-乘車人電話：${phone}
-電子信箱：${email}
-乘車日期：${date}
-乘車時間：${timeHour}:${timeMinute}
-服務類型：${serviceType}
-接送機場：${airport}
-航班編號：${flightNumber}
-接送地址：${district} ${address}
-${hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n` : ''}車型：${carType}
-人數：大${adults}, 小(4-12)${children}, 幼(4歲以下)${infants}
-行李：登機箱${carryOn}, 託運(21-29吋)${checkedBag}
-預估總額：${estimatedTotal ? '$'+estimatedTotal : '待系統報價'} (${payment})
-${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${signboardText}` : ''}`;
-
-        const payload = {
-          action: 'addReservation',
-          data: {
-            reservationId, name: `${name} ${title}`, phone, email, date, time: `'${timeHour}:${timeMinute}`,
-            serviceType, airport, flightNumber, district, address, carType, 
-            luggage: `登機箱:${carryOn}, 託運:${checkedBag}`, payment, totalFee: estimatedTotal || '待報價',
-            remarks: `${remarks}${extraSignboard ? ` [舉牌:${signboardText}]` : ''}`, timestamp: new Date().toLocaleString()
-          }
-        };
-
-        setConfirmData({ payload, lineText });
-        showAlert(lineText, '請確認預約明細', 'confirm');
+        const lineText = `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n全名：${name} ${title}\n電話：${phone}\n日期：${date}\n時間：${timeHour}:${timeMinute}\n服務：${serviceType}\n機場：${airport}\n航班：${flightNumber}\n地址：${district} ${address}\n${hasExtraPoint ? `加點：${extraDistrict} ${extraAddress}\n` : ''}車型：${carType}\n人數：大${adults},小${children},幼${infants}\n行李：登機箱${carryOn},託運${checkedBag}\n總額：${estimatedTotal ? '$'+estimatedTotal : '待報價'} (${payment})`;
+        setConfirmData({ payload: { action: 'addReservation', data: { reservationId, name: `${name} ${title}`, phone, email, date, time: `'${timeHour}:${timeMinute}`, serviceType, airport, flightNumber, district, address, carType, luggage: `登機:${carryOn},託運:${checkedBag}`, payment, totalFee: estimatedTotal || '待報價', remarks: `${remarks}${extraSignboard ? ` [舉牌:${signboardText}]` : ''}`, timestamp: new Date().toLocaleString() } }, lineText });
+        showAlert(lineText, '請確認預約明細內容', 'confirm');
       };
 
-      const renderOptions = (count, excludeZero = false) => {
-        return Array.from({length: 7}, (_, i) => i)
-          .filter(n => !(excludeZero && n === 0))
-          .map(i => <option key={i} value={i}>{i}</option>);
+      const renderOptions = (currentOtherSum, max, excludeZero = false) => {
+        const available = Math.max(0, max - currentOtherSum);
+        return Array.from({length: available + 1}, (_, i) => i).filter(n => !(excludeZero && n === 0)).map(i => <option key={i} value={i}>{i}</option>);
       };
 
       return (
         <div className="pb-10 text-[#222]">
           <CustomModal 
-            isOpen={modal.open} title={modal.title} message={modal.message} type={modal.type} isSubmitting={isSubmitting}
+            isOpen={modal.open} title={modal.title} message={modal.message} type={modal.type} isSubmitting={isSubmitting} 
             onClose={() => setModal({ open: false, title: '', message: '', type: 'info' })} 
-            onConfirm={() => {
-              if (modal.type === 'confirm' && confirmData) {
-                setModal({ open: false, title: '', message: '', type: 'info' });
-                executeSubmit(confirmData.payload, confirmData.lineText);
-              } else if (modal.onConfirm) {
-                modal.onConfirm();
-              } else {
-                setModal({ open: false, title: '', message: '', type: 'info' });
-              }
-            }}
+            onConfirm={() => { 
+              if (modal.type === 'confirm' && confirmData) { 
+                setModal({ open: false, title: '', message: '', type: 'info' }); 
+                executeSubmit(confirmData.payload, confirmData.lineText); 
+              } else if (modal.onConfirm) { 
+                modal.onConfirm(); 
+              } else { 
+                setModal({ open: false, title: '', message: '', type: 'info' }); 
+              } 
+            }} 
           />
           
           <header className="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
             <h1 className="text-xl font-bold tracking-wider uppercase">RS 專車接送 預約系統</h1>
-            <button onClick={fetchPrices} className="absolute right-4"><RefreshCw className={`w-5 h-5 ${isLoadingPrices?'animate-spin':''}`} /></button>
+            <button onClick={() => window.location.reload()} className="absolute right-4"><RefreshCw className={`w-5 h-5 ${isLoadingPrices?'animate-spin':''}`} /></button>
           </header>
 
           <main className="max-w-md mx-auto mt-6 bg-white shadow-lg p-6 sm:p-8 sm:border border-gray-200">
@@ -471,27 +404,27 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 text-[#0ABAB5]"><User className="w-5 h-5" /> 乘車人資訊</h2>
                 <div className="flex gap-2">
-                  <input type="text" className="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" placeholder="全名" value={name} onChange={e=>setName(e.target.value)} />
-                  <select className="p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={title} onChange={e=>setTitle(e.target.value)}><option>先生</option><option>小姐</option></select>
+                  <input type="text" className="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="全名" value={name} onChange={e=>setName(e.target.value)} />
+                  <select className="p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={title} onChange={e=>setTitle(e.target.value)}><option>先生</option><option>小姐</option></select>
                 </div>
-                <input type="tel" className="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white" placeholder="聯絡電話 0900-000-000" value={phone} onChange={handlePhoneChange} />
-                <input type="email" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" placeholder="MAIL 電子信箱" value={email} onChange={e=>setEmail(e.target.value)} />
+                <input type="tel" className="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="聯絡電話 0900-000-000" value={phone} onChange={handlePhoneChange} />
+                <input type="email" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="MAIL 電子信箱" value={email} onChange={e=>setEmail(e.target.value)} />
 
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4 text-[#0ABAB5]" /> 接送地址</label>
-                  <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed font-bold" value={district} readOnly placeholder="郵遞區號 縣市 區域 (自動帶入)" />
-                  <input ref={addressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5]" value={address} onChange={e=>setAddress(e.target.value)} placeholder="輸入詳細地址 (點選自動帶入區號)" />
+                  <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed font-bold text-sm" value={district} readOnly placeholder="郵遞區號 縣市 區域 (自動解析)" />
+                  <input ref={addressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" value={address} onChange={e=>setAddress(e.target.value)} placeholder="輸入詳細地址 (點選自動帶入區號)" />
 
                   <div className="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
                     <label className="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
                       <input type="checkbox" className="w-5 h-5 accent-[#0ABAB5]" checked={hasExtraPoint} onChange={e=>setHasExtraPoint(e.target.checked)} />
                       <PlusCircle className="w-4 h-4" /> 需加點服務 (每點 +$100起)
                     </label>
-                    <p className="text-[11px] text-red-500 font-bold ml-7 mt-1 animate-pulse-red">※ 加點上下車順序需由本公司安排。</p>
+                    <p className="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點上下車順序需由本公司安排。</p>
                     {hasExtraPoint && (
                       <div className="mt-4 space-y-2 animate-in slide-in-from-top-2">
-                        <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm font-bold" value={extraDistrict} readOnly placeholder="加點區域" />
-                        <input ref={extraAddressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm" value={extraAddress} onChange={e=>setExtraAddress(e.target.value)} placeholder="加點詳細地址 (點選帶入)" />
+                        <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm font-bold text-sm" value={extraDistrict} readOnly placeholder="加點區域" />
+                        <input ref={extraAddressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm text-base" value={extraAddress} onChange={e=>setExtraAddress(e.target.value)} placeholder="加點詳細地址 (點選帶入)" />
                       </div>
                     )}
                   </div>
@@ -501,49 +434,49 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
                 <label className="block text-sm font-bold text-gray-700">乘車日期</label>
-                <input type="date" required className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期" />
+                <input type="date" required className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期" />
                 <div className="flex gap-2">
-                  <select className="flex-1 p-3 border bg-white rounded-sm" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
-                  <select className="flex-1 p-3 border bg-white rounded-sm" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
+                  <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
+                  <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <select className="p-3 border font-bold rounded-sm bg-white" value={serviceType} onChange={e=>setServiceType(e.target.value)}><option value="送機">送機</option><option value="接機">接機 (+$200)</option></select>
-                  <select className="p-3 border font-bold rounded-sm bg-white" value={airport} onChange={e=>setAirport(e.target.value)}><option>桃園機場</option><option>松山機場</option><option>台中機場</option></select>
+                  <select className="p-3 border font-bold rounded-sm bg-white text-base" value={serviceType} onChange={e=>setServiceType(e.target.value)}><option value="送機">送機</option><option value="接機">接機 (+$200)</option></select>
+                  <select className="p-3 border font-bold rounded-sm bg-white text-base" value={airport} onChange={e=>setAirport(e.target.value)}><option>桃園機場</option><option>松山機場</option><option>台中機場</option></select>
                 </div>
-                <input type="text" className="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={flightNumber} onChange={handleFlightChange} placeholder="航班編號 EX: BR123" />
+                <input type="text" className="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={flightNumber} onChange={handleFlightChange} placeholder="航班編號 EX: BR123" />
               </section>
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]">
-                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 text-xs font-bold">(最多 6 人 6 件 **包含登機箱**)</span>
+                  <Car className="w-5 h-5" /> 車型與人數行李 <span className="text-red-500 text-[10px] font-bold">(最多 6 人 6 件 **包含登機箱**)</span>
                 </h2>
-                <select className={`w-full p-3 border font-bold rounded-sm ${carTypeConstraint.isForced?'bg-[#0ABAB5]/5 text-[#0ABAB5] border-[#0ABAB5]/20 cursor-not-allowed':'bg-white'}`} value={carType} onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)} disabled={carTypeConstraint.isForced}>
+                <select className={`w-full p-3 border font-bold rounded-sm ${carTypeConstraint.isForced?'bg-[#0ABAB5]/5 text-[#0ABAB5] border-[#0ABAB5]/20 cursor-not-allowed':'bg-white'} text-base`} value={carType} onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)} disabled={carTypeConstraint.isForced}>
                   <option value="小車">小車</option><option value="大車">大車</option>
                 </select>
                 {carTypeConstraint.isForced && (
-                  <p className="text-[11px] font-bold animate-pulse-red">
+                  <p className="text-[11px] font-bold text-red-600">
                     ※ 因 {carTypeConstraint.reason}，系統已強制改為大車。
                   </p>
                 )}
                 <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-gray-700">
-                  <div>大人<select className="w-full p-3 border bg-white" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{renderOptions(7, true)}</select></div>
-                  <div>小孩(4-12歲)<select className="w-full p-3 border bg-white" value={children} onChange={e=>setChildren(Number(e.target.value))}>{renderOptions(7)}</select></div>
-                  <div>幼童(4歲以下)<select className="w-full p-3 border bg-white" value={infants} onChange={e=>setInfants(Number(e.target.value))}>{renderOptions(7)}</select></div>
+                  <div>大人<select className="w-full p-3 border bg-white text-base" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{renderOptions(children+infants, 6, true)}</select></div>
+                  <div>小孩(4-12歲)<select className="w-full p-3 border bg-white text-base" value={children} onChange={e=>setChildren(Number(e.target.value))}>{renderOptions(adults+infants, 6)}</select></div>
+                  <div>幼童(4歲以下)<select className="w-full p-3 border bg-white text-base" value={infants} onChange={e=>setInfants(Number(e.target.value))}>{renderOptions(adults+children, 6)}</select></div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-gray-700">
-                  <div>登機箱<select className="w-full p-3 border bg-white" value={carryOn} onChange={e=>setCarryOn(Number(e.target.value))}>{renderOptions(7)}</select></div>
-                  <div>託運(21-29吋)<select className="w-full p-3 border bg-white" value={checkedBag} onChange={e=>setCheckedBag(Number(e.target.value))}>{renderOptions(7)}</select></div>
+                  <div>登機箱<select className="w-full p-3 border bg-white text-base" value={carryOn} onChange={e=>setCarryOn(Number(e.target.value))}>{renderOptions(checkedBag, 6)}</select></div>
+                  <div>託運(21-29吋)<select className="w-full p-3 border bg-white text-base" value={checkedBag} onChange={e=>setCheckedBag(Number(e.target.value))}>{renderOptions(carryOn, 6)}</select></div>
                 </div>
               </section>
 
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><CreditCard className="w-5 h-5" /> 費用報價</h2>
-                <select className="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={payment} onChange={e=>setPayment(e.target.value)}><option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結</option></select>
+                <select className="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" value={payment} onChange={e=>setPayment(e.target.value)}><option value="現金">現金</option><option value="轉帳">轉帳</option><option value="簽單月結">簽單月結</option></select>
                 <div className="p-3 border rounded-sm">
                   <label className="flex items-center gap-2 cursor-pointer py-1 font-bold text-gray-700">
                     <input type="checkbox" className="w-5 h-5 accent-[#0ABAB5]" checked={extraSignboard} onChange={e=>setExtraSignboard(e.target.checked)} /> 舉牌服務 (+$200)
                   </label>
-                  {extraSignboard && <input type="text" className="w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" placeholder="輸入舉牌內容" value={signboardText} onChange={e=>setSignboardText(e.target.value)} />}
+                  {extraSignboard && <input type="text" className="w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="輸入舉牌內容" value={signboardText} onChange={e=>setSignboardText(e.target.value)} />}
                 </div>
 
                 <div className="bg-[#0ABAB5] text-white p-6 border-t-8 border-white/20 rounded-sm shadow-xl">
@@ -557,11 +490,11 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
                       <span className="font-bold text-xl text-white">{basePriceInfo.price ? `$${basePriceInfo.price}` : '待報價'}</span>
                     </div>
                     <div className="border-t border-dashed border-white/30 pt-4 space-y-2.5">
-                      {fees.pickupFee > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 接機服務費</span><span>+$200</span></div>}
-                      {fees.nightFee > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 夜間加成 (22-06)</span><span>+$200</span></div>}
-                      {fees.infantSeatFee > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 安全座椅 x {infants}</span><span>+${fees.infantSeatFee}</span></div>}
-                      {fees.signboardFee > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 機場舉牌服務</span><span>+$200</span></div>}
-                      {fees.extraPointFee > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 加點服務費</span><span>+${fees.extraPointFee}</span></div>}
+                      {fees.pickup > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 接機服務費</span><span>+$200</span></div>}
+                      {fees.night > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 夜間加成 (22-06)</span><span>+$200</span></div>}
+                      {fees.infant > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 安全座椅 x {infants}</span><span>+${fees.infant}</span></div>}
+                      {fees.signboard > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 機場舉牌服務</span><span>+$200</span></div>}
+                      {fees.extraPoint > 0 && <div className="flex justify-between text-base font-bold text-white/90"><span>└ 加點服務費</span><span>+${fees.extraPoint}</span></div>}
                     </div>
                     <div className="mt-8 pt-5 border-t-2 border-white/30 flex justify-between items-center">
                       <span className="font-black text-white text-lg">預估總額</span>
@@ -577,7 +510,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               <section className="mt-8 border-t-2 border-[#0ABAB5] pt-6">
                 <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
                   <h3 className="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><ShieldAlert className="w-4 h-4" /> 【注意事項】</h3>
-                  <div className="space-y-4 text-sm font-bold text-gray-800">
+                  <div className="space-y-4 font-bold text-gray-800">
                     <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
                     <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
