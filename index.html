@@ -158,6 +158,8 @@
       const [isSubmitting, setIsSubmitting] = useState(false);
       
       const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', onConfirm: null });
+      const [submitSuccess, setSubmitSuccess] = useState(false);
+      const [fallbackMessage, setFallbackMessage] = useState('');
       
       const addressInputRef = useRef(null);
       const extraAddressInputRef = useRef(null);
@@ -339,19 +341,29 @@
                   
                   await liffModule.sendMessages(messagesToSend);
                   
-                  // 傳送成功後，直接關閉視窗回到 LINE 對話，不再顯示彈出視窗
-                  liffModule.closeWindow();
+                  // ★ 關鍵修正：傳送成功後，將畫面瞬間切換成「關閉中」的過場，並且直接 return，絕不讓表單復活！
+                  setFallbackMessage('closing');
+                  setSubmitSuccess(true);
+                  
+                  setTimeout(() => {
+                      liffModule.closeWindow();
+                  }, 100);
+                  
+                  return; // 這裡直接阻斷，不會跑到 finally 的 setIsSubmitting(false)！
               } catch (err) {
                   // 傳送失敗提示
                   showAlert(`請手動截圖給客服：\n\n${lineText}\n\n${successNotice}`, '傳送失敗', 'error');
               }
           } else {
               // 測試模式或非 LINE 環境下顯示的成功訊息
-              showAlert(`實際預約單內容如下：\n\n${lineText}\n\n${successNotice}`, '預約已送出', 'success');
+              setFallbackMessage(`(一般瀏覽器環境)\n預約已送出，實際預約單內容如下：\n\n${lineText}\n\n${successNotice}`);
+              setSubmitSuccess(true);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
           }
         } catch (err) { 
           showAlert('資料傳送過程中發生錯誤，請檢查網路連線。', '系統錯誤', 'error'); 
         } finally { 
+          // 只有在非 LINE 環境或發生錯誤時才會執行到這，成功時已經 return 阻斷了
           setIsSubmitting(false); 
         }
       };
@@ -410,6 +422,41 @@
         const available = Math.max(0, max - currentOtherSum);
         return Array.from({length: available + 1}, (_, i) => i).filter(n => !(excludeZero && n === 0)).map(i => <option key={i} value={i}>{i}</option>);
       };
+
+      // 成功送出時，不彈出視窗，直接更換整個頁面顯示結果
+      if (submitSuccess) {
+        if (fallbackMessage === 'closing') {
+          // ★ 送出成功且正在關閉 LIFF 時，只顯示這個純色過場，不讓使用者看到原本的表單
+          return (
+            <div className="min-h-screen bg-[#0ABAB5] flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
+               <CheckCircle className="w-20 h-20 mb-4 animate-bounce" />
+               <h2 className="text-2xl font-black tracking-widest">預約已送出</h2>
+               <p className="mt-2 font-bold opacity-80">即將返回 LINE 聊天室...</p>
+            </div>
+          );
+        }
+
+        // 非 LINE 環境的靜態成功畫面
+        return (
+          <div className="pb-10 text-[#222] min-h-screen bg-gray-50 flex flex-col">
+            <header className="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
+              <h1 className="text-xl font-bold tracking-wider uppercase">預約完成</h1>
+            </header>
+            <main className="max-w-md w-full mx-auto mt-8 p-6 animate-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-white p-8 rounded-lg shadow-xl text-center border border-gray-100">
+                <CheckCircle className="w-20 h-20 text-[#0ABAB5] mx-auto mb-6" />
+                <h2 className="text-2xl font-black text-[#0ABAB5] mb-2">預約已成功送出</h2>
+                <div className="text-left bg-gray-50 border border-gray-200 p-4 rounded-md mt-6 text-[13px] text-gray-700 font-mono whitespace-pre-wrap overflow-y-auto max-h-[50vh]">
+                  {fallbackMessage}
+                </div>
+                <button onClick={() => window.location.reload()} className="mt-8 w-full py-4 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform shadow-md">
+                  返回重新預約
+                </button>
+              </div>
+            </main>
+          </div>
+        );
+      }
 
       return (
         <div className="pb-10 text-[#222]">
@@ -470,7 +517,7 @@
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
                 <label className="block text-sm font-bold text-gray-700">乘車日期</label>
-                <input type="date" className={`w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base ${!date ? 'is-empty' : ''}`} value={date} onChange={e=>setDate(e.target.value)} placeholder="輸入乘車日期" />
+                <input type="date" className={`w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base ${!date ? 'is-empty' : ''}`} value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期 (西元年/月/日)" />
                 <div className="flex gap-2">
                   <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
                   <select className="flex-1 p-3 border bg-white rounded-sm text-base" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
