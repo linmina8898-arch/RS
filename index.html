@@ -315,16 +315,23 @@
       state.checkedBag = parseInt(DOM.checkedBag.value);
 
       const totalPeople = state.adults + state.children + state.infants;
-      const totalLuggage = state.carryOn + state.checkedBag;
+
+      let isForced = false;
+      let reason = '';
+
+      if (totalPeople >= 5) {
+        isForced = true;
+        reason = '人數達 5 人以上';
+      }
 
       // 車型強制判斷
-      if (totalLuggage >= 3 || totalPeople >= 5) {
+      if (isForced) {
         state.carType = '大車';
         DOM.carType.value = '大車';
         DOM.carType.disabled = true;
         DOM.carType.classList.add('bg-[#0ABAB5]/5', 'text-[#0ABAB5]', 'cursor-not-allowed');
         DOM.carType.classList.remove('bg-white');
-        DOM.carTypeMsg.innerText = `※ 因 ${totalLuggage >= 3 ? '行李達 3 件以上' : '人數達 5 人以上'}，系統已強制改為大車。`;
+        DOM.carTypeMsg.innerText = `※ 因 ${reason}，系統已強制改為大車。`;
         DOM.carTypeMsg.classList.remove('hidden-block');
       } else {
         DOM.carType.disabled = false;
@@ -335,17 +342,66 @@
       calculatePrice();
     }
 
+    // --- 智慧尋找報價邏輯 (Smart Search) ---
+    function findPriceData(airport, locString) {
+      if (!locString) return null;
+      
+      // 將地址字串拆分 (例如: "106 台北市 大安區")
+      const parts = locString.split(' ').filter(p => p);
+      let zip = '', city = '', area = '';
+      
+      if (parts[0] && /^\d+$/.test(parts[0])) {
+        zip = parts.shift(); // 抽出郵遞區號
+      }
+      city = parts[0] || '';
+      area = parts.slice(1).join('') || ''; // 把後面的組合起來當區域
+      
+      // 整理出資料庫裡這個機場的所有可用選項
+      const availableKeys = Object.keys(state.priceMap)
+        .filter(k => k.startsWith(airport + '_'))
+        .map(k => ({
+          originalKey: k,
+          normalizedLoc: k.replace(airport + '_', '').replace(/\s+/g, '') // 去除空白
+        }));
+
+      // 定義搜尋目標 (從最精準到最模糊)
+      const targets = [
+        locString.replace(/\s+/g, ''), // 完整去除空白 "106台北市大安區"
+        `${city}${area}`,               // 縣市+區域 "台北市大安區"
+        `${zip}${area}`,                // 區號+區域 "106大安區"
+        area,                           // 只有區域 "大安區"
+        `${zip}${city}`,                // 區號+縣市 "106台北市"
+        city                            // 只有縣市 "台北市"
+      ].filter(t => t);
+
+      // 1. 精準比對
+      for (let i = 0; i < targets.length; i++) {
+        const match = availableKeys.find(k => k.normalizedLoc === targets[i]);
+        if (match) return state.priceMap[match.originalKey];
+      }
+
+      // 2. 模糊包含比對 (作為最後的容錯)
+      const userStr = locString.replace(/\s+/g, '');
+      for (let i = 0; i < availableKeys.length; i++) {
+        const k = availableKeys[i];
+        if (k.normalizedLoc && (userStr.includes(k.normalizedLoc) || k.normalizedLoc.includes(userStr))) {
+           return state.priceMap[k.originalKey];
+        }
+      }
+
+      return null;
+    }
+
     // --- 計算費用邏輯 ---
     function calculatePrice() {
       let p1 = 0, p2 = 0;
-      if (state.district) { 
-        const d = state.priceMap[`${state.airport}_${state.district}`]; 
-        if(d) p1 = state.carType === '大車' ? d.large : d.small; 
-      }
-      if (state.hasExtraPoint && state.extraDistrict) { 
-        const d = state.priceMap[`${state.airport}_${state.extraDistrict}`]; 
-        if(d) p2 = state.carType === '大車' ? d.large : d.small; 
-      }
+      
+      // 透過智慧比對尋找報價
+      const dataMain = findPriceData(state.airport, state.district);
+      if(dataMain) p1 = state.carType === '大車' ? dataMain.large : dataMain.small;
+      
+      const dataExtra = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
+      if(dataExtra) p2 = state.carType === '大車' ? dataExtra.large : dataExtra.small;
       
       const baseInfo = (state.hasExtraPoint && p2 > p1) ? { price: p2, name: state.extraDistrict } : { price: p1, name: state.district };
       
@@ -453,13 +509,22 @@
       DOM.refreshIcon.classList.add('animate-spin');
       try {
         const res = await fetch(`${GAS_WEBAPP_URL}?action=getPrices`);
-        const d = await res.json();
-        if (d.status === 'success') {
-          state.priceMap = d.prices;
-          calculatePrice();
+        if (!res.ok) throw new Error('Network response was not ok');
+        const text = await res.text();
+        try {
+          const d = JSON.parse(text);
+          if (d.status === 'success') {
+            state.priceMap = d.prices;
+            calculatePrice();
+          }
+        } catch(jsonErr) {
+          console.warn('取得報價非預期格式，可能後端尚未支援 GET 報價。');
         }
-      } catch(e) { console.error('報價載入失敗'); } 
-      finally { DOM.refreshIcon.classList.remove('animate-spin'); }
+      } catch(e) {
+        console.warn('報價載入失敗，系統已自動切換為「待報價」模式。');
+      } finally {
+        DOM.refreshIcon.classList.remove('animate-spin');
+      }
     }
 
     // --- Google Maps Autocomplete ---
