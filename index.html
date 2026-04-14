@@ -339,9 +339,7 @@
           
           // 3. 顯示結果
           if (liffSent) {
-            showAlert(`🌟 預約成功！明細已傳送至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
-              if (window.liff) window.liff.closeWindow();
-            });
+            if (window.liff) window.liff.closeWindow();
           } else {
              showAlert(`🌟 預約已成功送出至系統！\n\n⚠️ 但無法自動回傳 LINE 訊息：\n（原因：${liffErrorMsg}）\n\n請您自行截圖下方明細保存：\n\n${lineText}`, '預約成功 (請自行截圖)', 'info');
           }
@@ -373,8 +371,8 @@
         if (missing.length > 0) return showAlert(`請填寫以下欄位：\n• ${missing.join('\n• ')}`, '資料不全', 'error');
 
         const lineText = `【RS專車接送 線上預約單】\n預約編號：${reservationId}\n全名：${name} ${title}\n電話：${phone}\n日期：${date}\n時間：${timeHour}:${timeMinute}\n服務：${serviceType}\n機場：${airport}\n航班：${flightNumber}\n地址：${district} ${address}\n${hasExtraPoint ? `加點：${extraDistrict} ${extraAddress}\n` : ''}車型：${carType}\n人數：大${adults},小${children},幼${infants}\n行李：登機箱${carryOn},託運${checkedBag}\n總額：${estimatedTotal ? '$'+estimatedTotal : '待報價'} (${payment})`;
-        setConfirmData({ payload: { action: 'addReservation', data: { reservationId, name: `${name} ${title}`, phone, email, date, time: `'${timeHour}:${timeMinute}`, serviceType, airport, flightNumber, district, address, carType, luggage: `登機:${carryOn},託運:${checkedBag}`, payment, totalFee: estimatedTotal || '待報價', remarks: `${remarks}${extraSignboard ? ` [舉牌:${signboardText}]` : ''}`, timestamp: new Date().toLocaleString() } }, lineText });
-        showAlert(lineText, '請確認預約明細內容', 'confirm');
+        const payload = { action: 'addReservation', data: { reservationId, name: `${name} ${title}`, phone, email, date, time: `'${timeHour}:${timeMinute}`, serviceType, airport, flightNumber, district, address, carType, luggage: `登機:${carryOn},託運:${checkedBag}`, payment, totalFee: estimatedTotal || '待報價', remarks: `${remarks}${extraSignboard ? ` [舉牌:${signboardText}]` : ''}`, timestamp: new Date().toLocaleString() } };
+        executeSubmit(payload, lineText);
       };
 
       const renderOptions = (currentOtherSum, max, excludeZero = false) => {
@@ -495,7 +493,11 @@
                     <div className="flex justify-between items-start">
                       <div className="flex flex-col">
                         <span className="font-bold text-base text-white">基本車資 ({carType})</span>
-                        <span className="text-xs text-white/70">{basePriceInfo.name || '未選'} - {airport}</span>
+                        <span className="text-xs text-white/70">
+                          {serviceType === '接機' 
+                            ? `${airport} - ${basePriceInfo.name || '未選'}` 
+                            : `${basePriceInfo.name || '未選'} - ${airport}`}
+                        </span>
                       </div>
                       <span className="font-bold text-xl text-white">{basePriceInfo.price ? `$${basePriceInfo.price}` : '待報價'}</span>
                     </div>
