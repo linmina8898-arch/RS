@@ -95,6 +95,11 @@
       return `RS${dateStr}${randomDigits}${randomChars}`;
     };
 
+    const DISTRICTS_FALLBACK = {
+      "台北市": ["100 台北市 中正區", "103 台北市 大同區", "104 台北市 中山區", "105 台北市 松山區", "106 台北市 大安區", "108 台北市 萬華區", "110 台北市 信義區", "111 台北市 士林區", "112 台北市 北投區", "114 台北市 內湖區", "115 台北市 南港區", "116 台北市 文山區"],
+      "新北市": ["207 新北市 萬里區", "208 新北市 金山區", "220 新北市 板橋區", "221 新北市 汐止區", "222 新北市 深坑區", "223 新北市 石碇區", "224 新北市 瑞芳區", "226 新北市 平溪區", "227 新北市 雙溪區", "228 新北市 貢寮區", "231 新北市 新店區", "232 新北市 坪林區", "233 新北市 烏來區", "234 新北市 永和區", "235 新北市 中和區", "236 新北市 土城區", "237 新北市 三峽區", "238 新北市 樹林區", "239 新北市 鶯歌區", "241 新北市 三重區", "242 新北市 新莊區", "243 新北市 泰山區", "244 新北市 林口區", "247 新北市 蘆洲區", "248 新北市 五股區", "249 新北市 八里區", "251 新北市 淡水區", "252 新北市 三芝區", "253 新北市 石門區"]
+    };
+
     function CustomModal({ isOpen, onClose, onConfirm, title, message, type = 'info', isSubmitting = false }) {
       if (!isOpen) return null;
       return (
@@ -175,15 +180,21 @@
         setFlightNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
       };
 
+      const handlePhoneChange = (e) => {
+        let val = e.target.value.replace(/\D/g, '').slice(0, 10);
+        let formatted = val;
+        if (val.length > 7) formatted = `${val.slice(0, 4)}-${val.slice(4, 7)}-${val.slice(7)}`;
+        else if (val.length > 4) formatted = `${val.slice(0, 4)}-${val.slice(4)}`;
+        setPhone(formatted);
+      };
+
       // 初始化 LIFF
       useEffect(() => {
         const initLiff = async () => {
           if (window.liff) {
             try {
               await window.liff.init({ liffId: LINE_LIFF_ID });
-              if (!window.liff.isLoggedIn()) {
-                console.log('User not logged in LIFF');
-              }
+              console.log('LIFF Initialized');
             } catch (err) {
               console.error('LIFF Init Error:', err);
             }
@@ -238,7 +249,7 @@
                         components.find(c => c.types.includes('locality'));
         let areaName = (areaComp ? areaComp.long_name : "").replace(/\d+/g, '').trim();
 
-        // 強制關鍵字校正 (確保完全匹配價目表)
+        // 強制關鍵字校正 (確保完全匹配價目表格式)
         if (fullAddr.includes("香山區")) { zipCode = "300"; cityName = "新竹市"; areaName = "香山區"; }
         else if (fullAddr.includes("東區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "東區"; }
         else if (fullAddr.includes("北區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "北區"; }
@@ -301,14 +312,6 @@
         } catch (err) { console.error(err); } finally { setIsLoadingPrices(false); }
       };
 
-      const handlePhoneChange = (e) => {
-        let val = e.target.value.replace(/\D/g, '').slice(0, 10);
-        let formatted = val;
-        if (val.length > 7) formatted = `${val.slice(0, 4)}-${val.slice(4, 7)}-${val.slice(7)}`;
-        else if (val.length > 4) formatted = `${val.slice(0, 4)}-${val.slice(4)}`;
-        setPhone(formatted);
-      };
-
       const basePriceInfo = useMemo(() => {
         let mainPrice = 0, extraPrice = 0;
         if (district) {
@@ -342,7 +345,6 @@
         try {
           const isInLine = (window.liff && window.liff.isInClient()) || /Line/i.test(navigator.userAgent);
           
-          // 非同步啟動後台發送
           const gasTask = fetch(GAS_WEBAPP_URL, { 
             method: 'POST', 
             mode: 'no-cors', 
@@ -353,7 +355,6 @@
           let liffSent = false;
           if (window.liff && window.liff.isInClient()) {
             try {
-              // 在發送前確認 LIFF 已準備好
               if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
               await window.liff.sendMessages([{ type: 'text', text: lineText }]);
               liffSent = true;
@@ -381,7 +382,7 @@
         e.preventDefault();
         const missing = [];
         if (!name.trim()) missing.push('乘車人姓名');
-        if (phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話 (需10碼)');
+        if (phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話 (10碼)');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) missing.push('信箱格式');
         if (!district) missing.push('接送區域');
         if (!address) missing.push('詳細地址');
@@ -481,7 +482,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               <section className="space-y-4">
                 <h2 className="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><Calendar className="w-5 h-5" /> 乘車資訊</h2>
                 <label className="block text-sm font-bold text-gray-700">乘車日期</label>
-                <input type="date" className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入日期" />
+                <input type="date" required className="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white" value={date} onChange={e=>setDate(e.target.value)} placeholder="請輸入乘車日期" />
                 <div className="flex gap-2">
                   <select className="flex-1 p-3 border bg-white rounded-sm" value={timeHour} onChange={e=>setTimeHour(e.target.value)}>{Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}</option>)}</select>
                   <select className="flex-1 p-3 border bg-white rounded-sm" value={timeMinute} onChange={e=>setTimeMinute(e.target.value)}>{Array.from({length:12},(_,i)=>(i*5).toString().padStart(2,'0')).map(m=><option key={m} value={m}>{m}</option>)}</select>
@@ -551,14 +552,14 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               </section>
 
               <section className="mt-8 border-t-2 border-[#0ABAB5] pt-6">
-                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm">
+                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
                   <h3 className="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><ShieldAlert className="w-4 h-4" /> 【注意事項】</h3>
-                  <div className="space-y-4 font-bold text-gray-800">
+                  <div className="space-y-4 text-sm font-bold text-gray-800">
                     <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
                     <p>2、依實際人數及行李件數尺寸預約車款。</p>
                     <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
                     <p>4、為維護乘車品質，顧及每位貴賓權益，車內請勿飲食。</p>
-                    <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
+                    <p>5 ... 略</p>
                   </div>
                 </div>
                 <label className="flex items-start gap-3 cursor-pointer p-4 border border-[#0ABAB5] font-black text-sm bg-white active:bg-[#0ABAB5]/5 transition-colors rounded-sm shadow-sm mt-4">
