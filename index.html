@@ -42,14 +42,14 @@
     </div>
   </div>
 
-  <!-- 成功送出後返回 LINE 的過場 -->
+  <!-- 成功送出後過場 -->
   <div id="view-done" class="hidden-block min-h-screen bg-[#0ABAB5] flex-col items-center justify-center text-white text-center p-6">
      <svg class="w-20 h-20 mb-4 animate-pulse mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
      <h2 class="text-2xl font-black tracking-widest">預約已送出</h2>
      <p class="mt-4 font-bold opacity-90">正在為您返回 LINE 聊天室...</p>
   </div>
 
-  <!-- 外部瀏覽器成功畫面 -->
+  <!-- 外部瀏覽器畫面 -->
   <div id="view-success" class="hidden-block pb-10 text-[#222] min-h-screen bg-gray-50 flex-col">
     <header class="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
       <h1 class="text-xl font-bold tracking-wider uppercase">預約完成</h1>
@@ -63,7 +63,6 @@
     </main>
   </div>
 
-  <!-- 表單畫面 -->
   <div id="view-form" class="pb-10 text-[#222]">
     <header class="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
       <h1 class="text-xl font-bold tracking-wider uppercase">RS 專車接送 預約系統</h1>
@@ -85,13 +84,13 @@
             <input type="text" id="name" class="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="全名">
             <select id="title" class="p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option>先生</option><option>小姐</option></select>
           </div>
-          <input type="tel" id="phone" class="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="聯絡電話 0900-000-000" maxlength="12">
+          <input type="tel" id="phone" class="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="聯絡電話 09xx-xxx-xxx" maxlength="12">
           <input type="email" id="email" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="MAIL 電子信箱">
 
           <div class="pt-2 border-t border-gray-100 mt-2 relative">
             <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
-            <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (自動帶入)">
-            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請在此輸入詳細地址並點選選單">
+            <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (自動解析)">
+            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請輸入詳細地址並從選單選取">
 
             <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
               <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
@@ -100,8 +99,8 @@
               </label>
               <p class="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點上下車順序需由本公司安排。</p>
               <div id="extra-point-block" class="hidden-block mt-4 space-y-2">
-                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm font-bold text-sm outline-none" readonly placeholder="加點區域 (自動帶入)">
-                <input type="text" id="extraAddress" class="w-full p-3 border bg-white font-bold rounded-sm text-base focus:border-[#0ABAB5] outline-none" placeholder="加點詳細地址 (請點選建議選單)">
+                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm font-bold text-sm outline-none" readonly placeholder="加點區域 (自動解析)">
+                <input type="text" id="extraAddress" class="w-full p-3 border bg-white font-bold rounded-sm text-base focus:border-[#0ABAB5] outline-none" placeholder="加點詳細地址 (請從選單選取)">
               </div>
             </div>
           </div>
@@ -126,7 +125,7 @@
         <!-- 車型與人數行李 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 0-4 0m-6 0a2 2 0 1 0-4 0"/></svg> 車型與人數行李 <span class="text-red-500 text-[10px] font-bold">(最多 6 人 6 件)</span>
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 0-4 0m-6 0a2 2 0 1 0-4 0"/></svg> 車型與人數行李 <span class="text-red-500 text-[10px] font-bold">(最多 6 人 6 件**包含登機箱**)</span>
           </h2>
           <select id="carType" class="w-full p-3 border font-bold rounded-sm bg-white text-base"><option value="小車">小車</option><option value="大車">大車</option></select>
           <p id="carType-msg" class="text-[11px] font-bold text-red-600 hidden-block"></p>
@@ -157,18 +156,18 @@
             <h3 class="text-sm font-black border-b border-white/20 pb-2 mb-4 flex items-center gap-2 uppercase tracking-widest"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> 報價明細內容</h3>
             <div class="space-y-4">
               <div class="flex justify-between items-start">
-                <div class="flex flex-col">
+                <div class="flex flex-col text-left">
                   <span id="display-carType-name" class="font-bold text-base text-white">基本車資 (小車)</span>
                   <span id="display-route" class="text-xs text-white/70">未選 → 桃園機場</span>
                 </div>
-                <span id="display-basePrice" class="font-bold text-xl text-white">待報價</span>
+                <span id="display-basePrice" class="font-bold text-xl text-white text-right">待報價</span>
               </div>
               <div id="fees-block" class="border-t border-dashed border-white/30 pt-4 space-y-2.5"></div>
               <div class="mt-8 pt-5 border-t-2 border-white/30 flex justify-between items-center">
                 <span class="font-black text-white text-lg">預估總額</span>
                 <div class="text-right">
                   <span id="display-total" class="text-4xl font-black text-white">待報價</span>
-                  <div id="display-payment" class="text-xs text-white/70 mt-1 uppercase tracking-tighter">付款：現金</div>
+                  <div id="display-payment" class="text-xs text-white/70 mt-1 uppercase tracking-tighter text-right">付款：現金</div>
                 </div>
               </div>
             </div>
@@ -176,16 +175,18 @@
         </section>
 
         <!-- 注意事項 -->
-        <section class="mt-8 border-t-2 border-[#0ABAB5] pt-6 pb-4">
-          <div class="bg-[#0ABAB5]/5 p-4 h-96 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner font-bold">
+        <section class="mt-8 border-t-2 border-[#0ABAB5] pt-6 pb-4 font-bold text-gray-800">
+          <div class="bg-[#0ABAB5]/5 p-4 h-96 overflow-y-auto text-xs leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
             <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 【注意事項】</h3>
-            <div class="space-y-4">
-              <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
-              <p>2、依實際人數及行李件數尺寸預約車款。</p>
-              <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
-              <p>4、為維護乘車品質，顧及每位貴賓權益，車內請勿飲食。</p>
-              <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
-            </div>
+            <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
+            <br>
+            <p>2、依實際人數及行李件數尺寸預約車款。</p>
+            <br>
+            <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
+            <br>
+            <p>4、為維護乘車品質，顧及每位貴賓權益，車內請勿飲食。</p>
+            <br>
+            <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶或使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
           </div>
           <label class="flex items-start gap-3 cursor-pointer p-4 border border-[#0ABAB5] font-black text-sm bg-white active:bg-[#0ABAB5]/5 transition-colors rounded-sm shadow-sm mt-4">
             <input type="checkbox" id="agreed" class="w-6 h-6 mt-0.5 accent-[#0ABAB5]">我同意以上資訊與免責聲明。
@@ -219,10 +220,10 @@
     function generateReservationId() {
       const now = new Date();
       const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-      const num = Math.floor(100 + Math.random() * 900); // 3碼流水號
+      const num = Math.floor(100 + Math.random() * 900);
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
       let str = '';
-      for(let i=0; i<3; i++) str += chars.charAt(Math.floor(Math.random() * chars.length)); // 3碼大小寫英文
+      for(let i=0; i<3; i++) str += chars.charAt(Math.floor(Math.random() * chars.length));
       return `RS${dateStr}${num}${str}`;
     }
 
@@ -286,7 +287,7 @@
       state.infants = parseInt(DOM.infants.value);
 
       const co = parseInt(DOM.carryOn.value)||0, cb = parseInt(DOM.checkedBag.value)||0;
-      // 行李防呆邏輯：總量不超過 6 件，兩者互相牽制
+      // 核心互補防呆：總數上限 6，不鎖定單項上限
       renderOptions(DOM.carryOn, cb, 6, false);
       renderOptions(DOM.checkedBag, co, 6, false);
       state.carryOn = parseInt(DOM.carryOn.value);
@@ -352,7 +353,6 @@
       const total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : null;
       
       DOM.displayCarTypeName.innerText = `基本車資 (${state.carType})`;
-      
       if (state.serviceType === '接機') {
         DOM.displayRoute.innerText = `${state.airport} → ${baseInfo.n || '未選'}`;
       } else {
@@ -361,12 +361,14 @@
 
       DOM.displayBasePrice.innerText = baseInfo.p ? `$${baseInfo.p}` : '待報價';
       DOM.displayTotal.innerText = total ? `$${total}` : '待報價';
+      DOM.displayPayment.innerText = `付款：${state.payment}`;
+
       DOM.feesBlock.innerHTML = '';
-      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>接機服務費</span><span>+$200</span></div>`;
-      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>夜間加成 (22-06)</span><span>+$200</span></div>`;
-      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>安全座椅 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
-      if(fees.signboard) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>機場舉牌服務</span><span>+$200</span></div>`;
-      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90"><span>加點服務費</span><span>+$${fees.extra}</span></div>`;
+      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>接機服務費</span><span>+$200</span></div>`;
+      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>夜間加成 (22-06)</span><span>+$200</span></div>`;
+      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>安全座椅 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
+      if(fees.signboard) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>機場舉牌服務</span><span>+$200</span></div>`;
+      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>加點服務費</span><span>+$${fees.extra}</span></div>`;
     }
 
     function initGoogleMaps() {
@@ -376,19 +378,25 @@
         let zip = (comps.find(c=>c.types.includes('postal_code'))?.long_name || "").substring(0,3);
         let city = (comps.find(c=>c.types.includes('administrative_area_level_1'))?.long_name || "").replace('台灣','').trim();
         let area = (comps.find(c=>c.types.includes('sublocality_level_1')) || comps.find(c=>c.types.includes('locality')))?.long_name || "";
-        if (city.includes("新竹") || full.includes("新竹")) {
-           zip = "300"; city = "新竹市";
-           if (full.includes("香山")) area = "香山區";
-           else if (full.includes("北區")) area = "北區";
-           else if (full.includes("東區")) area = "東區";
-        }
+        
+        // 精準區域匹配與自動校正
+        if (full.includes("香山")) { zip = "300"; city = "新竹市"; area = "香山區"; }
+        else if (full.includes("北區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "北區"; }
+        else if (full.includes("東區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "東區"; }
+        else if (full.includes("寶山")) { zip = "308"; city = "新竹縣"; area = "寶山鄉"; }
+        else if (full.includes("竹北")) { zip = "302"; city = "新竹縣"; area = "竹北市"; }
+        else if (full.includes("竹東")) { zip = "310"; city = "新竹縣"; area = "竹東鎮"; }
+        else if (full.includes("芎林")) { zip = "307"; city = "新竹縣"; area = "芎林鄉"; }
+
         const distStr = `${zip} ${city} ${area}`.trim();
         const addrStr = full.replace(/^\d{3,5}/, '').trim(); 
+
         document.getElementById(dId).value = distStr;
         document.getElementById(aId).value = addrStr;
         state[dId] = distStr; state[aId] = addrStr;
         calculatePrice();
       };
+
       const initAC = (inputId, dId) => {
         const input = document.getElementById(inputId);
         const ac = new window.google.maps.places.Autocomplete(input, { types:['geocode','establishment'], componentRestrictions:{country:'tw'} });
@@ -397,6 +405,7 @@
           if (place && place.formatted_address) parse(place, dId, inputId);
         });
       };
+
       if (!window.google) {
         const s = document.createElement('script');
         s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-TW`;
@@ -449,7 +458,7 @@
       if (rawPhone.length !== 10) return showAlert('電話號碼格式錯誤 (請輸入10位數字)', '提示', 'error');
       if (!state.district) return showAlert('請透過地圖建議選單帶入接送地址', '地址錯誤', 'error');
       if (!state.date) return showAlert('請選擇乘車日期', '提示', 'error');
-      if (!state.flightNumber.trim()) return showAlert('請輸入航班編號', '提示', 'error');
+      if (!state.flightNumber.trim()) return showAlert('請填寫航班編號', '提示', 'error');
       if (!check24HoursLimit()) return;
       if (!document.getElementById('agreed').checked) return showAlert('請閱讀並勾選同意條款', '提醒');
 
