@@ -60,7 +60,7 @@
         <svg class="w-20 h-20 text-[#0ABAB5] mx-auto mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         <h2 class="text-2xl font-black text-[#0ABAB5] mb-2">預約資料已送出</h2>
         <div class="bg-red-50 text-red-600 p-4 rounded-md mb-6 mt-6 text-[13px] font-bold text-left border border-red-100 leading-relaxed">
-           💡 系統提示：<br/>因為您目前使用手機的一般瀏覽器 (如 Safari/Chrome)，手機安全限制無法自動關閉網頁。<br/><br/>👉 <span class="underline">請您直接「滑掉此網頁」切換回 LINE 即可！</span>
+           💡 系統無法自動回傳至 LINE 聊天室：<br/><br/>原因通常是「使用了錯誤的網址」或「使用外部瀏覽器」。<br/><br/>👉 請確保您是在 LINE 對話框內點擊專屬網址 <span class="text-blue-600 break-all">https://liff.line.me/2009792282-jfKXBZiE</span> 來開啟本系統！
         </div>
         <div id="fallback-message" class="text-left bg-gray-50 border border-gray-200 p-4 rounded-md text-[12px] text-gray-500 font-mono whitespace-pre-wrap overflow-y-auto max-h-[30vh]"></div>
       </div>
@@ -510,18 +510,25 @@
       }
     }
 
-    // --- LIFF ---
-    function loadLiff() {
-      return new Promise((resolve) => {
-        if (window.liff) return resolve(window.liff);
+    // --- LIFF 單次安全初始化 ---
+    let liffInitPromise = null;
+    function initLiff() {
+      if (liffInitPromise) return liffInitPromise;
+      liffInitPromise = new Promise((resolve) => {
         const script = document.createElement('script');
         script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
         script.onload = () => {
-          window.liff.init({ liffId: LINE_LIFF_ID }).then(() => resolve(window.liff)).catch(() => resolve(null));
+          window.liff.init({ liffId: LINE_LIFF_ID })
+            .then(() => resolve(window.liff))
+            .catch((err) => {
+              console.error('LIFF Init Error:', err);
+              resolve(window.liff);
+            });
         };
         script.onerror = () => resolve(null);
         document.head.appendChild(script);
       });
+      return liffInitPromise;
     }
 
     // --- UI 互動 ---
@@ -593,19 +600,26 @@
       DOM.submitBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
 
       try {
+        // 背景送出資料庫
         fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(()=>{});
         
         const successNotice = "✅ 感謝您的線上預約！\n客服人員將會盡快為您安排專屬座車，並與您聯繫確認細節。有任何問題請隨時與我們聯繫！";
-        const liffModule = await loadLiff();
+        
+        // 確保 LIFF 模組就緒
+        const liffModule = await initLiff();
 
         if (liffModule && liffModule.isInClient()) {
             try {
+                // 成功在 LINE 內傳送兩段訊息
                 await liffModule.sendMessages([{ type: 'text', text: lineText }, { type: 'text', text: successNotice }]);
+                
                 // 極速秒關：徹底隱藏表單，顯示過場背景，直接關閉！
                 document.getElementById('view-form').classList.add('hidden-block');
                 document.getElementById('view-done').classList.remove('hidden-block');
                 document.getElementById('view-done').classList.add('flex');
-                liffModule.closeWindow();
+                
+                // 呼叫關閉，瞬間返回 LINE 聊天室
+                setTimeout(() => { liffModule.closeWindow(); }, 100);
                 return;
             } catch (err) {
                 document.getElementById('view-form').classList.add('hidden-block');
@@ -614,6 +628,7 @@
                 document.getElementById('fallback-message').innerText = `⚠️ LINE 傳送權限被阻擋，明細已記錄：\n\n${lineText}\n\n${successNotice}`;
             }
         } else {
+            // 進入非 LINE 專屬網址環境的提示
             document.getElementById('view-form').classList.add('hidden-block');
             document.getElementById('view-success').classList.remove('hidden-block');
             document.getElementById('view-success').classList.add('flex');
@@ -627,12 +642,12 @@
       }
     }
 
-    // --- 啟動初始化 ---
+    // --- 啟動系統 ---
     initSelectOptions();
     bindEvents();
     loadPrices();
     initGoogleMaps();
-    loadLiff();
+    initLiff();
 
   </script>
 </body>
