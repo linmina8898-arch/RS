@@ -40,10 +40,10 @@
     }
     @keyframes pulse-red {
       0%, 100% { opacity: 1; color: #dc2626; }
-      50% { opacity: 0.5; color: #991b1b; }
+      50% { opacity: 0.3; color: #b91c1c; }
     }
     .animate-pulse-red {
-      animation: pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      animation: pulse-red 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
     /* 自定義捲軸 */
     ::-webkit-scrollbar {
@@ -72,6 +72,19 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef, useCallback } = React;
     
+    // --- 核心工具函式 (確保在 App 載入前定義) ---
+    function generateReservationId() {
+      const now = new Date();
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+      const randomDigits = Math.floor(1000 + Math.random() * 9000);
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      let randomChars = '';
+      for (let i = 0; i < 3; i++) {
+        randomChars += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return `RS${dateStr}${randomDigits}${randomChars}`;
+    }
+
     const FallbackIcon = () => <span></span>;
     const { 
       Calendar = FallbackIcon, Clock = FallbackIcon, MapPin = FallbackIcon, Phone = FallbackIcon, User = FallbackIcon, Plane = FallbackIcon, Car = FallbackIcon, 
@@ -82,23 +95,6 @@
     const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwbTEF9LBnj2RB7cKgaFujfwCfG15sCMfL7REds-3oTeWQ-FTHU8c_DRPGgsH6LRsAZ_w/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009753964-t3AYp61e';
-
-    const generateReservationId = () => {
-      const now = new Date();
-      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-      const randomDigits = Math.floor(1000 + Math.random() * 9000);
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-      let randomChars = '';
-      for (let i = 0; i < 3; i++) {
-        randomChars += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return `RS${dateStr}${randomDigits}${randomChars}`;
-    };
-
-    const DISTRICTS_FALLBACK = {
-      "台北市": ["100 台北市 中正區", "103 台北市 大同區", "104 台北市 中山區", "105 台北市 松山區", "106 台北市 大安區", "108 台北市 萬華區", "110 台北市 信義區", "111 台北市 士林區", "112 台北市 北投區", "114 台北市 內湖區", "115 台北市 南港區", "116 台北市 文山區"],
-      "新北市": ["207 新北市 萬里區", "208 新北市 金山區", "220 新北市 板橋區", "221 新北市 汐止區", "222 新北市 深坑區", "223 新北市 石碇區", "224 新北市 瑞芳區", "226 新北市 平溪區", "227 新北市 雙溪區", "228 新北市 貢寮區", "231 新北市 新店區", "232 新北市 坪林區", "233 新北市 烏來區", "234 新北市 永和區", "235 新北市 中和區", "236 新北市 土城區", "237 新北市 三峽區", "238 新北市 樹林區", "239 新北市 鶯歌區", "241 新北市 三重區", "242 新北市 新莊區", "243 新北市 泰山區", "244 新北市 林口區", "247 新北市 蘆洲區", "248 新北市 五股區", "249 新北市 八里區", "251 新北市 淡水區", "252 新北市 三芝區", "253 新北市 石門區"]
-    };
 
     function CustomModal({ isOpen, onClose, onConfirm, title, message, type = 'info', isSubmitting = false }) {
       if (!isOpen) return null;
@@ -123,7 +119,7 @@
                 disabled={isSubmitting} 
                 className="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 flex justify-center items-center gap-2"
               >
-                {type === 'confirm' ? (isSubmitting ? '處理中...' : '確認無誤並送出') : '確定'}
+                {type === 'confirm' ? (isSubmitting ? '預約處理中...' : '確認無誤並送出') : '確定'}
               </button>
               {type === 'confirm' && (
                 <button onClick={onClose} disabled={isSubmitting} className="w-1/3 py-3 bg-gray-100 text-gray-700 font-black rounded-sm active:scale-95 transition-transform disabled:opacity-50 border border-gray-200">返回修改</button>
@@ -188,15 +184,14 @@
         setPhone(formatted);
       };
 
-      // 初始化 LIFF
       useEffect(() => {
         const initLiff = async () => {
           if (window.liff) {
             try {
               await window.liff.init({ liffId: LINE_LIFF_ID });
-              console.log('LIFF Initialized with ID:', LINE_LIFF_ID);
+              console.log('LIFF Ready');
             } catch (err) {
-              console.error('LIFF Init Error:', err);
+              console.warn('LIFF Init Error:', err);
             }
           }
         };
@@ -204,7 +199,7 @@
         
         window.gm_authFailure = () => {
           setMapsError(true);
-          showAlert("【地圖提示】地址自動補全功能目前無法載入，請改手動輸入詳細地址即可預約。", "地圖服務", "error");
+          showAlert("【地圖提示】地圖補全功能無法載入，請手動輸入地址即可預約。", "地圖服務", "error");
         };
       }, [showAlert]);
 
@@ -233,7 +228,7 @@
         }
       }, [date, timeHour, timeMinute, showAlert]);
 
-      // 精準行政區強制顯示邏輯
+      // 精準行政區強制解析邏輯 (300 新竹市 香山區 等)
       const parsePlaceToDistrictAndAddress = useCallback((place, distSetter, addrSetter) => {
         const components = place.address_components || [];
         const fullAddr = place.formatted_address || "";
@@ -249,7 +244,7 @@
                         components.find(c => c.types.includes('locality'));
         let areaName = (areaComp ? areaComp.long_name : "").replace(/\d+/g, '').trim();
 
-        // 強制關鍵字校正 (確保完全匹配價目表格式)
+        // 強制關鍵字校正 (嚴格匹配價目表)
         if (fullAddr.includes("香山區")) { zipCode = "300"; cityName = "新竹市"; areaName = "香山區"; }
         else if (fullAddr.includes("東區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "東區"; }
         else if (fullAddr.includes("北區") && (fullAddr.includes("新竹") || cityName.includes("新竹"))) { zipCode = "300"; cityName = "新竹市"; areaName = "北區"; }
@@ -343,7 +338,9 @@
         setIsSubmitting(true);
         
         try {
-          // 1. 同步發送到後台 GAS
+          const isInLine = (window.liff && window.liff.isInClient()) || /Line/i.test(navigator.userAgent);
+          
+          // 啟動 GAS 後端傳送
           const gasTask = fetch(GAS_WEBAPP_URL, { 
             method: 'POST', 
             mode: 'no-cors', 
@@ -352,34 +349,33 @@
           });
 
           let liffSent = false;
-          // 2. 處理 LINE 訊息發送 (關鍵修復：先發送再顯示彈窗)
-          if (window.liff) {
+          if (window.liff && window.liff.isInClient()) {
             try {
+              // 確保發送前 LIFF 已就緒
               if (!window.liff.id) await window.liff.init({ liffId: LINE_LIFF_ID });
               
-              if (window.liff.isInClient()) {
+              if (window.liff.isLoggedIn() && window.liff.getContext()) {
                 await window.liff.sendMessages([{ type: 'text', text: lineText }]);
                 liffSent = true;
-                console.log('LINE Message Sent Successfully');
               }
             } catch (e) {
-              console.error('LINE回傳失敗 (可能是授權問題):', e);
+              console.error('LINE回傳明細失敗:', e);
             }
           }
 
-          await gasTask; // 確保 GAS 也啟動完成
+          await gasTask;
 
           if (liffSent) {
-            showAlert(`🌟 預約成功！明細已同步傳送至您的 LINE 聊天室。\n\n(點擊確定後將自動關閉)`, '預約成功', 'success', () => {
+            showAlert(`🌟 預約成功！預約明細已自動傳送到您的 LINE 聊天室中。\n\n(點擊確定後將自動關閉視窗)`, '預約成功', 'success', () => {
               if (window.liff) window.liff.closeWindow();
             });
-          } else if (window.liff?.isInClient()) {
-             showAlert(`🌟 預約已送出！\n\n⚠️ 但明細無法自動回傳至對話框。\n請截圖保存明細：\n\n${lineText}`, '預約成功', 'info');
+          } else if (isInLine) {
+             showAlert(`🌟 預約已送出！\n\n⚠️ 提示：明細無法回傳 (請確認 LINE Scopes 設定勾選 chat_message.write)。\n請截圖保存此畫面預約明細：\n\n${lineText}`, '預約成功', 'info');
           } else {
-            showAlert(`🌟 預約成功！\n\n(非 LINE App 開啟，請截圖保存預約明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約成功！\n\n(非 LINE App 開啟，請截圖保存明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
         } catch (err) { 
-          showAlert('資料傳送發生錯誤，請檢查網路。', '系統錯誤', 'error'); 
+          showAlert('資料傳送過程中發生錯誤，請檢查網路連線。', '系統錯誤', 'error'); 
         } finally { 
           setIsSubmitting(false); 
           setConfirmData(null);
@@ -390,7 +386,7 @@
         e.preventDefault();
         
         if (!agreed) {
-          showAlert('請先勾選「我同意以上資訊與免責聲明」後再送出預約。', '提醒', 'error');
+          showAlert('請先勾選最下方的「我同意以上資訊與免責聲明」後再送出預約。', '提醒', 'error');
           return;
         }
 
@@ -398,13 +394,13 @@
         if (!name.trim()) missing.push('乘車人全名');
         if (phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話 (需10碼)');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) missing.push('信箱格式');
-        if (!district) missing.push('接送區域 (自動帶入)');
+        if (!district) missing.push('接送區域 (自動解析)');
         if (!address) missing.push('詳細地址');
         if (!date) missing.push('乘車日期');
         if (!flightNumber) missing.push('航班編號');
         if (extraSignboard && !signboardText.trim()) missing.push('舉牌內容');
 
-        if (missing.length > 0) return showAlert(`請填寫完整：\n• ${missing.join('\n• ')}`, '資料不全', 'error');
+        if (missing.length > 0) return showAlert(`請填寫以下欄位：\n• ${missing.join('\n• ')}`, '資料不全', 'error');
 
         const lineText = `【RS專車接送 線上預約單】
 預約編號：${reservationId}
