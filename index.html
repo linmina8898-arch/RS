@@ -209,7 +209,7 @@
 
   <script>
     // --- 常數設定 ---
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwK8InP7FkdRFmJH9XdDEgNRG4oNm9jPsmcBQiCdCddmzgw2I94bEt00qRfuXkYvL8V4Q/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzuwl0cpYubIcTayCI25Nukb8m2_7BYk0iffUeOsW97bNlHQJMI6zxR_l4Zzg4X3WM0xw/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -322,6 +322,18 @@
       if (totalPeople >= 5) {
         isForced = true;
         reason = '人數達 5 人以上';
+      } else if (state.checkedBag >= 3) {
+        isForced = true;
+        reason = '託運行李達 3 件 (含) 以上';
+      } else if (state.checkedBag === 2 && state.carryOn >= 1) {
+        isForced = true;
+        reason = '超過小車限制 (2託運+1登機箱需大車)';
+      } else if (state.checkedBag === 1 && state.carryOn >= 4) {
+        isForced = true;
+        reason = '超過小車限制 (最多 1託運+3登機箱)';
+      } else if (state.checkedBag === 0 && state.carryOn >= 5) {
+        isForced = true;
+        reason = '登機箱達 5 件 (含) 以上';
       }
 
       // 車型強制判斷
@@ -344,64 +356,72 @@
 
     // --- 智慧尋找報價邏輯 (Smart Search) ---
     function findPriceData(airport, locString) {
-      if (!locString) return null;
-      
-      // 將地址字串拆分 (例如: "106 台北市 大安區")
-      const parts = locString.split(' ').filter(p => p);
-      let zip = '', city = '', area = '';
-      
-      if (parts[0] && /^\d+$/.test(parts[0])) {
-        zip = parts.shift(); // 抽出郵遞區號
-      }
-      city = parts[0] || '';
-      area = parts.slice(1).join('') || ''; // 把後面的組合起來當區域
-      
-      // 整理出資料庫裡這個機場的所有可用選項
-      const availableKeys = Object.keys(state.priceMap)
-        .filter(k => k.startsWith(airport + '_'))
-        .map(k => ({
-          originalKey: k,
-          normalizedLoc: k.replace(airport + '_', '').replace(/\s+/g, '') // 去除空白
-        }));
+      if (!locString || Object.keys(state.priceMap).length === 0) return null;
 
-      // 定義搜尋目標 (從最精準到最模糊)
-      const targets = [
-        locString.replace(/\s+/g, ''), // 完整去除空白 "106台北市大安區"
-        `${city}${area}`,               // 縣市+區域 "台北市大安區"
-        `${zip}${area}`,                // 區號+區域 "106大安區"
-        area,                           // 只有區域 "大安區"
-        `${zip}${city}`,                // 區號+縣市 "106台北市"
-        city                            // 只有縣市 "台北市"
-      ].filter(t => t);
+      // 1. 清理使用者輸入 (移除空白與 "台灣")
+      const userStr = locString.replace(/\s+/g, '').replace('台灣', '');
+      const userZipMatch = userStr.match(/^(\d{3,5})/);
+      const userZip = userZipMatch ? userZipMatch[1].substring(0, 3) : ''; // 只取前三碼
+      const userText = userStr.replace(/^\d+/, ''); // 移除數字得到純文字
 
-      // 1. 精準比對
-      for (let i = 0; i < targets.length; i++) {
-        const match = availableKeys.find(k => k.normalizedLoc === targets[i]);
-        if (match) return state.priceMap[match.originalKey];
-      }
+      // 模糊化機場名稱 (相容 "桃園機場" 與 "桃園")
+      const aptPrefix = airport.replace('機場', '');
 
-      // 2. 模糊包含比對 (作為最後的容錯)
-      const userStr = locString.replace(/\s+/g, '');
-      for (let i = 0; i < availableKeys.length; i++) {
-        const k = availableKeys[i];
-        if (k.normalizedLoc && (userStr.includes(k.normalizedLoc) || k.normalizedLoc.includes(userStr))) {
-           return state.priceMap[k.originalKey];
-        }
+      // 篩選與該機場相關的 DB 項目，並分解出郵遞區號與純文字
+      const availableKeys = Object.keys(state.priceMap).filter(k => {
+        const apt = k.split('_')[0];
+        return apt && (apt.includes(aptPrefix) || airport.includes(apt));
+      }).map(k => {
+          const locPart = k.split('_').slice(1).join('_').replace(/\s+/g, '').replace('台灣', '');
+          const zipMatch = locPart.match(/^(\d{3,5})/);
+          const zip = zipMatch ? zipMatch[1].substring(0, 3) : '';
+          const text = locPart.replace(/^\d+/, '');
+          return { originalKey: k, normalizedLoc: locPart, zip: zip, text: text };
+      });
+
+      // 策略 1：完全精準比對 (ex: "307新竹縣芎林鄉" === "307新竹縣芎林鄉")
+      let match = availableKeys.find(k => k.normalizedLoc === userStr);
+      if (match) return state.priceMap[match.originalKey];
+
+      // 策略 2：純文字互相包含比對 (ex: "新竹縣芎林鄉" 包含 "芎林鄉")
+      match = availableKeys.find(k => {
+         if (k.text && userText) {
+             // 限制比對文字長度至少要 2 (避免單一字元如 "縣"、"區" 造成誤判)
+             if (k.text.length >= 2 && userText.includes(k.text)) return true;
+             if (userText.length >= 2 && k.text.includes(userText)) return true;
+         }
+         return false;
+      });
+      if (match) return state.priceMap[match.originalKey];
+
+      // 策略 3：郵遞區號比對 (當前兩者失敗時的最後依靠)
+      // 若兩者皆有區號且相同，我們視為命中該鄉鎮 (ex: 輸入 "307 新竹縣"，即可命中 "307 芎林鄉")
+      if (userZip) {
+          match = availableKeys.find(k => k.zip === userZip);
+          if (match) return state.priceMap[match.originalKey];
       }
 
       return null;
+    }
+
+    // 寬容的價格解析 (支援 {small:1000} 或 直接寫數字 1000)
+    function extractPrice(data, carType) {
+      if (!data) return 0;
+      if (typeof data === 'object') {
+         return carType === '大車' ? (data.large || data.price || 0) : (data.small || data.price || 0);
+      }
+      return Number(data) || 0;
     }
 
     // --- 計算費用邏輯 ---
     function calculatePrice() {
       let p1 = 0, p2 = 0;
       
-      // 透過智慧比對尋找報價
       const dataMain = findPriceData(state.airport, state.district);
-      if(dataMain) p1 = state.carType === '大車' ? dataMain.large : dataMain.small;
+      p1 = extractPrice(dataMain, state.carType);
       
       const dataExtra = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
-      if(dataExtra) p2 = state.carType === '大車' ? dataExtra.large : dataExtra.small;
+      p2 = extractPrice(dataExtra, state.carType);
       
       const baseInfo = (state.hasExtraPoint && p2 > p1) ? { price: p2, name: state.extraDistrict } : { price: p1, name: state.district };
       
@@ -442,7 +462,10 @@
       const textInputs = ['name', 'title', 'email', 'district', 'address', 'extraDistrict', 'extraAddress', 'signboardText', 'remarks'];
       textInputs.forEach(id => {
         const el = document.getElementById(id);
-        if(el) el.addEventListener('input', e => state[id] = e.target.value);
+        if(el) el.addEventListener('input', e => {
+           state[id] = e.target.value;
+           if (id === 'district' || id === 'extraDistrict') calculatePrice();
+        });
       });
 
       document.getElementById('phone').addEventListener('input', e => {
@@ -508,20 +531,22 @@
     async function loadPrices() {
       DOM.refreshIcon.classList.add('animate-spin');
       try {
-        const res = await fetch(`${GAS_WEBAPP_URL}?action=getPrices`);
-        if (!res.ok) throw new Error('Network response was not ok');
+        const url = `${GAS_WEBAPP_URL}?action=getPrices&t=${new Date().getTime()}`; // 加上時間戳防快取
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Network error');
         const text = await res.text();
         try {
           const d = JSON.parse(text);
-          if (d.status === 'success') {
-            state.priceMap = d.prices;
+          const prices = d.prices || d.priceMap || d.data || d; // 支援多種 JSON 格式
+          if (prices && Object.keys(prices).length > 0) {
+            state.priceMap = prices;
             calculatePrice();
           }
         } catch(jsonErr) {
-          console.warn('取得報價非預期格式，可能後端尚未支援 GET 報價。');
+          console.warn('JSON 解析失敗，可能後端未返回正確格式。');
         }
       } catch(e) {
-        console.warn('報價載入失敗，系統已自動切換為「待報價」模式。');
+        console.warn('報價載入失敗。');
       } finally {
         DOM.refreshIcon.classList.remove('animate-spin');
       }
