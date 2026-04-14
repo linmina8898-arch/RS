@@ -93,7 +93,8 @@
 
           <div class="pt-2 border-t border-gray-100 mt-2 relative">
             <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
-            <input type="text" id="district" class="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed font-bold text-sm" readonly placeholder="郵遞區號 縣市 區域 (自動解析)">
+            <!-- 取消 readonly，讓使用者可以直接打字觸發報價 -->
+            <input type="text" id="district" class="w-full p-3 border bg-white rounded-sm mb-2 font-bold text-sm focus:border-[#0ABAB5] outline-none transition-colors" placeholder="郵遞區號 縣市 區域 (自動帶入或手動輸入)">
             <input type="text" id="address" class="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="輸入詳細地址 (點選自動帶入區號)">
 
             <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
@@ -103,8 +104,8 @@
               </label>
               <p class="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點上下車順序需由本公司安排。</p>
               <div id="extra-point-block" class="hidden-block mt-4 space-y-2">
-                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm font-bold text-sm" readonly placeholder="加點區域">
-                <input type="text" id="extraAddress" class="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm text-base" placeholder="加點詳細地址 (點選帶入)">
+                <input type="text" id="extraDistrict" class="w-full p-3 border bg-white rounded-sm font-bold text-sm focus:border-[#0ABAB5] outline-none transition-colors" placeholder="加點區域 (可手動輸入)">
+                <input type="text" id="extraAddress" class="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm text-base focus:border-[#0ABAB5] outline-none transition-colors" placeholder="加點詳細地址 (點選帶入)">
               </div>
             </div>
           </div>
@@ -209,7 +210,7 @@
 
   <script>
     // --- 常數設定 ---
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbz5FObqS9-Iy0ZNgwymh8T5pC9B06o3-jCj-XYtiIKWE0dOriLdaZHirD9aXuJvrFnT/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwbTEF9LBnj2RB7cKgaFujfwCfG15sCMfL7REds-3oTeWQ-FTHU8c_DRPGgsH6LRsAZ_w/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -527,27 +528,40 @@
       document.getElementById('reservation-form').addEventListener('submit', handleSubmit);
     }
 
-    // --- 載入報價 ---
+    // --- 載入報價 (增強防呆與自動測試模式) ---
     async function loadPrices() {
       DOM.refreshIcon.classList.add('animate-spin');
       try {
         const url = `${GAS_WEBAPP_URL}?action=getPrices&t=${new Date().getTime()}`; // 加上時間戳防快取
         const res = await fetch(url);
-        if (!res.ok) throw new Error('Network error');
+        if (!res.ok) throw new Error('HTTP 錯誤: ' + res.status);
         const text = await res.text();
         try {
           const d = JSON.parse(text);
           const prices = d.prices || d.priceMap || d.data || d; // 支援多種 JSON 格式
           if (prices && Object.keys(prices).length > 0) {
             state.priceMap = prices;
-            calculatePrice();
+          } else {
+            throw new Error('回傳的價目表為空');
           }
         } catch(jsonErr) {
-          console.warn('JSON 解析失敗，可能後端未返回正確格式。');
+          throw new Error('解析失敗或格式不對');
         }
       } catch(e) {
-        console.warn('報價載入失敗。');
+        console.warn('報價載入失敗', e);
+        // 啟用離線測試防護網：即使後端失敗，也能確保介面可以跳出報價！
+        state.priceMap = {
+          "桃園機場_台北市": { small: 1000, large: 1500 },
+          "桃園機場_大安區": { small: 1100, large: 1600 },
+          "桃園機場_新北市": { small: 1000, large: 1500 },
+          "桃園機場_新竹市": { small: 1200, large: 1800 },
+          "桃園機場_新竹縣": { small: 1300, large: 1900 },
+          "桃園機場_芎林鄉": { small: 1400, large: 2000 },
+          "松山機場_台北市": { small: 800, large: 1200 }
+        };
+        showAlert(`無法連接到您的 Google 價目表！\n\n原因可能是 Apps Script 尚未發布為「所有人」，或者表單內沒有資料。\n\n為方便您測試，系統已自動載入「測試報價」，您可以直接手動輸入「台北市」或「大安區」來測試報價彈出功能。`, '連線失敗', 'error');
       } finally {
+        calculatePrice();
         DOM.refreshIcon.classList.remove('animate-spin');
       }
     }
