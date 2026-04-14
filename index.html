@@ -170,7 +170,6 @@
         setFlightNumber(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase());
       };
 
-      // 集中初始化 LIFF
       useEffect(() => {
         const initLiff = async () => {
           if (window.liff) {
@@ -186,7 +185,7 @@
         
         window.gm_authFailure = () => {
           setMapsError(true);
-          showAlert("【地圖提示】地址補全功能目前無法載入，請改手動輸入地址預約。", "地圖服務", "error");
+          showAlert("【地圖提示】地圖補全功能無法載入，請改手動輸入地址預約。", "地圖服務", "error");
         };
       }, [showAlert]);
 
@@ -209,18 +208,18 @@
           const now = new Date();
           const diffHours = (selectedDate.getTime() - now.getTime()) / (1000 * 60 * 60);
           if (diffHours < 24) {
-            showAlert('預約時間需大於 24 小時，急件請直撥 0915-926-166。', '時間限制', 'error');
+            showAlert('預約需大於 24 小時，急件請撥 0915-926-166。', '時間限制', 'error');
             setDate(''); 
           }
         }
       }, [date, timeHour, timeMinute, showAlert]);
 
-      // 精準行政區解析邏輯
+      // 修正後的精準解析行政區邏輯
       const parsePlaceToDistrictAndAddress = (place, distSetter, addrSetter) => {
         const components = place.address_components || [];
         const fullAddr = place.formatted_address || "";
         
-        // 1. 抓取 3 碼郵遞區號
+        // 1. 抓取 3 碼郵遞區號 (包含備援匹配)
         let zipCode = "";
         const postCodeObj = components.find(c => c.types.includes('postal_code'));
         if (postCodeObj) {
@@ -230,11 +229,12 @@
           if (zipMatch) zipCode = zipMatch[1].substring(0, 3);
         }
 
-        // 2. 抓取第一層：縣市 (administrative_area_level_1)
+        // 2. 抓取第一層：縣市
         const cityComp = components.find(c => c.types.includes('administrative_area_level_1'));
         const cityName = (cityComp ? cityComp.long_name : "").replace(/\d+/g, '').replace('台灣', '').trim();
 
-        // 3. 抓取第二層：區域 (優先抓 sublocality, 其次找鎮/區/市)
+        // 3. 抓取第二層：行政區 (例如：東區、香山區、竹東鎮、頭份市)
+        // 優先搜尋 sublocality_level_1，其次搜尋 locality
         let areaName = "";
         const subLocality = components.find(c => c.types.includes('sublocality_level_1'));
         const locality = components.find(c => c.types.includes('locality'));
@@ -246,10 +246,10 @@
         }
         
         // 清理名稱中的數字（例如解決 310 310 問題）
-        areaName = areaName.replace(/\d+/g, '').trim();
+        const cleanAreaName = areaName.replace(/\d+/g, '').trim();
 
-        // 4. 組合格式：310 新竹縣 竹東鎮
-        const priceListFormat = `${zipCode} ${cityName} ${areaName}`.replace(/\s+/g, ' ').trim();
+        // 4. 組合最終格式：310 新竹縣 竹東鎮 (嚴格對應價目表)
+        const priceListFormat = `${zipCode} ${cityName} ${cleanAreaName}`.replace(/\s+/g, ' ').trim();
         distSetter(priceListFormat);
         
         // 5. 清理詳細地址 (避免開頭重複資訊)
@@ -257,7 +257,7 @@
           .replace(/^台灣\d{3,5}\s*/, '')
           .replace(/^台灣/, '')
           .replace(cityName, '')
-          .replace(areaName, '')
+          .replace(cleanAreaName, '')
           .replace(/^\d{3,5}/, '')
           .trim();
           
@@ -344,12 +344,7 @@
         setIsSubmitting(true);
         
         try {
-          const gasTask = fetch(GAS_WEBAPP_URL, { 
-            method: 'POST', 
-            mode: 'no-cors', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify(payload) 
-          });
+          const gasTask = fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
 
           let liffSent = false;
           if (window.liff) {
@@ -366,13 +361,13 @@
           await gasTask;
 
           if (liffSent) {
-            showAlert(`🌟 預約成功！明細已同步回傳至您的 LINE 聊天室。\n(點擊確定後將自動關閉本視窗)`, '預約成功', 'success', () => {
+            showAlert(`🌟 預約成功！明細已回傳至您的 LINE 聊天室。\n(確定後將自動關閉視窗)`, '預約成功', 'success', () => {
               if (window.liff && window.liff.isInClient()) window.liff.closeWindow();
             });
           } else {
-            showAlert(`🌟 預約成功！\n\n(系統偵測非 LINE 開啟，請手動截圖保存明細)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
+            showAlert(`🌟 預約成功！\n\n(非 LINE App 內開啟，請截圖保存)\n\n⬇️ 預約明細 ⬇️\n\n${lineText}`, '預約成功', 'success');
           }
-        } catch (err) { showAlert('資料傳送過程中發生錯誤，請檢查網路。', '系統錯誤', 'error'); } 
+        } catch (err) { showAlert('資料傳送過程中發生錯誤。', '系統錯誤', 'error'); } 
         finally { setIsSubmitting(false); setConfirmData(null); }
       };
 
@@ -380,7 +375,7 @@
         e.preventDefault();
         const missing = [];
         if (!name.trim()) missing.push('乘車人姓名');
-        if (phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話 (10碼)');
+        if (phone.replace(/\D/g, '').length !== 10) missing.push('聯絡電話 (需10碼)');
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) missing.push('信箱格式');
         if (!district) missing.push('接送區域');
         if (!address) missing.push('詳細地址');
@@ -405,8 +400,8 @@
 ${hasExtraPoint ? `加點地址：${extraDistrict} ${extraAddress}\n` : ''}車型：${carType}
 人數：大${adults}, 小(4-12)${children}, 幼(4歲以下)${infants}
 行李：登機箱${carryOn}, 託運(21-29吋)${checkedBag}
-預估總額：${estimatedTotal ? '$'+estimatedTotal : '待系統報價'} (${payment})
-${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${signboardText}` : ''}`;
+預估總額：${estimatedTotal ? '$'+estimatedTotal : '待報價'} (${payment})
+${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n舉牌：${signboardText}` : ''}`;
 
         const payload = {
           action: 'addReservation',
@@ -458,7 +453,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
 
                 <div className="pt-2 border-t border-gray-100 mt-2 relative">
                   <label className="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><MapPin className="w-4 h-4 text-[#0ABAB5]" /> 接送地址</label>
-                  <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed" value={district} readOnly placeholder="郵遞區號 縣市 區域 (自動帶入)" />
+                  <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm mb-2 cursor-not-allowed" value={district} readOnly placeholder="區域區號 (由下方自動帶入)" />
                   <input ref={addressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5]" value={address} onChange={e=>setAddress(e.target.value)} placeholder="輸入詳細地址 (點選自動帶入區號)" />
 
                   <div className="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
@@ -471,10 +466,6 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
                       <div className="mt-4 space-y-2 animate-in slide-in-from-top-2">
                         <input type="text" className="w-full p-3 border bg-gray-50 text-gray-500 rounded-sm" value={extraDistrict} readOnly placeholder="加點區域" />
                         <input ref={extraAddressInputRef} type="text" className="w-full p-3 border bg-[#0ABAB5]/5 font-bold rounded-sm" value={extraAddress} onChange={e=>setExtraAddress(e.target.value)} placeholder="加點詳細地址 (點選帶入)" />
-                        <div className="bg-[#0ABAB5]/5 p-2 rounded-sm flex items-start gap-2">
-                           <Info className="w-4 h-4 text-[#0ABAB5] mt-0.5 flex-shrink-0" />
-                           <p className="text-xs text-[#0ABAB5] font-bold">系統最多支援 2 個接送點，超過請洽客服。</p>
-                        </div>
                       </div>
                     )}
                   </div>
@@ -502,7 +493,6 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
                 <select className={`w-full p-3 border font-bold rounded-sm ${carTypeConstraint.isForced?'bg-[#0ABAB5]/5 text-[#0ABAB5] border-[#0ABAB5]/20 cursor-not-allowed':'bg-white'}`} value={carType} onChange={e => !carTypeConstraint.isForced && setCarType(e.target.value)} disabled={carTypeConstraint.isForced}>
                   <option value="小車">小車</option><option value="大車">大車</option>
                 </select>
-                {carTypeConstraint.isForced && <p className="text-[11px] text-[#0ABAB5] font-bold animate-pulse">※ 因 {carTypeConstraint.reason}，系統已強制改為大車。</p>}
                 <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-gray-700">
                   <div>大人<select className="w-full p-3 border" value={adults} onChange={e=>setAdults(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).filter(n=>n>0).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
                   <div>小孩(4-12歲)<select className="w-full p-3 border" value={children} onChange={e=>setChildren(Number(e.target.value))}>{Array.from({length:7},(_,i)=>i).map(i=><option key={i} value={i}>{i}</option>)}</select></div>
@@ -553,7 +543,7 @@ ${remarks ? `備註：\n${remarks}` : ''}${extraSignboard ? `\n機場舉牌：${
               </section>
 
               <section className="mt-8 border-t-2 border-[#0ABAB5] pt-6">
-                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm">
+                <div className="bg-[#0ABAB5]/5 p-4 h-80 overflow-y-auto text-xs text-gray-700 leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
                   <h3 className="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><ShieldAlert className="w-4 h-4" /> 【注意事項】</h3>
                   <div className="space-y-4 font-bold text-gray-800">
                     <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
