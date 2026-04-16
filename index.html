@@ -201,7 +201,7 @@
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzu7eCEHA-NyhO71yRUZVz2Na4ARl6W_zHKWvR4-ugqJKT5cH3Ejei5Va0fJqc5mBhNVA/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxbOUJ4RvPFgYY4Kp_QIlVlvxGV70mrDGC0gj374KzwvisijOyEneSAl4V1iU4VHmqHoA/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -476,6 +476,12 @@
       if (!state.district) return showAlert('請透過地圖建議選單帶入接送地址', '地址錯誤', 'error');
       if (!state.date) return showAlert('請選擇乘車日期', '提示', 'error');
       if (!state.flightNumber.trim()) return showAlert('請填寫航班編號', '提示', 'error');
+      
+      // 新增：如果勾選舉牌，不能沒有內容
+      if (state.extraSignboard && !state.signboardText.trim()) {
+        return showAlert('有勾選舉牌服務時，請務必填寫「舉牌內容」！', '提示', 'error');
+      }
+
       if (!check24HoursLimit()) return;
       if (!document.getElementById('agreed').checked) return showAlert('請閱讀並勾選同意條款', '提醒');
 
@@ -501,9 +507,11 @@
       lineText += `車型：${state.carType}\n` +
                   `人數：大${state.adults},小${state.children},幼${state.infants}\n`;
 
-      // 增加安全座椅提醒在 LINE 的內容中
       if (state.infants > 0) {
         lineText += `安全座椅：${state.infants}張 (4歲以下強制需要)\n`;
+      }
+      if (state.extraSignboard) {
+        lineText += `舉牌內容：${state.signboardText}\n`;
       }
 
       lineText += `行李：登機箱${state.carryOn},託運${state.checkedBag}\n` +
@@ -511,25 +519,22 @@
 
       const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
 
-      // 整合加點明細與安全座椅到備註，確保後台一定收得到
-      let remarksArr = [];
-      if (state.extraSignboard) remarksArr.push(`[舉牌:${state.signboardText}]`);
-      if (state.hasExtraPoint) remarksArr.push(`加點地址：${state.extraDistrict} ${state.extraAddress}`);
-      if (state.infants > 0) remarksArr.push(`需安全座椅：${state.infants}張(4歲以下)`);
-      
-      let finalRemarksStr = remarksArr.length > 0 ? remarksArr.join(" | ") : "無";
+      // 乾淨的備註欄位 (留給加點地址使用)
+      let finalRemarksStr = state.hasExtraPoint ? `加點地址：${state.extraDistrict} ${state.extraAddress}` : "無";
 
-      // 如果備註或是人數欄位需要明確顯示安全座椅，這邊在 passengers 後方直接補充字眼
+      // 這次我們特別針對 GAS 分離出獨立的兩個 KEY (safetySeat 與 signboard)
       const payload = { 
         action:'addReservation', 
         data:{ 
           ...state, 
           time: "'" + state.timeHour + ":" + state.timeMinute,
-          passengers: `大${state.adults},小${state.children},幼${state.infants}` + (state.infants > 0 ? ` (含安全座椅${state.infants}張)` : ""), 
-          luggage:`登機:${state.carryOn},託運:${state.checkedBag}`, 
-          totalFee:totalStr, 
+          passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
+          luggage: `登機:${state.carryOn},託運:${state.checkedBag}`, 
+          totalFee: totalStr, 
+          safetySeat: state.infants > 0 ? `${state.infants}張` : '無',   // ← 新獨立欄位
+          signboard: state.extraSignboard ? state.signboardText : '無',  // ← 新獨立欄位
           remarks: finalRemarksStr,
-          timestamp:new Date().toLocaleString() 
+          timestamp: new Date().toLocaleString() 
         }
       };
 
@@ -600,7 +605,7 @@
     
     DOM.extraSignboard.onchange = (e) => {
       state.extraSignboard = e.target.checked;
-      DOM.signboardText.className = e.target.checked ? 'w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] text-base' : 'hidden-block';
+      DOM.signboardText.className = e.target.checked ? 'w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base' : 'hidden-block';
       calculatePrice();
     };
     
