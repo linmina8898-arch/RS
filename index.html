@@ -510,6 +510,7 @@
       DOM.submitBtn.innerText = '資料傳送中...';
       const totalStr = DOM.displayTotal.innerText;
       
+      // ★ 此處已將地址只保留詳細地址 (state.address 與 state.extraAddress)
       let lineText = `【RS專車接送 線上預約單】\n` +
                      `預約編號：${state.reservationId}\n` +
                      `全名：${state.name} ${state.title}\n` +
@@ -519,10 +520,10 @@
                      `服務：${state.serviceType}\n` +
                      `機場：${state.airport}\n` +
                      `航班：${state.flightNumber}\n` +
-                     `地址：${state.district} ${state.address}\n`;
+                     `地址：${state.address}\n`;
 
       if (state.hasExtraPoint) {
-        lineText += `加點：${state.extraDistrict} ${state.extraAddress}\n`;
+        lineText += `加點：${state.extraAddress}\n`;
       }
 
       lineText += `車型：${state.carType}\n` +
@@ -543,7 +544,7 @@
 
       const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
 
-      // ★ 這裡是在前端先將地址組裝好，確保 GAS 後端直接存取而不會錯亂
+      // ★ 這裡是在前端先將地址組裝好，確保 GAS 後端直接存取而不會錯亂 (保留完整的郵遞區號跟地區給後端)
       const mainAddressStr = `${state.district} ${state.address}`;
       const extraAddressStr = state.hasExtraPoint ? `${state.extraDistrict} ${state.extraAddress}` : '無';
 
