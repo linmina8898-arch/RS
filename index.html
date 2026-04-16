@@ -201,7 +201,7 @@
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyCoO9J3aebn6kYHt3UTMt3LYCbafQ57r0gxI7F2Q2dj3dop71PG1MzNWlSx1nIXbOgPQ/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxCx6_deYs5muJNjONN1thrDGt-QAtsQET8InTKHBy70e0BOOPg5A24H8vliXObMSRkUA/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -527,7 +527,9 @@
 
       const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
 
-      let finalRemarksStr = state.hasExtraPoint ? `加點地址：${state.extraDistrict} ${state.extraAddress}` : "無";
+      // ★ 這裡是在前端先將地址組裝好，確保 GAS 後端直接存取而不會錯亂
+      const mainAddressStr = `${state.district} ${state.address}`;
+      const extraAddressStr = state.hasExtraPoint ? `${state.extraDistrict} ${state.extraAddress}` : '無';
 
       const payload = { 
         action:'addReservation', 
@@ -539,7 +541,12 @@
           totalFee: totalStr, 
           safetySeat: state.infants > 0 ? `${state.infants}張` : '無',   
           signboard: state.extraSignboard ? state.signboardText : '無',  
-          remarks: finalRemarksStr,
+          
+          // 固定傳送 主地址與加點地址 (直接取代原本會讓 GAS 混淆的寫法)
+          mainAddressFull: mainAddressStr,
+          extraAddressFull: extraAddressStr,
+          
+          remarks: '無', // 原本加點放在備註容易亂，現在拉出來獨立，備註先保持為無
           timestamp: new Date().toLocaleString() 
         }
       };
