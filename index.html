@@ -499,27 +499,36 @@
       }
 
       lineText += `車型：${state.carType}\n` +
-                  `人數：大${state.adults},小${state.children},幼${state.infants}\n` +
-                  `行李：登機箱${state.carryOn},託運${state.checkedBag}\n` +
+                  `人數：大${state.adults},小${state.children},幼${state.infants}\n`;
+
+      // 增加安全座椅提醒在 LINE 的內容中
+      if (state.infants > 0) {
+        lineText += `安全座椅：${state.infants}張 (4歲以下強制需要)\n`;
+      }
+
+      lineText += `行李：登機箱${state.carryOn},託運${state.checkedBag}\n` +
                   `總額：${totalStr} (${state.payment})`;
 
       const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
 
-      // 整合加點明細到備註，確保後台一定收得到
-      let finalRemarks = state.extraSignboard ? "[舉牌:" + state.signboardText + "]" : "無";
-      if (state.hasExtraPoint) {
-        finalRemarks += ` | 加點地址：${state.extraDistrict} ${state.extraAddress}`;
-      }
+      // 整合加點明細與安全座椅到備註，確保後台一定收得到
+      let remarksArr = [];
+      if (state.extraSignboard) remarksArr.push(`[舉牌:${state.signboardText}]`);
+      if (state.hasExtraPoint) remarksArr.push(`加點地址：${state.extraDistrict} ${state.extraAddress}`);
+      if (state.infants > 0) remarksArr.push(`需安全座椅：${state.infants}張(4歲以下)`);
+      
+      let finalRemarksStr = remarksArr.length > 0 ? remarksArr.join(" | ") : "無";
 
+      // 如果備註或是人數欄位需要明確顯示安全座椅，這邊在 passengers 後方直接補充字眼
       const payload = { 
         action:'addReservation', 
         data:{ 
           ...state, 
           time: "'" + state.timeHour + ":" + state.timeMinute,
-          passengers:`大${state.adults},小${state.children},幼${state.infants}`, 
+          passengers: `大${state.adults},小${state.children},幼${state.infants}` + (state.infants > 0 ? ` (含安全座椅${state.infants}張)` : ""), 
           luggage:`登機:${state.carryOn},託運:${state.checkedBag}`, 
           totalFee:totalStr, 
-          remarks: finalRemarks,
+          remarks: finalRemarksStr,
           timestamp:new Date().toLocaleString() 
         }
       };
