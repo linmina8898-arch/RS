@@ -12,6 +12,10 @@
     .font-black-stroke { -webkit-text-stroke: 1.5px #0ABAB5; }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-thumb { background: #0ABAB5; border-radius: 10px; }
+    input[type="date"].is-empty { color: transparent; }
+    input[type="date"].is-empty::before { content: attr(placeholder); width: 100%; color: #9ca3af; display: block; }
+    input[type="date"]:focus { color: inherit; }
+    input[type="date"]:focus::before { display: none; }
     .hidden-block { display: none !important; }
   </style>
 </head>
@@ -75,7 +79,7 @@
 
         <!-- 乘車人資訊 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 text-[#0ABAB5]"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> 乘車人資訊</h2>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 text-[#0ABAB5]"><svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> 乘車人資訊</h2>
           <div class="flex gap-2">
             <input type="text" id="name" class="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="全名">
             <select id="title" class="p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option>先生</option><option>小姐</option></select>
@@ -84,7 +88,7 @@
           <input type="email" id="email" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="MAIL 電子信箱 (必填)">
 
           <div class="pt-2 border-t border-gray-100 mt-2 relative">
-            <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
+            <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 shrink-0 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
             <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (自動解析)">
             <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請在此輸入詳細地址並從選單選取">
 
@@ -104,7 +108,7 @@
 
         <!-- 乘車資訊 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> 乘車資訊</h2>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> 乘車資訊</h2>
           <label class="block text-sm font-bold text-gray-700">乘車日期 <span class="text-red-500 font-bold ml-1 text-[11px]">(限 24 小時後預約)</span></label>
           <input type="text" id="date" onfocus="(this.type='date')" onblur="(this.type= this.value ? 'date' : 'text')" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base text-gray-700" placeholder="📅 請點擊選擇乘車日期">
           <div class="flex gap-2">
@@ -120,8 +124,9 @@
 
         <!-- 車型與人數行李 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]">
-            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 0-4 0m-6 0a2 2 0 1 0-4 0"/></svg> 車型與人數行李 <span class="text-red-500 text-[10px] font-bold">(最多 6 人 6 件**包含登機箱**)</span>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-start gap-2 mt-8 text-[#0ABAB5]">
+            <svg class="w-5 h-5 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 0-4 0m-6 0a2 2 0 1 0-4 0"/></svg>
+            <span class="leading-snug">車型與人數行李 <span class="text-red-500 text-[11px] font-bold inline-block">(最多 6 人 6 件**含登機箱**)</span></span>
           </h2>
           <select id="carType" class="w-full p-3 border font-bold rounded-sm bg-white text-base"><option value="小車">小車</option><option value="大車">大車</option></select>
           <p id="carType-msg" class="text-[11px] font-bold text-red-600 hidden-block"></p>
@@ -139,7 +144,7 @@
 
         <!-- 費用報價 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> 費用報價</h2>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> 費用報價</h2>
           <select id="payment" class="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option value="現金">現金</option><option value="轉帳">轉帳</option></select>
           <div class="p-3 border rounded-sm">
             <label class="flex items-center gap-2 cursor-pointer py-1 font-bold text-gray-700">
@@ -168,6 +173,17 @@
               </div>
             </div>
           </div>
+        </section>
+
+        <!-- 其他備註 -->
+        <section class="space-y-4">
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]">
+            <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> 其他備註
+          </h2>
+          <p class="text-xs font-bold text-gray-600 leading-relaxed text-justify">
+            ● 如攜帶紙箱、運動版行李箱(胖胖箱)、高爾夫球具、雪板、輪椅、腳踏車箱、大型樂器...等，請務必告知。其他需要我們注意的事項也可在這說明。
+          </p>
+          <textarea id="userRemarks" rows="3" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="請輸入備註內容..."></textarea>
         </section>
 
         <!-- 注意事項 -->
@@ -209,7 +225,7 @@
       date: '', timeHour: '12', timeMinute: '00',
       serviceType: '送機', airport: '桃園機場', flightNumber: '',
       carType: '小車', adults: 1, children: 0, infants: 0, carryOn: 0, checkedBag: 0,
-      payment: '現金', extraSignboard: false, signboardText: '', agreed: false,
+      payment: '現金', extraSignboard: false, signboardText: '', userRemarks: '', agreed: false,
       priceMap: {}, isSubmitting: false
     };
 
@@ -239,6 +255,7 @@
       checkedBag: document.getElementById('checkedBag'),
       extraSignboard: document.getElementById('extraSignboard'),
       signboardText: document.getElementById('signboardText'),
+      userRemarks: document.getElementById('userRemarks'),
       displayCarTypeName: document.getElementById('display-carType-name'),
       displayRoute: document.getElementById('display-route'),
       displayBasePrice: document.getElementById('display-basePrice'),
@@ -517,6 +534,9 @@
       if (state.extraSignboard) {
         lineText += `舉牌內容：${state.signboardText}\n`;
       }
+      if (state.userRemarks && state.userRemarks.trim() !== '') {
+        lineText += `備註：${state.userRemarks.trim()}\n`;
+      }
 
       lineText += `行李：登機箱${state.carryOn},託運${state.checkedBag}\n` +
                   `總額：${totalStr} (${state.payment})`;
@@ -542,7 +562,7 @@
           mainAddressFull: mainAddressStr,
           extraAddressFull: extraAddressStr,
           
-          remarks: '無', // 原本加點放在備註容易亂，現在拉出來獨立，備註先保持為無
+          remarks: state.userRemarks && state.userRemarks.trim() !== '' ? state.userRemarks.trim() : '無',
           timestamp: new Date().toLocaleString() 
         }
       };
@@ -589,7 +609,7 @@
       state.phone = formatted;
     };
     
-    ['name','email','flightNumber','signboardText'].forEach(id => {
+    ['name','email','flightNumber','signboardText','userRemarks'].forEach(id => {
       const el = document.getElementById(id);
       if(el) el.oninput = (e) => state[id] = e.target.value;
     });
