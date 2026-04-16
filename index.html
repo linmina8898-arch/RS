@@ -201,7 +201,7 @@
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwAQp0cSf_6qa7RNFNPD7mEGSSoWZfj7jaiEl9A0bUQuXOWG_KaWsugeUhPk_jihaAyzw/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyCoO9J3aebn6kYHt3UTMt3LYCbafQ57r0gxI7F2Q2dj3dop71PG1MzNWlSx1nIXbOgPQ/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -315,6 +315,7 @@
       const userZip = zipMatch ? zipMatch[1] : '';
       const areaMatch = userNorm.match(/[\u4e00-\u9fa5]{2,}(區|鄉|鎮|市)$/);
       const userArea = areaMatch ? areaMatch[0] : '';
+
       const available = Object.keys(state.priceMap).filter(k => {
         const apt = k.split('_')[0];
         return apt.includes(aptPrefix) || aptPrefix.includes(apt);
@@ -324,16 +325,24 @@
         zip: k.split('_')[1].match(/\d{3}/)?.[0] || '',
         text: k.split('_')[1].replace(/\d+/g,'').replace('台灣','')
       }));
+
+      // 1. 完全精準比對
       let m = available.find(x => x.norm === userNorm);
       if (m) return state.priceMap[m.key];
-      if (userArea) {
-        m = available.find(x => x.text.includes(userArea) || userArea.includes(x.text));
-        if (m) return state.priceMap[m.key];
-      }
+
+      // 2. 【優先】使用郵遞區號 (ZIP) 進行比對
+      // 確保 247 一定是抓到 247，避免文字被其他地區干擾
       if (userZip) {
         m = available.find(x => x.zip === userZip);
         if (m) return state.priceMap[m.key];
       }
+
+      // 3. 區域模糊比對 (退回最後防線)
+      if (userArea) {
+        m = available.find(x => x.text.includes(userArea) || userArea.includes(x.text));
+        if (m) return state.priceMap[m.key];
+      }
+
       return null;
     }
 
@@ -477,7 +486,6 @@
       if (!state.date) return showAlert('請選擇乘車日期', '提示', 'error');
       if (!state.flightNumber.trim()) return showAlert('請填寫航班編號', '提示', 'error');
       
-      // 新增：如果勾選舉牌，不能沒有內容
       if (state.extraSignboard && !state.signboardText.trim()) {
         return showAlert('有勾選舉牌服務時，請務必填寫「舉牌內容」！', '提示', 'error');
       }
@@ -519,10 +527,8 @@
 
       const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
 
-      // 乾淨的備註欄位 (留給加點地址使用)
       let finalRemarksStr = state.hasExtraPoint ? `加點地址：${state.extraDistrict} ${state.extraAddress}` : "無";
 
-      // 這次我們特別針對 GAS 分離出獨立的兩個 KEY (safetySeat 與 signboard)
       const payload = { 
         action:'addReservation', 
         data:{ 
@@ -531,8 +537,8 @@
           passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
           luggage: `登機:${state.carryOn},託運:${state.checkedBag}`, 
           totalFee: totalStr, 
-          safetySeat: state.infants > 0 ? `${state.infants}張` : '無',   // ← 新獨立欄位
-          signboard: state.extraSignboard ? state.signboardText : '無',  // ← 新獨立欄位
+          safetySeat: state.infants > 0 ? `${state.infants}張` : '無',   
+          signboard: state.extraSignboard ? state.signboardText : '無',  
           remarks: finalRemarksStr,
           timestamp: new Date().toLocaleString() 
         }
