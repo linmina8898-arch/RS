@@ -85,7 +85,7 @@
           <div class="pt-2 border-t border-gray-100">
             <label class="block text-base font-bold text-gray-700 mb-1">接送地址</label>
             <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 outline-none" readonly placeholder="郵遞區號 縣市 區域">
-            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5]" placeholder="※ 輸入完整地址後請務必點選 Google 搜尋結果">
+            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] placeholder:text-xs" placeholder="※ 輸入完整地址後請務必點選 Google 搜尋結果">
 
             <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
               <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
@@ -157,7 +157,7 @@
           <p class="text-[13px] font-bold text-[#0ABAB5] leading-relaxed text-justify bg-[#0ABAB5]/10 p-3 rounded-sm border border-[#0ABAB5]/20">
             【回程資訊填寫】系統已自動為您同步去程的地址與人數資訊，若回程資訊不同（如：行李增加、回程人數變動），請直接修改下方欄位。
           </p>
-          <input type="date" id="returnDate" class="w-full p-3 border rounded-sm outline-none bg-white">
+          <input type="text" id="returnDate" onfocus="(this.type='date')" onblur="(this.type= this.value ? 'date' : 'text')" class="w-full p-3 border rounded-sm outline-none bg-white placeholder:text-gray-500" placeholder="請選擇回程日期">
           <div class="flex gap-2">
             <select id="returnTimeHour" class="flex-1 p-3 border bg-white rounded-sm"></select>
             <select id="returnTimeMinute" class="flex-1 p-3 border bg-white rounded-sm"></select>
@@ -185,7 +185,7 @@
           </div>
           <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-bold">
             <div>登機箱<select id="returnCarryOn" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>托運箱(21~29吋)<select id="returnCheckedBag" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>託運箱(21~29吋)<select id="returnCheckedBag" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
         </section>
 
@@ -347,7 +347,6 @@
       const min = new Date(Date.now() + 24*3600*1000 + 10*60*1000);
       const minDStr = `${min.getFullYear()}-${String(min.getMonth()+1).padStart(2,'0')}-${String(min.getDate()).padStart(2,'0')}`;
       DOM.date.min = minDStr; DOM.date.value = minDStr; state.date = minDStr;
-      DOM.returnDate.min = minDStr;
       
       DOM.timeHour.value = String(min.getHours()).padStart(2,'0'); DOM.timeMinute.value = String(Math.ceil(min.getMinutes()/5)*5).padStart(2,'0');
       state.timeHour = DOM.timeHour.value; state.timeMinute = DOM.timeMinute.value;
@@ -422,14 +421,15 @@
 
       const tp = state.adults + state.children + state.infants;
       let forced = false, reason = '';
-      if (tp >= 5) { forced = true; reason = '人數達 5 人以上'; }
-      else if (state.checkedBag >= 3) { forced = true; reason = '托運行李達 3 件以上'; }
-      else if (state.checkedBag === 2 && state.carryOn >= 1) { forced = true; reason = '2托運+1登機需大車'; }
-      else if (state.carryOn >= 5) { forced = true; reason = '登機箱達 5 件以上'; }
+      
+      // 更新派車邏輯：任一條件符合即派大車
+      if (tp > 3) { forced = true; reason = '人數超過 3 位'; }
+      else if (state.checkedBag > 2) { forced = true; reason = '托運箱超過 2 件'; }
+      else if (state.carryOn > 3) { forced = true; reason = '登機箱超過 3 件'; }
       
       if (forced) {
         state.carType = '大車'; DOM.carType.value = '大車'; DOM.carType.disabled = true;
-        DOM.carTypeMsg.innerText = `※ 因 ${reason}，系統已強制改為大車。`; DOM.carTypeMsg.classList.remove('hidden-block');
+        DOM.carTypeMsg.innerText = `※ 因${reason}，系統已強制改為大車。`; DOM.carTypeMsg.classList.remove('hidden-block');
       } else {
         DOM.carType.disabled = false; DOM.carTypeMsg.classList.add('hidden-block');
       }
@@ -440,10 +440,31 @@
       const a = parseInt(document.getElementById('returnAdults').value)||1;
       const c = parseInt(document.getElementById('returnChildren').value)||0;
       const i = parseInt(document.getElementById('returnInfants').value)||0;
-      state.returnAdults = a; state.returnChildren = c; state.returnInfants = i;
+      const r = (el, os, isAdult) => {
+        if(!el) return;
+        const v = el.value, av = 6-os; el.innerHTML = '';
+        for(let j=(isAdult?1:0); j<=av; j++) el.add(new Option(j, j));
+        el.value = v<=av ? v : (isAdult?'1':'0');
+      };
+      r(document.getElementById('returnAdults'), c+i, true);
+      r(document.getElementById('returnChildren'), a+i, false);
+      r(document.getElementById('returnInfants'), a+c, false);
+      state.returnAdults = parseInt(document.getElementById('returnAdults').value);
+      state.returnChildren = parseInt(document.getElementById('returnChildren').value);
+      state.returnInfants = parseInt(document.getElementById('returnInfants').value);
+
       const co = parseInt(document.getElementById('returnCarryOn').value)||0;
       const cb = parseInt(document.getElementById('returnCheckedBag').value)||0;
-      state.returnCarryOn = co; state.returnCheckedBag = cb;
+      const rb = (el, ot) => {
+        if(!el) return;
+        const v = el.value, av = 6-ot; el.innerHTML = '';
+        for(let j=0; j<=av; j++) el.add(new Option(j, j));
+        el.value = v<=av ? v : '0';
+      };
+      rb(document.getElementById('returnCarryOn'), cb);
+      rb(document.getElementById('returnCheckedBag'), co);
+      state.returnCarryOn = parseInt(document.getElementById('returnCarryOn').value);
+      state.returnCheckedBag = parseInt(document.getElementById('returnCheckedBag').value);
     }
 
     function syncReturnInfo() {
@@ -529,7 +550,11 @@
 
       let rBaseP = 0, rFees = {}, rCarType = '小車', rexFee = 0;
       if (state.needReturnTrip && state.returnDistrict) {
-        if ((state.returnAdults+state.returnChildren+state.returnInfants)>=5 || state.returnCheckedBag>=3 || (state.returnCheckedBag===2 && state.returnCarryOn>=1) || state.returnCarryOn >= 5) rCarType = '大車';
+        const rTp = state.returnAdults + state.returnChildren + state.returnInfants;
+        
+        // 更新回程派車邏輯：任一條件符合即派大車
+        if (rTp > 3 || state.returnCheckedBag > 2 || state.returnCarryOn > 3) rCarType = '大車';
+        
         const rData = findPriceData(state.airport, state.returnDistrict);
         const rExData = state.returnHasExtraPoint ? findPriceData(state.airport, state.returnExtraDistrict) : null;
         const rp1 = extract(rData, rCarType), rp2 = extract(rExData, rCarType);
@@ -713,9 +738,11 @@
         timestamp: new Date().toLocaleString() 
       }};
 
+      // 傳送資料到 GAS (不阻塞主流程)
+      fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) }).catch(e => console.log(e));
+
       try {
-        await fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
-        if (window.liff.isInClient()) {
+        if (window.liff && window.liff.isInClient()) {
           await window.liff.sendMessages([
             { type:'text', text:lineText },
             { type:'text', text:secondMessage }
@@ -729,7 +756,11 @@
           document.getElementById('view-success').classList.remove('hidden-block');
           document.getElementById('fallback-message').innerText = lineText + '\n\n' + secondMessage;
         }
-      } catch(err) { showAlert('傳送失敗，請檢查網路。'); state.isSubmitting=false; DOM.submitBtn.innerText='確認預約並送出'; }
+      } catch(err) { 
+        showAlert('LINE 訊息傳送失敗，請稍後再試。'); 
+        state.isSubmitting=false; 
+        DOM.submitBtn.innerText='確認預約並送出'; 
+      }
     };
 
     initSelectOptions(); loadPrices(); initGoogleMaps();
@@ -762,9 +793,7 @@
           if(id === 'needReturnTrip') {
              DOM.returnSection.className = e.target.checked ? 'space-y-4' : 'hidden-block';
              if(e.target.checked) {
-                state.returnDistrict = state.district; DOM.returnDistrict.value = state.district;
-                state.returnAddress = state.address; DOM.returnAddress.value = state.address;
-                state.returnAdults = state.adults; state.returnChildren = state.children;
+                syncReturnInfo();
              }
           }
           if(id === 'hasExtraPoint') {
