@@ -20,7 +20,7 @@
       <div id="modal-header" class="p-5 flex justify-between items-center text-white shrink-0 bg-[#0ABAB5]">
         <div class="flex items-center gap-2 font-black tracking-wider uppercase text-sm">
           <span id="modal-icon">
-            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" cy="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           </span>
           <span id="modal-title">提示訊息</span>
         </div>
@@ -473,7 +473,7 @@
       if (!state.district) errs.push('請從選單帶入地址');
       if (!state.flightNumber) errs.push('請輸入航班編號');
       
-      // 修改：增加舉牌內容必填驗證
+      // 舉牌內容驗證：勾選時必填
       if (state.extraSignboard && (!state.signboardText || !state.signboardText.trim())) {
         errs.push('勾選舉牌服務時，請輸入舉牌內容');
       }
@@ -517,7 +517,7 @@
                     `地址：${state.returnDistrict || ''} ${state.returnAddress || ''}\n`;
         if (state.returnHasExtraPoint) lineText += `加點：${state.returnExtraDistrict || ''} ${state.returnExtraAddress || ''}\n`;
         lineText += `人數：大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}\n` +
-                    `行李：登機${state.returnCarryOn},托運${state.returnCheckedBag}\n`;
+                    `行李：登機${state.returnCarryOn},託運${state.returnCheckedBag}\n`;
       }
       lineText += `\n預估總額：${totalStr} (${state.payment || ''})`;
 
@@ -533,39 +533,39 @@
         mainAddressFull: (state.district || "") + " " + (state.address || ""),
         extraAddressFull: state.hasExtraPoint ? ((state.extraDistrict || "") + " " + (state.extraAddress || "")) : "",
         passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
-        luggage: `登機${state.carryOn},托運${state.checkedBag}`, 
+        luggage: `登機${state.carryOn},託運${state.checkedBag}`, 
         safetySeat: state.infants,
         returnTime: state.needReturnTrip ? ("'" + state.returnTimeHour + ":" + state.returnTimeMinute) : "",
         returnAddressFull: state.needReturnTrip ? ((state.returnDistrict || "") + " " + (state.returnAddress || "")) : "",
         returnExtraAddressFull: (state.needReturnTrip && state.returnHasExtraPoint) ? ((state.returnExtraDistrict || "") + " " + (state.returnExtraAddress || "")) : "",
         returnPassengers: state.needReturnTrip ? `大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}` : "",
-        returnLuggage: state.needReturnTrip ? `登機${state.returnCarryOn},托運${state.returnCheckedBag}` : "",
+        returnLuggage: state.needReturnTrip ? `登機${state.returnCarryOn},託運${state.returnCheckedBag}` : "",
         remarks: state.userRemarks,
         totalFee: totalStr,
         timestamp: new Date().toLocaleString() 
       }};
 
       try {
-        // 修改：優化 LINE 內部的回傳與關閉邏輯
+        // 修復：先在背景發送 GAS，不讓網路延遲阻塞 LINE UI 反應
         fetch(GAS_WEBAPP_URL, { 
           method: 'POST', 
           headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify(payload) 
-        }).catch(e => console.log('GAS Skip wait'));
+        }).catch(e => console.log('GAS fetch silent fail handled'));
         
         if (window.liff && window.liff.isInClient()) {
-          // 在 LINE App 中開啟
+          // LINE App 內：發送訊息後切換過場，3秒後自動關閉
           await window.liff.sendMessages([{ type:'text', text: lineText }, { type:'text', text: secondMessage }]);
           
-          // 切換視窗顯示成功狀態
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-done').classList.remove('hidden-block');
           document.getElementById('view-done').classList.add('flex');
           
-          // 3 秒後關閉視窗回到對話框
-          setTimeout(() => window.liff.closeWindow(), 3000);
+          setTimeout(() => {
+            window.liff.closeWindow();
+          }, 3000);
         } else {
-          // 外部瀏覽器開啟
+          // 外部瀏覽器：顯示完成畫面
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-success').classList.remove('hidden-block');
           document.getElementById('fallback-message').innerText = lineText + '\n\n' + secondMessage;
