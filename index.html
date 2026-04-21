@@ -255,11 +255,11 @@
             <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 【乘車注意事項】
             </h3>
-            <p><strong class="text-black">臨時加點：</strong> 司機無法私自增加停靠點(車輛皆有GPS）。如需臨時加點，請告知司機回報公司後方開執行。</p><br>
+            <p><strong class="text-black">臨時加點：</strong> 司機無法私自增加停靠點(車輛皆有GPS）。如需臨時加點，請告知司機回報公司後方方可執行。</p><br>
             <p><strong class="text-black">預約車型：</strong> 請務必依「實際乘車人數」與「行李件數尺寸」預約合適車款。以免當天車輛乘載不下擔誤貴賓寶貴的時間。</p><br>
             <p><strong class="text-black">行李與乘車規範：</strong> 全程請繫妥安全帶，座位及腳踏區僅限放隨身背包。若現場行李過多不符預期車型，公司有權拒載，且該趟行程恕不退費。</p><br>
             <p><strong class="text-black">車內禁食：</strong> 為維護乘車品質，顧及每位貴賓權益，車內全面禁止飲食、吸菸（包含電子菸、加熱菸）、吃檳榔。</p><br>
-            <p><strong class="text-black">兒童安全座椅：</strong> 0~12歲（18公斤內）嬰幼兒依法須使用安全座椅。若未依需求加購導致違規，相關罰款將由乘客自行負擔。</p>
+            <p><strong class="text-black">兒童安全座椅：</strong> 0~12歲（18公斤內）嬰幼兒依法須使用安全座椅。若未依需求加購導致維規，相關罰款將由乘客自行負擔。</p>
           </div>
           <label class="flex items-start gap-3 cursor-pointer p-4 border border-[#0ABAB5] font-black text-sm bg-white shadow-sm rounded-sm">
             <input type="checkbox" id="agreed" class="w-6 h-6 mt-0.5 accent-[#0ABAB5]"> 我同意以上資訊與免責聲明。
@@ -286,7 +286,7 @@
       returnDistrict: '', returnAddress: '', returnHasExtraPoint: false, returnExtraDistrict: '', returnExtraAddress: '',
       returnAdults: 0, returnChildren: 0, returnInfants: 0, returnCarryOn: 0, returnCheckedBag: 0,
       priceMap: {}, isSubmitting: false,
-      goingTotal: 0, returnTotal: 0 // 新增：用於記錄分開的金額
+      goingTotal: 0, returnTotal: 0
     };
 
     const DOM = {
@@ -426,7 +426,6 @@
       let exFee = (state.hasExtraPoint && state.district && state.extraDistrict) ? (state.district.substring(0,3) === state.extraDistrict.substring(0,3) ? 100 : 200) : 0;
       const fees = { pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0, infant: state.infants*200, signboard: state.extraSignboard?200:0, extra: exFee };
       
-      // 計算去程金額並更新狀態
       let total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : 0;
       state.goingTotal = total;
 
@@ -443,9 +442,10 @@
         if (state.returnHasExtraPoint && state.returnDistrict && state.returnExtraDistrict) { rexFee = (state.returnDistrict.substring(0,3) === state.returnExtraDistrict.substring(0,3) ? 100 : 200); }
         if (rBaseP > 0) { 
           const rh = parseInt(state.returnTimeHour); 
-          rFees = { pickup: 200, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee }; 
+          // 修改：回程服務費逻辑：若去程是送機，回程自動計入接機費 (+200)
+          const isReturnPickup = (state.serviceType === '送機');
+          rFees = { pickup: isReturnPickup ? 200 : 0, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee }; 
           
-          // 計算回程金額並更新狀態
           let returnTotal = rBaseP + Object.values(rFees).reduce((a,b)=>a+b,0);
           state.returnTotal = returnTotal;
           total += returnTotal;
@@ -476,7 +476,12 @@
       
       if (state.needReturnTrip && rBaseP > 0) { 
         DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white font-bold text-sm mt-3 pt-3 border-t border-white/20"><span>回程基本車資 (${rCarType})</span><span>$${rBaseP}</span></div>`; 
-        DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程接機服務費</span><span>+$200</span></div>`; 
+        
+        // 修改：前端顯示回程接機費
+        if(rFees.pickup) {
+          DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程接機服務費</span><span>+$200</span></div>`; 
+        }
+
         if(rFees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程夜間加成 (22-06)</span><span>+$200</span></div>`; 
         
         if(rFees.infant) {
@@ -527,7 +532,6 @@
       state.isSubmitting = true; DOM.submitBtn.innerText = '資料傳送中...';
       let totalStr = DOM.displayTotal.innerText;
       
-      // 修改：LINE 訊息明細文字，將去程費用與回程費用分別列出
       let lineText = `【RS專車接送 線上預約單】\n` +
                      `預約編號：${state.reservationId || ''}\n` +
                      `全名：${state.name || ''} ${state.title || ''}\n` +
@@ -581,8 +585,8 @@
         returnLuggage: state.needReturnTrip ? `登機${state.returnCarryOn},託運${state.returnCheckedBag}` : "",
         remarks: state.userRemarks,
         totalFee: totalStr,
-        goingTotal: state.goingTotal,    // 新增：去程金額
-        returnTotal: state.returnTotal,  // 新增：回程金額
+        goingTotal: state.goingTotal,
+        returnTotal: state.returnTotal,
         timestamp: new Date().toLocaleString() 
       }};
 
