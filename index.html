@@ -3,55 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>RS專車接送 詢價/預約</title>
-  
+  <title>RS專車接送 預約系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  
   <style>
     .justify-text { text-align: justify; text-justify: inter-ideograph; }
-    .font-black-stroke { -webkit-text-stroke: 1.5px #0ABAB5; }
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-thumb { background: #0ABAB5; border-radius: 10px; }
-    input[type="date"].is-empty { color: transparent; }
-    input[type="date"].is-empty::before { content: attr(placeholder); width: 100%; color: #9ca3af; display: block; }
-    input[type="date"]:focus { color: inherit; }
-    input[type="date"]:focus::before { display: none; }
     .hidden-block { display: none !important; }
   </style>
 </head>
 <body class="bg-gray-50 text-black font-sans">
-  
-  <!-- 自訂提示 Modal -->
+
   <div id="custom-modal" class="hidden-block fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center text-[#222]">
     <div class="bg-white w-full max-sm:w-full max-w-sm rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] scale-100 transition-transform">
-      <div id="modal-header" class="p-5 flex justify-between items-center text-white shrink-0 bg-[#0ABAB5]">
-        <div class="flex items-center gap-2 font-black tracking-wider uppercase text-sm">
-          <span id="modal-icon">
-            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </span>
+      <div id="modal-header" class="p-4 flex justify-between items-center text-white shrink-0 bg-[#0ABAB5]">
+        <div class="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           <span id="modal-title">提示訊息</span>
         </div>
         <button onclick="closeModal()"><svg class="w-5 h-5 opacity-70 hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-      <div class="p-8 flex-1 overflow-y-auto text-left text-sm">
-        <div id="modal-message" class="leading-relaxed font-bold whitespace-pre-wrap text-gray-700"></div>
-      </div>
-      <div class="p-4 bg-gray-50 border-t border-gray-100 shrink-0 flex gap-2">
-        <button id="modal-confirm-btn" class="flex-1 py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform flex justify-center items-center gap-2 shadow-md">
-          確定
-        </button>
+      <div class="p-6 flex-1 overflow-y-auto text-left text-sm leading-relaxed font-bold whitespace-pre-wrap text-gray-700" id="modal-message"></div>
+      <div class="p-4 bg-gray-50 border-t border-gray-100 shrink-0">
+        <button id="modal-confirm-btn" class="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform shadow-md">確定</button>
       </div>
     </div>
   </div>
 
-  <!-- 成功送出後過場 -->
   <div id="view-done" class="hidden-block min-h-screen bg-[#0ABAB5] flex-col items-center justify-center text-white text-center p-6">
      <svg class="w-20 h-20 mb-4 animate-pulse mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
      <h2 class="text-2xl font-black tracking-widest">預約已送出</h2>
-     <p class="mt-4 font-bold opacity-90">正在為您返回 LINE 聊天室...</p>
+     <p class="mt-4 font-bold opacity-90">正在返回 LINE 聊天室...</p>
   </div>
 
-  <!-- 外部瀏覽器畫面 -->
   <div id="view-success" class="hidden-block pb-10 text-[#222] min-h-screen bg-gray-50 flex-col">
     <header class="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
       <h1 class="text-xl font-bold tracking-wider uppercase">預約完成</h1>
@@ -68,435 +52,312 @@
   <div id="view-form" class="pb-10 text-[#222]">
     <header class="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
       <h1 class="text-xl font-bold tracking-wider uppercase">RS 專車接送 預約系統</h1>
-      <button onclick="window.location.reload()" class="absolute right-4"><svg id="refresh-icon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
+      <button onclick="window.location.reload()" class="absolute right-4"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></button>
     </header>
 
     <main class="max-w-md mx-auto mt-6 bg-white shadow-lg p-6 sm:p-8 sm:border border-gray-200">
       <form id="reservation-form" class="space-y-6">
-        <!-- 預約編號 -->
         <div class="bg-[#0ABAB5]/5 p-3 flex justify-between items-center border border-[#0ABAB5]/20">
-          <span class="text-sm font-bold text-[#0ABAB5] flex items-center gap-2"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> 預約編號</span>
+          <span class="text-sm font-bold text-[#0ABAB5] flex items-center gap-2">預約編號</span>
           <span id="display-reservationId" class="font-mono text-sm font-bold text-[#0ABAB5]"></span>
         </div>
 
-        <!-- 乘車人資訊 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 text-[#0ABAB5]"><svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> 乘車人資訊</h2>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5] flex items-center gap-2">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> 乘車人資訊
+          </h2>
           <div class="flex gap-2">
-            <input type="text" id="name" class="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="全名">
-            <select id="title" class="p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option>先生</option><option>小姐</option></select>
+            <input type="text" id="name" class="flex-1 p-3 border rounded-sm outline-none focus:border-[#0ABAB5]" placeholder="全名">
+            <select id="title" class="p-3 border rounded-sm outline-none focus:border-[#0ABAB5]"><option>先生</option><option>小姐</option></select>
           </div>
-          <input type="tel" id="phone" class="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="聯絡電話 09xx-xxx-xxx" maxlength="12">
-          <input type="email" id="email" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="MAIL 電子信箱 (必填)">
+          <input type="tel" id="phone" class="w-full p-3 border rounded-sm font-mono outline-none focus:border-[#0ABAB5]" placeholder="聯絡電話 09xx-xxx-xxx" maxlength="12">
+          <input type="email" id="email" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5]" placeholder="MAIL 電子信箱 (必填)">
 
-          <div class="pt-2 border-t border-gray-100 mt-2 relative">
-            <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"><svg class="w-4 h-4 shrink-0 text-[#0ABAB5]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 接送地址</label>
-            <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (自動解析)">
-            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請在此輸入詳細地址並從選單選取">
+          <div class="pt-2 border-t border-gray-100">
+            <label class="block text-base font-bold text-gray-700 mb-1">接送地址</label>
+            <input type="text" id="district" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 outline-none" readonly placeholder="郵遞區號 縣市 區域">
+            <input type="text" id="address" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5]" placeholder="請在此輸入詳細地址並從選單選取">
 
             <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
               <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
-                <input type="checkbox" id="hasExtraPoint" class="w-5 h-5 accent-[#0ABAB5]">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> 需加點服務 (同區+$100/跨區+$200)
+                <input type="checkbox" id="hasExtraPoint" class="w-5 h-5 accent-[#0ABAB5]"> 需加點服務 (同區+$100/跨區+$200)
               </label>
-              <p class="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點上下車順序需由本公司安排。</p>
+              <p class="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點順序以本公司安排為主</p>
               <div id="extra-point-block" class="hidden-block mt-4 space-y-2">
-                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm font-bold text-sm outline-none" readonly placeholder="加點區域 (自動解析)">
-                <input type="text" id="extraAddress" class="w-full p-3 border bg-white font-bold rounded-sm text-base focus:border-[#0ABAB5] outline-none" placeholder="加點詳細地址 (請從選單選取)">
+                <input type="text" id="extraDistrict" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm outline-none" readonly placeholder="加點區域">
+                <input type="text" id="extraAddress" class="w-full p-3 border bg-white font-bold rounded-sm outline-none focus:border-[#0ABAB5]" placeholder="加點詳細地址">
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 乘車資訊 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> 乘車資訊</h2>
-          <label class="block text-sm font-bold text-gray-700">乘車日期 <span class="text-red-500 font-bold ml-1 text-[11px]">(限 24 小時後預約)</span></label>
-          <input type="text" id="date" onfocus="(this.type='date')" onblur="(this.type= this.value ? 'date' : 'text')" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base text-gray-700" placeholder="📅 請點擊選擇乘車日期">
-          
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">乘車資訊</h2>
+          <label class="block text-sm font-bold text-gray-700">乘車日期 (限 24 小時後預約)</label>
+          <input type="date" id="date" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white">
           <label id="timeLabel" class="block text-[13px] font-black text-red-600 bg-red-50 border border-red-200 p-2.5 rounded-sm mt-2 leading-relaxed">送機提示：請填寫從家裡/公司出發的時間</label>
           <div class="flex gap-2">
-            <select id="timeHour" class="flex-1 p-3 border bg-white rounded-sm text-base"></select>
-            <select id="timeMinute" class="flex-1 p-3 border bg-white rounded-sm text-base"></select>
+            <select id="timeHour" class="flex-1 p-3 border bg-white rounded-sm"></select>
+            <select id="timeMinute" class="flex-1 p-3 border bg-white rounded-sm"></select>
           </div>
           <div class="grid grid-cols-2 gap-4">
-            <select id="serviceType" class="p-3 border font-bold rounded-sm bg-white text-base">
+            <select id="serviceType" class="p-3 border font-bold rounded-sm bg-white">
               <option value="送機">送機</option>
               <option value="接機">接機 (+$200)</option>
             </select>
-            <select id="airport" class="p-3 border font-bold rounded-sm bg-white text-base"><option>桃園機場</option><option>松山機場</option><option>台中機場</option></select>
+            <select id="airport" class="p-3 border font-bold rounded-sm bg-white"><option>桃園機場</option><option>松山機場</option><option>台中機場</option></select>
           </div>
-          <input type="text" id="flightNumber" class="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="航班編號 EX: BR123">
+          <input type="text" id="flightNumber" class="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5]" placeholder="航班編號 EX: BR123">
         </section>
 
-        <!-- 車型與人數行李 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-start gap-2 mt-8 text-[#0ABAB5]">
-            <svg class="w-5 h-5 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 0-4 0m-6 0a2 2 0 1 0-4 0"/></svg>
-            <span class="leading-snug">車型與人數行李 <span class="text-red-500 text-[11px] font-bold inline-block">(最多 6 人 6 件**含登機箱**)</span></span>
-          </h2>
-          <select id="carType" class="w-full p-3 border font-bold rounded-sm bg-white text-base"><option value="小車">小車</option><option value="大車">大車</option></select>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">車型與人數行李</h2>
+          <select id="carType" class="w-full p-3 border font-bold rounded-sm bg-white"><option value="小車">小車</option><option value="大車">大車</option></select>
           <p id="carType-msg" class="text-[11px] font-bold text-red-600 hidden-block"></p>
-          
           <div class="grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-gray-700">
             <div>大人<select id="adults" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>小孩(4~12歲)<select id="children" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>幼童(4歲以下)<select id="infants" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>小孩(4-12)<select id="children" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>幼童(0-4)<select id="infants" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
           <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-gray-700">
             <div>登機箱<select id="carryOn" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>託運(21~29吋)<select id="checkedBag" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>託運箱(21~29吋)<select id="checkedBag" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
-          <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm mt-3">
+          <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
             <input type="checkbox" id="noLuggage" class="w-5 h-5 accent-[#0ABAB5]"> 無行李(如只有隨身軟性包包請務必勾選)
           </label>
         </section>
 
-        <!-- 需要同時預約回程 Checkbox -->
-        <div class="mt-8 p-4 border-2 border-solid border-[#0ABAB5] rounded-sm bg-white shadow-sm flex items-center justify-center">
+        <div class="mt-8 p-4 border-2 border-solid border-[#0ABAB5] rounded-sm bg-white flex items-center justify-center shadow-sm">
           <label class="flex items-center gap-3 cursor-pointer font-black text-[#0ABAB5] text-lg">
             <input type="checkbox" id="needReturnTrip" class="w-6 h-6 accent-[#0ABAB5]"> 我需要同時預約回程
           </label>
         </div>
 
-        <!-- 回程資訊 (動態展開，加入加點功能) -->
         <section id="returnSection" class="space-y-4 hidden-block">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-4 text-[#0ABAB5]">
-            <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            回程資訊
-          </h2>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">回程資訊</h2>
           <p class="text-[13px] font-bold text-[#0ABAB5] leading-relaxed text-justify bg-[#0ABAB5]/10 p-3 rounded-sm border border-[#0ABAB5]/20">
-            【回程資訊填寫】系統已自動為您同步去程的地址、加點與人數資訊，若回程資訊不同（如：行李增加、回程人數變動），請直接修改下方欄位。
+            【回程資訊填寫】系統已自動為您同步去程的地址與人數資訊，若回程資訊不同（如：行李增加、回程人數變動），請直接修改下方欄位。
           </p>
-
-          <label class="block text-sm font-bold text-gray-700 mt-2">回程乘車日期 <span class="text-red-500 font-bold ml-1 text-[11px]">(必填)</span></label>
-          <input type="text" id="returnDate" onfocus="(this.type='date')" onblur="(this.type= this.value ? 'date' : 'text')" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base text-gray-700" placeholder="📅 請點擊選擇回程日期">
-
+          <input type="date" id="returnDate" class="w-full p-3 border rounded-sm outline-none bg-white">
           <div class="flex gap-2">
-            <select id="returnTimeHour" class="flex-1 p-3 border bg-white rounded-sm text-base"></select>
-            <select id="returnTimeMinute" class="flex-1 p-3 border bg-white rounded-sm text-base"></select>
+            <select id="returnTimeHour" class="flex-1 p-3 border bg-white rounded-sm"></select>
+            <select id="returnTimeMinute" class="flex-1 p-3 border bg-white rounded-sm"></select>
           </div>
-
-          <input type="text" id="returnFlightNumber" class="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="回程航班編號 EX: BR123 (必填)">
-
-          <div class="pt-2 border-t border-gray-100 mt-2 relative">
-            <label class="block text-base font-bold text-gray-700 mb-1 flex items-center gap-1"> 回程接送/抵達地址</label>
-            <input type="text" id="returnDistrict" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm mb-2 font-bold text-sm outline-none" readonly placeholder="郵遞區號 縣市 區域 (自動解析)">
-            <input type="text" id="returnAddress" class="w-full p-3 border bg-white font-bold rounded-sm mb-4 outline-none focus:border-[#0ABAB5] text-base" placeholder="請在此輸入回程詳細地址並從選單選取">
-
-            <!-- 回程加點 -->
-            <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
-              <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
-                <input type="checkbox" id="returnHasExtraPoint" class="w-5 h-5 accent-[#0ABAB5]">
-                回程需加點服務 (同區+$100/跨區+$200)
-              </label>
-              <div id="return-extra-point-block" class="hidden-block mt-4 space-y-2">
-                <input type="text" id="returnExtraDistrict" class="w-full p-3 border bg-gray-100 text-gray-600 rounded-sm font-bold text-sm outline-none" readonly placeholder="加點區域 (自動解析)">
-                <input type="text" id="returnExtraAddress" class="w-full p-3 border bg-white font-bold rounded-sm text-base focus:border-[#0ABAB5] outline-none" placeholder="加點詳細地址 (請從選單選取)">
-              </div>
+          <input type="text" id="returnFlightNumber" class="w-full p-3 border uppercase font-mono rounded-sm" placeholder="回程航班編號">
+          <input type="text" id="returnDistrict" class="w-full p-3 border bg-gray-100 rounded-sm outline-none" readonly>
+          <input type="text" id="returnAddress" class="w-full p-3 border bg-white font-bold rounded-sm" placeholder="回程詳細地址">
+          
+          <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
+            <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
+              <input type="checkbox" id="returnHasExtraPoint" class="w-5 h-5 accent-[#0ABAB5]"> 回程需加點服務
+            </label>
+            <p class="text-[11px] text-red-600 font-bold ml-7 mt-1">※ 加點順序以本公司安排為主</p>
+            <div id="return-extra-point-block" class="hidden-block mt-4 space-y-2">
+              <input type="text" id="returnExtraDistrict" class="w-full p-3 border bg-gray-100 outline-none" readonly>
+              <input type="text" id="returnExtraAddress" class="w-full p-3 border bg-white font-bold" placeholder="回程加點地址">
             </div>
           </div>
 
-          <div class="grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-gray-700 mt-4">
+          <div class="grid grid-cols-3 gap-2 text-center text-[11px] font-bold">
             <div>大人<select id="returnAdults" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>小孩(4~12歲)<select id="returnChildren" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>幼童(4歲以下)<select id="returnInfants" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>小孩<select id="returnChildren" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>幼童<select id="returnInfants" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
-          <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-gray-700">
+          <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-bold">
             <div>登機箱<select id="returnCarryOn" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>託運(21~29吋)<select id="returnCheckedBag" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>託運箱(21~29吋)<select id="returnCheckedBag" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
         </section>
 
-        <!-- 費用報價 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]"><svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> 費用報價</h2>
-          <select id="payment" class="w-full p-3 border font-bold rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base"><option value="現金">現金</option><option value="轉帳">轉帳</option></select>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">費用報價</h2>
+          <select id="payment" class="w-full p-3 border font-bold rounded-sm bg-white"><option value="現金">現金</option><option value="轉帳">轉帳</option></select>
           <div class="p-3 border rounded-sm">
             <label class="flex items-center gap-2 cursor-pointer py-1 font-bold text-gray-700">
               <input type="checkbox" id="extraSignboard" class="w-5 h-5 accent-[#0ABAB5]"> 舉牌服務 (+$200)
             </label>
-            <input type="text" id="signboardText" class="w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base hidden-block" placeholder="輸入舉牌內容">
+            <input type="text" id="signboardText" class="w-full mt-2 p-3 border rounded-sm hidden-block" placeholder="輸入舉牌內容">
           </div>
 
           <div class="bg-[#0ABAB5] text-white p-6 border-t-8 border-white/20 rounded-sm shadow-xl font-mono">
-            <h3 class="text-sm font-black border-b border-white/20 pb-2 mb-4 flex items-center gap-2 uppercase tracking-widest"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg> 報價明細內容</h3>
             <div class="space-y-4">
               <div class="flex justify-between items-start">
-                <div class="flex flex-col text-left">
-                  <span id="display-carType-name" class="font-bold text-base text-white">基本車資 (小車)</span>
-                  <span id="display-route" class="text-xs text-white/70">未選 → 桃園機場</span>
+                <div class="flex flex-col">
+                  <span id="display-carType-name" class="font-bold text-base">基本車資</span>
+                  <span id="display-route" class="text-xs text-white/70">未選擇行程</span>
                 </div>
-                <span id="display-basePrice" class="font-bold text-xl text-white text-right">待報價</span>
+                <span id="display-basePrice" class="font-bold text-xl">待報價</span>
               </div>
               <div id="fees-block" class="border-t border-dashed border-white/30 pt-4 space-y-2.5"></div>
               <div class="mt-8 pt-5 border-t-2 border-white/30 flex justify-between items-center">
-                <span class="font-black text-white text-lg">預估總額</span>
+                <span class="font-black text-lg text-white">預估總額</span>
                 <div class="text-right">
-                  <span id="display-total" class="text-4xl font-black text-white">待報價</span>
-                  <div id="display-payment" class="text-xs text-white/70 mt-1 uppercase tracking-tighter text-right">付款：現金</div>
+                  <span id="display-total" class="text-4xl font-black">$---</span>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- 其他備註 -->
         <section class="space-y-4">
-          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 flex items-center gap-2 mt-8 text-[#0ABAB5]">
-            <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> 【其他備註與特殊需求】
-          </h2>
+          <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">【其他備註與特殊需求】</h2>
           <p class="text-[13px] font-bold text-gray-600 leading-relaxed text-justify">
             為確保能為您安排最合適的空間與服務，若您將攜帶大型物品（如：嬰幼兒推車、紙箱、運動版行李箱/胖胖箱、高爾夫球具、滑雪板、輪椅、腳踏車箱、大型樂器等），或有其他需要我們留意的特殊事項，請務必提前告知。<br>
-            <strong class="text-black font-black">請勾選您的需求（為保障您的乘車品質，請務必如實填寫）：</strong>
+            <strong class="text-black font-black">請勾選您的需求（請務必依實際狀況勾選）：</strong>
           </p>
-          <div class="flex flex-col gap-3 mt-2 mb-2">
+          <div class="flex flex-col gap-3 mt-2">
             <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700 text-[13px]">
-              <input type="radio" name="specialNeeds" id="needsNo" value="no" class="w-5 h-5 accent-[#0ABAB5]"> 無，未攜帶上述物品且無特殊需求。
+              <input type="radio" name="sn" id="needsNo" value="no" class="w-5 h-5 accent-[#0ABAB5]"> 無，未攜帶上述物品且無特殊需求。
             </label>
             <label class="flex items-center gap-2 cursor-pointer font-bold text-gray-700 text-[13px]">
-              <input type="radio" name="specialNeeds" id="needsYes" value="yes" class="w-5 h-5 accent-[#0ABAB5]"> 有，我會攜帶大型物品或有其他需求。
+              <input type="radio" name="sn" id="needsYes" value="yes" class="w-5 h-5 accent-[#0ABAB5]"> 有，我會攜帶大型物品或有其他需求。
             </label>
           </div>
-          <textarea id="userRemarks" rows="3" class="w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base hidden-block" placeholder="請詳細說明您攜帶的物品與數量，或需要我們注意的事項（必填）"></textarea>
+          <textarea id="userRemarks" rows="3" class="w-full p-3 border rounded-sm outline-none hidden-block focus:border-[#0ABAB5] bg-white text-base" placeholder="請詳細說明您攜帶的物品與數量，或需要我們注意的事項（必填）"></textarea>
         </section>
 
-        <!-- 注意事項 -->
-        <section class="mt-8 border-t-2 border-[#0ABAB5] pt-6 pb-4 font-bold text-gray-800">
-          <div class="bg-[#0ABAB5]/5 p-4 h-96 overflow-y-auto text-xs leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner">
-            <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 【注意事項】</h3>
-            <p>1、如預約時無加點行程、當天服務司機無法多停上下車點(車輛均有 GPS )請體諒司機無法私自增加停靠點若臨時多加上下車點，可以告知司機請司機回報公司後方可執行「臨時加點服務」。</p>
-            <br>
-            <p>2、依實際人數及行李件數尺寸預約車款。</p>
-            <br>
-            <p>3、為了行車安全及法規，乘車時請繫上安全帶，車內座位區、腳踏墊區不得放置行李(隨身行李背包除外)。預約時請評估行李箱大小決定車種，司機現場服務時遇實際件數與預約資料不符時，本公司有權利終止租用車輛拒絕服務且該趟行程將視同已使用。</p>
-            <br>
-            <p>4、為維護乘車品質，顧及每位貴賓權益，車內請勿飲食。</p>
-            <br>
-            <p>5、因應政府「小型車附載幼童安全乘坐實施及宣導辦法」規範：2 歲以下兒童乘坐小客車，需繫安全帶過使用安全座椅(增高墊)乘坐。嬰幼兒若在 0~4 歲且體重 18 公斤內，強制使用安全座椅。(此項目受法令規範，如未依實際需求數量加購與安裝安全椅/增高墊：所有一切責任(罰款)將由乘車人承擔。)</p>
+        <section class="mt-8 border-t-2 border-[#0ABAB5] pt-6 pb-4">
+          <div class="bg-[#0ABAB5]/5 p-4 h-96 overflow-y-auto text-xs leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner mb-4 text-gray-800">
+            <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 【乘車注意事項】
+            </h3>
+            <p><strong class="text-black">臨時加點：</strong> 司機無法私自增加停靠點(車輛皆有GPS）。如需臨時加點，請告知司機回報公司後方可執行。</p><br>
+            <p><strong class="text-black">預約車型：</strong> 請務必依「實際乘車人數」與「行李件數尺寸」預約合適車款。以免當天車輛乘載不下擔誤貴賓寶貴的時間。</p><br>
+            <p><strong class="text-black">行李與乘車規範：</strong> 全程請繫妥安全帶，座位及腳踏區僅限放隨身背包。若現場行李過多不符預約車型，公司有權拒載，且該趟行程恕不退費。</p><br>
+            <p><strong class="text-black">車內禁食：</strong> 為維護乘車品質，顧及每位貴賓權益，車內全面禁止飲食、吸菸（包含電子菸、加熱菸）、吃檳榔。</p><br>
+            <p><strong class="text-black">兒童安全座椅：</strong> 0~12歲（18公斤內）嬰幼兒依法須使用安全座椅。若未依需求加購導致違規，相關罰款將由乘客自行負擔。</p>
           </div>
-          <label class="flex items-start gap-3 cursor-pointer p-4 border border-[#0ABAB5] font-black text-sm bg-white active:bg-[#0ABAB5]/5 transition-colors rounded-sm shadow-sm mt-4">
-            <input type="checkbox" id="agreed" class="w-6 h-6 mt-0.5 accent-[#0ABAB5]">我同意以上資訊與免責聲明。
+          <label class="flex items-start gap-3 cursor-pointer p-4 border border-[#0ABAB5] font-black text-sm bg-white shadow-sm rounded-sm">
+            <input type="checkbox" id="agreed" class="w-6 h-6 mt-0.5 accent-[#0ABAB5]"> 我同意以上資訊與免責聲明。
           </label>
         </section>
         
-        <button type="submit" id="submit-btn" class="w-full py-5 text-xl font-black flex items-center justify-center gap-3 transition-all rounded-sm shadow-lg bg-[#0ABAB5] text-white hover:opacity-90 active:scale-95">
-          確認預約並送出
-        </button>
+        <button type="submit" id="submit-btn" class="w-full py-5 text-xl font-black bg-[#0ABAB5] text-white hover:opacity-90 active:scale-95 transition-all shadow-lg rounded-sm">確認預約並送出</button>
       </form>
     </main>
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxDLyoXjd32sICm2d3b5udNpKrnSObakbU3RxFX9D_fT_QB6GtV4vgSvfZX4GAULz1o7A/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxDD1rBV6ZSbwTiR1wy58bJgB92QgRvEmxz6jmhoJrS_gNOLQ9z7o_FKvaC55CWddo9nA/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
     const state = {
-      reservationId: generateReservationId(),
-      name: '', title: '先生', phone: '', email: '',
-      district: '', address: '',
-      hasExtraPoint: false, extraDistrict: '', extraAddress: '',
-      date: '', timeHour: '12', timeMinute: '00',
-      serviceType: '送機', airport: '桃園機場', flightNumber: '',
+      reservationId: '', name: '', title: '先生', phone: '', email: '',
+      district: '', address: '', hasExtraPoint: false, extraDistrict: '', extraAddress: '',
+      date: '', timeHour: '', timeMinute: '', serviceType: '送機', airport: '桃園機場', flightNumber: '',
       carType: '小車', adults: 1, children: 0, infants: 0, carryOn: 0, checkedBag: 0,
       payment: '現金', extraSignboard: false, signboardText: '', userRemarks: '', agreed: false,
-      
-      // 回程資訊
-      needReturnTrip: false,
-      returnDate: '', returnTimeHour: '12', returnTimeMinute: '00', returnFlightNumber: '',
-      returnDistrict: '', returnAddress: '', 
-      returnHasExtraPoint: false, returnExtraDistrict: '', returnExtraAddress: '',
-      returnAdults: 1, returnChildren: 0, returnInfants: 0,
-      returnCarryOn: 0, returnCheckedBag: 0,
-      
+      needReturnTrip: false, returnDate: '', returnTimeHour: '', returnTimeMinute: '', returnFlightNumber: '',
+      returnDistrict: '', returnAddress: '', returnHasExtraPoint: false, returnExtraDistrict: '', returnExtraAddress: '',
+      returnAdults: 1, returnChildren: 0, returnInfants: 0, returnCarryOn: 0, returnCheckedBag: 0,
       priceMap: {}, isSubmitting: false
     };
 
-    function generateReservationId() {
-      const now = new Date();
-      const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-      const num = Math.floor(100 + Math.random() * 900);
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-      let str = '';
-      for(let i=0; i<3; i++) str += chars.charAt(Math.floor(Math.random() * chars.length));
-      return `RS${dateStr}${num}${str}`;
-    }
-
     const DOM = {
       displayId: document.getElementById('display-reservationId'),
-      hasExtraPoint: document.getElementById('hasExtraPoint'),
-      extraPointBlock: document.getElementById('extra-point-block'),
-      district: document.getElementById('district'),
-      address: document.getElementById('address'),
-      extraDistrict: document.getElementById('extraDistrict'),
-      extraAddress: document.getElementById('extraAddress'),
-      date: document.getElementById('date'),
-      timeHour: document.getElementById('timeHour'),
+      date: document.getElementById('date'), 
+      timeHour: document.getElementById('timeHour'), 
       timeMinute: document.getElementById('timeMinute'),
-      carType: document.getElementById('carType'),
+      carType: document.getElementById('carType'), 
       carTypeMsg: document.getElementById('carType-msg'),
-      adults: document.getElementById('adults'),
-      children: document.getElementById('children'),
+      adults: document.getElementById('adults'), 
+      children: document.getElementById('children'), 
       infants: document.getElementById('infants'),
-      carryOn: document.getElementById('carryOn'),
+      carryOn: document.getElementById('carryOn'), 
       checkedBag: document.getElementById('checkedBag'),
       noLuggage: document.getElementById('noLuggage'),
-      extraSignboard: document.getElementById('extraSignboard'),
-      signboardText: document.getElementById('signboardText'),
-      userRemarks: document.getElementById('userRemarks'),
-      displayCarTypeName: document.getElementById('display-carType-name'),
-      displayRoute: document.getElementById('display-route'),
-      displayBasePrice: document.getElementById('display-basePrice'),
-      displayTotal: document.getElementById('display-total'),
-      displayPayment: document.getElementById('display-payment'),
-      feesBlock: document.getElementById('fees-block'),
-      submitBtn: document.getElementById('submit-btn'),
-      refreshIcon: document.getElementById('refresh-icon'),
+      submitBtn: document.getElementById('submit-btn'), 
       modal: document.getElementById('custom-modal'),
-      modalTitle: document.getElementById('modal-title'),
-      modalMessage: document.getElementById('modal-message'),
-      modalIcon: document.getElementById('modal-icon'),
+      modalMessage: document.getElementById('modal-message'), 
       modalConfirmBtn: document.getElementById('modal-confirm-btn'),
-
-      // 回程 DOM
-      needReturnTrip: document.getElementById('needReturnTrip'),
+      needReturnTrip: document.getElementById('needReturnTrip'), 
       returnSection: document.getElementById('returnSection'),
-      returnDate: document.getElementById('returnDate'),
-      returnTimeHour: document.getElementById('returnTimeHour'),
+      returnDate: document.getElementById('returnDate'), 
+      returnTimeHour: document.getElementById('returnTimeHour'), 
       returnTimeMinute: document.getElementById('returnTimeMinute'),
-      returnFlightNumber: document.getElementById('returnFlightNumber'),
+      feesBlock: document.getElementById('fees-block'), 
+      displayTotal: document.getElementById('display-total'),
+      displayBasePrice: document.getElementById('display-basePrice'), 
+      displayCarTypeName: document.getElementById('display-carType-name'), 
+      displayRoute: document.getElementById('display-route'),
+      userRemarks: document.getElementById('userRemarks'),
+      extraPointBlock: document.getElementById('extra-point-block'),
+      returnExtraPointBlock: document.getElementById('return-extra-point-block'),
+      district: document.getElementById('district'),
+      address: document.getElementById('address'),
       returnDistrict: document.getElementById('returnDistrict'),
       returnAddress: document.getElementById('returnAddress'),
-      returnHasExtraPoint: document.getElementById('returnHasExtraPoint'),
-      returnExtraPointBlock: document.getElementById('return-extra-point-block'),
+      extraDistrict: document.getElementById('extraDistrict'),
+      extraAddress: document.getElementById('extraAddress'),
       returnExtraDistrict: document.getElementById('returnExtraDistrict'),
-      returnExtraAddress: document.getElementById('returnExtraAddress'),
-      returnAdults: document.getElementById('returnAdults'),
-      returnChildren: document.getElementById('returnChildren'),
-      returnInfants: document.getElementById('returnInfants'),
-      returnCarryOn: document.getElementById('returnCarryOn'),
-      returnCheckedBag: document.getElementById('returnCheckedBag')
+      returnExtraAddress: document.getElementById('returnExtraAddress')
     };
 
     function initSelectOptions() {
+      state.reservationId = `RS${Date.now().toString().slice(-8)}${Math.floor(Math.random()*100)}`;
       DOM.displayId.innerText = state.reservationId;
-      for(let i=0; i<24; i++) {
-        DOM.timeHour.add(new Option(i.toString().padStart(2,'0')));
-        DOM.returnTimeHour.add(new Option(i.toString().padStart(2,'0')));
-      }
-      for(let i=0; i<12; i++) {
-        DOM.timeMinute.add(new Option((i*5).toString().padStart(2,'0')));
-        DOM.returnTimeMinute.add(new Option((i*5).toString().padStart(2,'0')));
-      }
+      for(let i=0; i<24; i++) { DOM.timeHour.add(new Option(i.toString().padStart(2,'0'))); DOM.returnTimeHour.add(new Option(i.toString().padStart(2,'0'))); }
+      for(let i=0; i<12; i++) { DOM.timeMinute.add(new Option((i*5).toString().padStart(2,'0'))); DOM.returnTimeMinute.add(new Option((i*5).toString().padStart(2,'0'))); }
       
-      const minTime = new Date(Date.now() + 24 * 3600 * 1000 + 10 * 60 * 1000);
-      const remainder = minTime.getMinutes() % 5;
-      if (remainder !== 0) minTime.setMinutes(minTime.getMinutes() + (5 - remainder));
-      const yyyy = minTime.getFullYear();
-      const mm = String(minTime.getMonth() + 1).padStart(2, '0');
-      const dd = String(minTime.getDate()).padStart(2, '0');
-      const minDateStr = `${yyyy}-${mm}-${dd}`;
-      const minHourStr = String(minTime.getHours()).padStart(2, '0');
-      const minMinuteStr = String(minTime.getMinutes()).padStart(2, '0');
-
-      DOM.date.type = 'date';
-      DOM.date.min = minDateStr;
-      DOM.date.value = minDateStr;
-      state.date = minDateStr;
-      
-      DOM.timeHour.value = minHourStr;
-      state.timeHour = minHourStr;
-      DOM.timeMinute.value = minMinuteStr;
-      state.timeMinute = minMinuteStr;
-      
-      DOM.returnTimeHour.value = minHourStr;
-      DOM.returnTimeMinute.value = minMinuteStr;
-      
-      updatePeopleLuggageOptions();
-      updateReturnPeopleLuggageOptions();
-      restrictTimeOptions();
+      const min = new Date(Date.now() + 24*3600*1000 + 10*60*1000);
+      const minDStr = `${min.getFullYear()}-${String(min.getMonth()+1).padStart(2,'0')}-${String(min.getDate()).padStart(2,'0')}`;
+      DOM.date.min = minDStr; DOM.date.value = minDStr; state.date = minDStr;
+      DOM.timeHour.value = String(min.getHours()).padStart(2,'0'); DOM.timeMinute.value = String(Math.ceil(min.getMinutes()/5)*5).padStart(2,'0');
+      state.timeHour = DOM.timeHour.value; state.timeMinute = DOM.timeMinute.value;
+      updatePeopleLuggageOptions(); updateReturnPeopleLuggageOptions(); restrictTimeOptions();
     }
 
     function restrictTimeOptions() {
-      if (!state.date) return;
-      const minTime = new Date(Date.now() + 24 * 3600 * 1000 + 10 * 60 * 1000);
-      const limitDateStr = `${minTime.getFullYear()}-${String(minTime.getMonth()+1).padStart(2,'0')}-${String(minTime.getDate()).padStart(2,'0')}`;
-      DOM.date.min = limitDateStr;
-      
-      if (state.date === limitDateStr) {
-        const limitHour = minTime.getHours();
-        const limitMinute = minTime.getMinutes();
-        Array.from(DOM.timeHour.options).forEach(opt => opt.disabled = parseInt(opt.value) < limitHour);
-        if (parseInt(DOM.timeHour.value) < limitHour) {
-           DOM.timeHour.value = String(limitHour).padStart(2, '0');
-           state.timeHour = DOM.timeHour.value;
-        }
-        if (parseInt(DOM.timeHour.value) === limitHour) {
-          Array.from(DOM.timeMinute.options).forEach(opt => opt.disabled = parseInt(opt.value) < limitMinute);
-          if (parseInt(DOM.timeMinute.value) < limitMinute) {
-             let nextMin = Math.ceil(limitMinute/5)*5;
-             if (nextMin >= 60) nextMin = 55;
-             DOM.timeMinute.value = String(nextMin).padStart(2, '0');
-             state.timeMinute = DOM.timeMinute.value;
-          }
-        } else {
-          Array.from(DOM.timeMinute.options).forEach(opt => opt.disabled = false);
-        }
+      const min = new Date(Date.now() + 24*3600*1000 + 10*60*1000);
+      const limitD = `${min.getFullYear()}-${String(min.getMonth()+1).padStart(2,'0')}-${String(min.getDate()).padStart(2,'0')}`;
+      if (state.date === limitD) {
+        const h = min.getHours(), m = min.getMinutes();
+        Array.from(DOM.timeHour.options).forEach(o => o.disabled = parseInt(o.value) < h);
+        if (parseInt(DOM.timeHour.value) === h) Array.from(DOM.timeMinute.options).forEach(o => o.disabled = parseInt(o.value) < m);
+        else Array.from(DOM.timeMinute.options).forEach(o => o.disabled = false);
       } else {
-        Array.from(DOM.timeHour.options).forEach(opt => opt.disabled = false);
-        Array.from(DOM.timeMinute.options).forEach(opt => opt.disabled = false);
+        Array.from(DOM.timeHour.options).forEach(o => o.disabled = false);
+        Array.from(DOM.timeMinute.options).forEach(o => o.disabled = false);
       }
-    }
-
-    function renderOptions(element, currentOtherSum, maxTotal, excludeZero) {
-      const available = Math.max(0, maxTotal - currentOtherSum);
-      const val = element.value;
-      element.innerHTML = '';
-      for(let i = (excludeZero?1:0); i <= available; i++) element.add(new Option(i, i));
-      if(val && element.querySelector(`option[value="${val}"]`)) element.value = val;
-      else if(excludeZero && available >= 1) element.value = '1';
-      else element.value = '0';
     }
 
     function updatePeopleLuggageOptions() {
       const a = parseInt(DOM.adults.value)||1, c = parseInt(DOM.children.value)||0, i = parseInt(DOM.infants.value)||0;
-      renderOptions(DOM.adults, c+i, 6, true);
-      renderOptions(DOM.children, a+i, 6, false);
-      renderOptions(DOM.infants, a+c, 6, false);
-      state.adults = parseInt(DOM.adults.value);
-      state.children = parseInt(DOM.children.value);
-      state.infants = parseInt(DOM.infants.value);
-
-      const coVal = DOM.carryOn.value;
-      const cbVal = DOM.checkedBag.value;
-      const cb = parseInt(cbVal)||0, co = parseInt(coVal)||0;
-
-      DOM.carryOn.innerHTML = '<option value="0">0</option>';
-      for(let j=1; j<=Math.max(0, 6-cb); j++) DOM.carryOn.add(new Option(j, j));
-      DOM.carryOn.value = coVal || "0";
-
-      DOM.checkedBag.innerHTML = '<option value="0">0</option>';
-      for(let j=1; j<=Math.max(0, 6-co); j++) DOM.checkedBag.add(new Option(j, j));
-      DOM.checkedBag.value = cbVal || "0";
-
-      if (DOM.noLuggage && DOM.noLuggage.checked) {
-        DOM.carryOn.value = "0"; DOM.checkedBag.value = "0";
-        DOM.carryOn.disabled = true; DOM.checkedBag.disabled = true;
+      const r = (el, os) => { 
+        if(!el) return;
+        const v = el.value, av = 6-os; el.innerHTML = ''; 
+        for(let j=(el.id==='adults'?1:0); j<=av; j++) el.add(new Option(j, j)); 
+        el.value = v<=av ? v : (el.id==='adults'?'1':'0'); 
+      };
+      r(DOM.adults, c+i); r(DOM.children, a+i); r(DOM.infants, a+c);
+      state.adults = parseInt(DOM.adults.value); state.children = parseInt(DOM.children.value); state.infants = parseInt(DOM.infants.value);
+      
+      const coVal = DOM.carryOn.value, cbVal = DOM.checkedBag.value, co = parseInt(coVal)||0, cb = parseInt(cbVal)||0;
+      const rb = (el, ot) => { 
+        if(!el) return;
+        const v = el.value, av = 6-ot; el.innerHTML = ''; 
+        for(let j=0; j<=av; j++) el.add(new Option(j, j)); 
+        el.value = v<=av ? v : '0'; 
+      };
+      rb(DOM.carryOn, cb); rb(DOM.checkedBag, co);
+      
+      if (DOM.noLuggage.checked) {
+        DOM.carryOn.value = "0"; DOM.checkedBag.value = "0"; DOM.carryOn.disabled = true; DOM.checkedBag.disabled = true;
         DOM.carryOn.classList.add('bg-gray-100'); DOM.checkedBag.classList.add('bg-gray-100');
       } else {
         DOM.carryOn.disabled = false; DOM.checkedBag.disabled = false;
         DOM.carryOn.classList.remove('bg-gray-100'); DOM.checkedBag.classList.remove('bg-gray-100');
       }
-      state.carryOn = parseInt(DOM.carryOn.value);
-      state.checkedBag = parseInt(DOM.checkedBag.value);
+      state.carryOn = parseInt(DOM.carryOn.value); state.checkedBag = parseInt(DOM.checkedBag.value);
 
-      const totalP = state.adults + state.children + state.infants;
+      const tp = state.adults + state.children + state.infants;
       let forced = false, reason = '';
-      if (totalP >= 5) { forced = true; reason = '人數達 5 人以上'; }
+      if (tp >= 5) { forced = true; reason = '人數達 5 人以上'; }
       else if (state.checkedBag >= 3) { forced = true; reason = '託運行李達 3 件以上'; }
-      else if (state.checkedBag === 2 && state.carryOn >= 1) { forced = true; reason = '2託運+1登機需大車'; }
-
+      else if (state.checkedBag === 2 && state.carryOn >= 1) { forced = true; reason = '行李較多'; }
+      
       if (forced) {
         state.carType = '大車'; DOM.carType.value = '大車'; DOM.carType.disabled = true;
         DOM.carTypeMsg.innerText = `※ 因 ${reason}，系統已強制改為大車。`; DOM.carTypeMsg.classList.remove('hidden-block');
@@ -507,48 +368,35 @@
     }
 
     function updateReturnPeopleLuggageOptions() {
-      const a = state.returnAdults || 1, c = state.returnChildren || 0, i = state.returnInfants || 0;
-      renderOptions(DOM.returnAdults, c+i, 6, true);
-      renderOptions(DOM.returnChildren, a+i, 6, false);
-      renderOptions(DOM.returnInfants, a+c, 6, false);
-      const co = state.returnCarryOn || 0, cb = state.returnCheckedBag || 0;
-      DOM.returnCarryOn.innerHTML = '<option value="0">0</option>';
-      for(let j=1; j<=Math.max(0, 6-cb); j++) DOM.returnCarryOn.add(new Option(j, j));
-      DOM.returnCarryOn.value = co;
-      DOM.returnCheckedBag.innerHTML = '<option value="0">0</option>';
-      for(let j=1; j<=Math.max(0, 6-co); j++) DOM.returnCheckedBag.add(new Option(j, j));
-      DOM.returnCheckedBag.value = cb;
-      state.returnAdults = parseInt(DOM.returnAdults.value);
-      state.returnChildren = parseInt(DOM.returnChildren.value);
-      state.returnInfants = parseInt(DOM.returnInfants.value);
-      state.returnCarryOn = parseInt(DOM.returnCarryOn.value);
-      state.returnCheckedBag = parseInt(DOM.returnCheckedBag.value);
+      const a = parseInt(document.getElementById('returnAdults').value)||1;
+      const c = parseInt(document.getElementById('returnChildren').value)||0;
+      const i = parseInt(document.getElementById('returnInfants').value)||0;
+      state.returnAdults = a; state.returnChildren = c; state.returnInfants = i;
+      const co = parseInt(document.getElementById('returnCarryOn').value)||0;
+      const cb = parseInt(document.getElementById('returnCheckedBag').value)||0;
+      state.returnCarryOn = co; state.returnCheckedBag = cb;
     }
 
     function syncReturnInfo() {
       if (state.needReturnTrip) {
-        DOM.returnDistrict.value = state.district;
-        DOM.returnAddress.value = state.address;
-        state.returnDistrict = state.district;
-        state.returnAddress = state.address;
-
-        DOM.returnHasExtraPoint.checked = state.hasExtraPoint;
-        state.returnHasExtraPoint = state.hasExtraPoint;
-        DOM.returnExtraDistrict.value = state.extraDistrict;
-        state.returnExtraDistrict = state.extraDistrict;
-        DOM.returnExtraAddress.value = state.extraAddress;
-        state.returnExtraAddress = state.extraAddress;
+        DOM.returnDistrict.value = state.district; DOM.returnAddress.value = state.address;
+        state.returnDistrict = state.district; state.returnAddress = state.address;
         
-        if (state.returnHasExtraPoint) {
-            DOM.returnExtraPointBlock.classList.remove('hidden-block');
-        } else {
-            DOM.returnExtraPointBlock.classList.add('hidden-block');
+        const returnHasExtraPointCheckbox = document.getElementById('returnHasExtraPoint');
+        if (returnHasExtraPointCheckbox) {
+          returnHasExtraPointCheckbox.checked = state.hasExtraPoint; 
+          state.returnHasExtraPoint = state.hasExtraPoint;
         }
-        state.returnAdults = state.adults;
-        state.returnChildren = state.children;
-        state.returnInfants = state.infants;
-        state.returnCarryOn = state.carryOn;
-        state.returnCheckedBag = state.checkedBag;
+        
+        DOM.returnExtraDistrict.value = state.extraDistrict; state.returnExtraDistrict = state.extraDistrict;
+        DOM.returnExtraAddress.value = state.extraAddress; state.returnExtraAddress = state.extraAddress;
+        
+        if (DOM.returnExtraPointBlock) {
+          DOM.returnExtraPointBlock.className = state.returnHasExtraPoint ? 'mt-4 space-y-2' : 'hidden-block';
+        }
+        
+        state.returnAdults = state.adults; state.returnChildren = state.children; state.returnInfants = state.infants;
+        state.returnCarryOn = state.carryOn; state.returnCheckedBag = state.checkedBag;
         updateReturnPeopleLuggageOptions();
       }
     }
@@ -557,84 +405,50 @@
       if (!locString || Object.keys(state.priceMap).length === 0) return null;
       const aptPrefix = airport.replace('機場','');
       const userNorm = locString.replace(/\s+/g,'').replace('台灣','');
+      const userZip = userNorm.match(/^(\d{3})/)?.[1] || "";
       
-      // 比對邏輯：找出價格地圖中，有機場前綴且地區文字包含在用戶地址中的項目
-      const availableKeys = Object.keys(state.priceMap).filter(k => {
-        const apt = k.split('_')[0];
-        return apt.includes(aptPrefix) || aptPrefix.includes(apt);
+      const keys = Object.keys(state.priceMap).filter(k => k.split('_')[0].includes(aptPrefix));
+      
+      let match = keys.find(k => {
+        const parts = k.split('_');
+        return parts[1] === userZip && (userNorm.includes(parts[2]) || parts[2].includes(userNorm));
       });
-
-      // 1. 完全比對地區名稱
-      let bestKey = availableKeys.find(k => {
-          const regionName = k.split('_')[1];
-          return userNorm.includes(regionName) || regionName.includes(userNorm);
-      });
-
-      // 2. 如果沒找到，嘗試利用郵遞區號 (前三碼)
-      if (!bestKey) {
-        const userZip = userNorm.match(/^(\d{3})/)?.[1];
-        if (userZip) {
-           bestKey = availableKeys.find(k => {
-               const regionName = k.split('_')[1];
-               return regionName.includes(userZip);
-           });
-        }
-      }
-
-      return bestKey ? state.priceMap[bestKey] : null;
+      
+      if (!match && userZip) match = keys.find(k => k.split('_')[1] === userZip);
+      
+      return match ? state.priceMap[match] : null;
     }
 
     function calculatePrice() {
-      const mainData = findPriceData(state.airport, state.district);
-      const extraData = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
-      const extract = (d, cType) => (cType === '大車' ? (d?.large || 0) : (d?.small || 0));
-      const p1 = extract(mainData, state.carType), p2 = extract(extraData, state.carType);
-      const baseInfo = (state.hasExtraPoint && p2 > p1) ? { p: p2, n: state.extraDistrict } : { p: p1, n: state.district };
+      const main = findPriceData(state.airport, state.district);
+      const extract = (d, ct) => (ct === '大車' ? (d?.large || 0) : (d?.small || 0));
+      const p1 = extract(main, state.carType);
       const h = parseInt(state.timeHour);
-      
-      let extraFee = 0;
-      if (state.hasExtraPoint && state.district && state.extraDistrict) {
-        extraFee = (state.district.substring(0, 3) === state.extraDistrict.substring(0, 3)) ? 100 : 200;
-      }
-      const fees = { pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0, infant: state.infants*200, signboard: state.extraSignboard?200:0, extra: extraFee };
-      let total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : null;
+      let exFee = (state.hasExtraPoint && state.district && state.extraDistrict) ? (state.district.substring(0,3) === state.extraDistrict.substring(0,3) ? 100 : 200) : 0;
+      const fees = { pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0, infant: state.infants*200, signboard: state.extraSignboard?200:0, extra: exFee };
+      let total = p1 > 0 ? (p1 + Object.values(fees).reduce((a,b)=>a+b,0)) : null;
 
-      let returnBaseP = 0, returnFeesObj = {}, rCarType = '小車', returnExtraFee = 0;
       if (state.needReturnTrip && state.returnDistrict) {
-        if ((state.returnAdults+state.returnChildren+state.returnInfants)>=5 || state.returnCheckedBag>=3 || (state.returnCheckedBag===2 && state.returnCarryOn>=1)) rCarType = '大車';
+        let rCarType = '小車';
+        if ((state.returnAdults+state.returnChildren+state.returnInfants)>=5 || state.returnCheckedBag>=3) rCarType = '大車';
         const rData = findPriceData(state.airport, state.returnDistrict);
-        const rExData = state.returnHasExtraPoint ? findPriceData(state.airport, state.returnExtraDistrict) : null;
-        const rp1 = extract(rData, rCarType), rp2 = extract(rExData, rCarType);
-        returnBaseP = (state.returnHasExtraPoint && rp2 > rp1) ? rp2 : rp1;
-        if (state.returnHasExtraPoint && state.returnDistrict && state.returnExtraDistrict) returnExtraFee = (state.returnDistrict.substring(0, 3) === state.returnExtraDistrict.substring(0, 3)) ? 100 : 200;
-        if (returnBaseP > 0) {
+        const rp1 = extract(rData, rCarType);
+        if (rp1 > 0) {
           const rh = parseInt(state.returnTimeHour);
-          returnFeesObj = { pickup: 200, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: returnExtraFee };
-          if (total !== null) total += (returnBaseP + Object.values(returnFeesObj).reduce((a,b)=>a+b,0));
+          const rfees = 200 + ((rh>=22||rh<6)?200:0) + (state.returnInfants*200);
+          if (total !== null) total += (rp1 + rfees);
         } else total = null;
       }
 
       DOM.displayCarTypeName.innerText = `基本車資 (${state.carType})`;
-      DOM.displayRoute.innerText = state.serviceType === '接機' ? `${state.airport} → ${baseInfo.n || '未選'}` : `${baseInfo.n || '未選'} → ${state.airport}`;
-      DOM.displayBasePrice.innerText = baseInfo.p ? `$${baseInfo.p}` : '待報價';
-      DOM.displayTotal.innerText = total ? `$${total}` : '待報價';
-      DOM.displayPayment.innerText = `付款：${state.payment}`;
-
+      DOM.displayRoute.innerText = state.district ? `${state.district} → ${state.airport}` : '未選擇行程';
+      DOM.displayBasePrice.innerText = p1 ? `$${p1}` : '待報價';
+      DOM.displayTotal.innerText = total ? `$${total}` : '$---';
       DOM.feesBlock.innerHTML = '';
-      const pre = state.needReturnTrip ? "去程 " : "";
-      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}接機服務費</span><span>+$200</span></div>`;
-      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}夜間加成 (22-06)</span><span>+$200</span></div>`;
-      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}安全座椅 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
-      if(fees.signboard) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}機場舉牌服務</span><span>+$200</span></div>`;
-      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}加點服務費</span><span>+$${fees.extra}</span></div>`;
-
-      if (state.needReturnTrip && returnBaseP > 0) {
-        DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white font-bold text-sm mt-3 pt-3 border-t border-white/20"><span>回程基本車資 (${rCarType})</span><span>$${returnBaseP}</span></div>`;
-        DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程接機服務費</span><span>+$200</span></div>`;
-        if(returnFeesObj.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程夜間加成 (22-06)</span><span>+$200</span></div>`;
-        if(returnFeesObj.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程安全座椅 x${state.returnInfants}</span><span>+$${returnFeesObj.infant}</span></div>`;
-        if(returnFeesObj.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程加點服務費</span><span>+$${returnFeesObj.extra}</span></div>`;
-      }
+      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 去程接機服務費</span><span>+$200</span></div>`;
+      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 去程夜間加成</span><span>+$200</span></div>`;
+      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 安全座椅 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
+      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 去程加點服務</span><span>+$${fees.extra}</span></div>`;
     }
 
     function initGoogleMaps() {
@@ -644,20 +458,30 @@
         let zip = (comps.find(c=>c.types.includes('postal_code'))?.long_name || "").substring(0,3);
         let city = (comps.find(c=>c.types.includes('administrative_area_level_1'))?.long_name || "").replace('台灣','').trim();
         let area = (comps.find(c=>c.types.includes('sublocality_level_1')) || comps.find(c=>c.types.includes('locality')))?.long_name || "";
+        
+        if (full.includes("香山")) { zip = "300"; city = "新竹市"; area = "香山區"; }
+        else if (full.includes("北區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "北區"; }
+        else if (full.includes("東區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "東區"; }
+        
         const distStr = `${zip} ${city} ${area}`.trim(), addrStr = full.replace(/^\d{3,5}/, '').trim(); 
-        document.getElementById(dId).value = distStr; document.getElementById(aId).value = addrStr;
-        state[dId] = distStr; state[aId] = addrStr; calculatePrice();
+        const distEl = document.getElementById(dId);
+        const addrEl = document.getElementById(aId);
+        if(distEl) distEl.value = distStr; 
+        if(addrEl) addrEl.value = addrStr;
+        state[dId] = distStr; state[aId] = addrStr; 
+        calculatePrice();
       };
       const initAC = (inputId, dId) => {
         const input = document.getElementById(inputId);
+        if(!input) return;
         const ac = new window.google.maps.places.Autocomplete(input, { types:['geocode','establishment'], componentRestrictions:{country:'tw'} });
         ac.addListener('place_changed', () => { const place = ac.getPlace(); if (place && place.formatted_address) parse(place, dId, inputId); });
       };
       if (!window.google) {
         const s = document.createElement('script'); s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-TW`;
-        s.onload = () => { initAC('address','district'); initAC('extraAddress','extraDistrict'); initAC('returnAddress','returnDistrict'); initAC('returnExtraAddress', 'returnExtraDistrict'); };
+        s.onload = () => { initAC('address','district'); initAC('returnAddress','returnDistrict'); initAC('extraAddress','extraDistrict'); initAC('returnExtraAddress','returnExtraDistrict'); };
         document.head.appendChild(s);
-      } else { initAC('address','district'); initAC('extraAddress','extraDistrict'); initAC('returnAddress','returnDistrict'); initAC('returnExtraAddress', 'returnExtraDistrict'); }
+      } else { initAC('address','district'); initAC('returnAddress','returnDistrict'); initAC('extraAddress','extraDistrict'); initAC('returnExtraAddress','returnExtraDistrict'); }
     }
 
     async function loadPrices() {
@@ -668,135 +492,88 @@
       } catch(e) { console.warn('報價載入失敗'); }
     }
 
-    function initLiff() {
-      const s = document.createElement('script'); s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
-      s.onload = () => window.liff.init({ liffId: LINE_LIFF_ID });
-      document.head.appendChild(s);
-    }
-
-    function showAlert(msg, title='提示訊息') {
-      DOM.modalTitle.innerText = title; DOM.modalMessage.innerText = msg;
-      DOM.modal.classList.remove('hidden-block');
-    }
+    function showAlert(msg) { DOM.modalMessage.innerText = msg; DOM.modal.classList.remove('hidden-block'); }
     function closeModal() { DOM.modal.classList.add('hidden-block'); }
     DOM.modalConfirmBtn.onclick = closeModal;
-
-    function check24HoursLimit_boolean() {
-      if (!state.date) return true;
-      const selected = new Date(`${state.date}T${state.timeHour}:${state.timeMinute}:00`);
-      return selected >= new Date(Date.now() + 24 * 3600 * 1000 + 10 * 60 * 1000);
-    }
 
     document.getElementById('reservation-form').onsubmit = async (e) => {
       e.preventDefault();
       let errs = [];
-      if (!state.name.trim()) errs.push('請輸入乘車人姓名');
-      const rawPhone = state.phone.replace(/\D/g, '');
-      if (rawPhone.length !== 10) errs.push('電話號碼格式錯誤 (需10位數字)');
-      if (!state.email.trim()) errs.push('請輸入電子信箱');
-      if (!state.district) errs.push('請透過地圖建議選單帶入接送地址');
-      if (!state.date) errs.push('請選擇乘車日期');
-      if (!state.flightNumber.trim()) errs.push('請填寫航班編號');
-      if (state.extraSignboard && !state.signboardText.trim()) errs.push('請填寫機場舉牌內容');
-      if (state.needReturnTrip) {
-        if (!state.returnDate) errs.push('請選擇回程乘車日期');
-        if (!state.returnFlightNumber.trim()) errs.push('請填寫回程航班編號');
-        if (!state.returnDistrict) errs.push('請帶入回程接送地址');
-        if (state.date && state.returnDate) {
-          if (new Date(`${state.returnDate}T${state.returnTimeHour}:${state.returnTimeMinute}:00`) <= new Date(`${state.date}T${state.timeHour}:${state.timeMinute}:00`)) errs.push('回程時間需晚於去程時間');
-        }
-      }
-      const needsYes = document.getElementById('needsYes'), needsNo = document.getElementById('needsNo');
-      if (!needsYes.checked && !needsNo.checked) errs.push('請勾選【其他備註與特殊需求】');
-      if (needsYes.checked && !state.userRemarks.trim()) errs.push('請填寫特殊需求詳細內容');
-      if (!check24HoursLimit_boolean()) errs.push('預約需大於 24 小時 10 分鐘前，急件請撥 0915-926-166');
-      if (!document.getElementById('agreed').checked) errs.push('請勾選同意條款與免責聲明');
-
+      if (!state.name.trim()) errs.push('請輸入姓名');
+      if (state.phone.replace(/\D/g, '').length !== 10) errs.push('電話需為10位數字');
+      if (!state.district) errs.push('請從選單帶入地址');
+      if (!state.flightNumber) errs.push('請輸入航班編號');
+      if (state.needReturnTrip && !state.returnDistrict) errs.push('請帶入回程地址');
+      if (!document.getElementById('agreed').checked) errs.push('請勾選同意條款');
       if (errs.length > 0) return showAlert("請修正以下資訊：\n\n" + errs.map((e,i)=>`${i+1}. ${e}`).join('\n'));
 
       state.isSubmitting = true; DOM.submitBtn.innerText = '資料傳送中...';
-      const totalStr = DOM.displayTotal.innerText;
-      let lineText = `【RS專車接送 預約單】\n編號：${state.reservationId}\n全名：${state.name}${state.title}\n電話：${state.phone}\n日期：${state.date} ${state.timeHour}:${state.timeMinute}\n服務：${state.serviceType}\n機場：${state.airport}\n航班：${state.flightNumber}\n地址：${state.address}\n`;
-      if (state.hasExtraPoint) lineText += `加點：${state.extraAddress}\n`;
-      lineText += `車型：${state.carType}\n人數：大${state.adults},小${state.children},幼${state.infants}\n`;
-      if (state.infants > 0) lineText += `安全座椅：${state.infants}張\n`;
-      if (state.extraSignboard) lineText += `舉牌：${state.signboardText}\n`;
-      if (state.userRemarks) lineText += `備註：${state.userRemarks}\n`;
-      lineText += `行李：登機${state.carryOn},託運${state.checkedBag}\n`;
-      if (state.needReturnTrip) {
-        lineText += `\n【回程資訊】\n日期：${state.returnDate} ${state.returnTimeHour}:${state.returnTimeMinute}\n航班：${state.returnFlightNumber}\n地址：${state.returnAddress}\n`;
-        if (state.returnHasExtraPoint) lineText += `回程加點：${state.returnExtraAddress}\n`;
-        lineText += `回程人數：大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}\n回程行李：登機${state.returnCarryOn},託運${state.returnCheckedBag}\n`;
-      }
-      lineText += `總額：${totalStr} (${state.payment})`;
-
       const payload = { action:'addReservation', data:{ 
-        reservationId: state.reservationId, name: state.name, title: state.title, phone: state.phone, email: state.email, date: state.date, time: "'" + state.timeHour + ":" + state.timeMinute, serviceType: state.serviceType, airport: state.airport, flightNumber: state.flightNumber, mainAddressFull: `${state.district} ${state.address}`, hasExtraPoint: state.hasExtraPoint ? '是' : '否', extraAddressFull: state.hasExtraPoint ? `${state.extraDistrict} ${state.extraAddress}` : '', carType: state.carType, passengers: `大${state.adults},小${state.children},幼${state.infants}`, luggage: `登機:${state.carryOn},託運:${state.checkedBag}`, payment: state.payment, totalFee: totalStr, safetySeat: state.infants > 0 ? `${state.infants}張` : '', extraSignboard: state.extraSignboard ? '是' : '否', signboardText: state.extraSignboard ? state.signboardText : '',  
-        needReturnTrip: state.needReturnTrip ? '是' : '否', returnDate: state.needReturnTrip ? state.returnDate : '', returnTime: state.needReturnTrip ? ("'" + state.returnTimeHour + ":" + state.returnTimeMinute) : '', returnFlightNumber: state.needReturnTrip ? state.returnFlightNumber : '', returnAddressFull: state.needReturnTrip ? `${state.returnDistrict} ${state.returnAddress}` : '', returnHasExtraPoint: (state.needReturnTrip && state.returnHasExtraPoint) ? '是' : '否', returnExtraAddressFull: (state.needReturnTrip && state.returnHasExtraPoint) ? `${state.returnExtraDistrict} ${state.returnExtraAddress}` : '', returnPassengers: state.needReturnTrip ? `大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}` : '', returnLuggage: state.needReturnTrip ? `登機:${state.returnCarryOn},託運:${state.returnCheckedBag}` : '',
-        remarks: state.userRemarks || '', timestamp: new Date().toLocaleString() 
+        ...state, time: "'" + state.timeHour + ":" + state.timeMinute, 
+        mainAddressFull: state.district + state.address,
+        passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
+        luggage: `登機:${state.carryOn},託運:${state.checkedBag}`, 
+        totalFee: DOM.displayTotal.innerText,
+        timestamp: new Date().toLocaleString() 
       }};
 
       try {
-        fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
-        if (window.liff.isInClient()) {
-          await window.liff.sendMessages([{ type:'text', text:lineText }, { type:'text', text:`✅ 感謝預約！客服將盡快與您聯繫。` }]);
-          document.getElementById('view-form').classList.add('hidden-block');
-          document.getElementById('view-done').classList.remove('hidden-block');
-          document.getElementById('view-done').classList.add('flex');
-          setTimeout(()=>window.liff.closeWindow(), 2000);
-        } else {
-          document.getElementById('view-form').classList.add('hidden-block');
-          document.getElementById('view-success').classList.remove('hidden-block');
-          document.getElementById('fallback-message').innerText = lineText;
-        }
+        await fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
+        document.getElementById('view-form').classList.add('hidden-block');
+        document.getElementById('view-done').classList.remove('hidden-block');
+        document.getElementById('view-done').classList.add('flex');
+        setTimeout(() => window.location.reload(), 3000);
       } catch(err) { showAlert('傳送失敗，請檢查網路。'); state.isSubmitting=false; DOM.submitBtn.innerText='確認預約並送出'; }
     };
 
-    initSelectOptions(); loadPrices(); initGoogleMaps(); initLiff();
+    initSelectOptions(); loadPrices(); initGoogleMaps();
     
-    document.getElementById('phone').oninput = (e) => {
-      let val = e.target.value.replace(/\D/g, '').slice(0, 10);
-      e.target.value = val.length > 7 ? val.slice(0, 4)+"-"+val.slice(4, 7)+"-"+val.slice(7) : (val.length > 4 ? val.slice(0, 4)+"-"+val.slice(4) : val);
-      state.phone = e.target.value;
-    };
-    
-    ['name','title','email','flightNumber','signboardText','userRemarks','returnFlightNumber','returnAddress','extraAddress','returnExtraAddress'].forEach(id => {
-      const el = document.getElementById(id); if(el) el.oninput = (e) => { state[id] = e.target.value; calculatePrice(); };
+    document.querySelectorAll('input, select, textarea').forEach(el => {
+      el.addEventListener('change', (e) => {
+        const id = e.target.id;
+        if(id in state) {
+          state[id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+          if(id === 'date') restrictTimeOptions();
+          if(id === 'serviceType') {
+            const timeLabel = document.getElementById('timeLabel');
+            if(timeLabel) {
+              timeLabel.innerText = state.serviceType === '接機' ? '接機提示：請填寫航班表定抵台時間(接機請提供電子機票至官方LINE，客服幫您針對訂單內容做一個雙重確認)' : '送機提示：請填寫從家裡/公司出發的時間';
+            }
+          }
+          if(id === 'needReturnTrip') {
+             DOM.returnSection.className = e.target.checked ? 'space-y-4' : 'hidden-block';
+             if(e.target.checked) {
+                state.returnDistrict = state.district; DOM.returnDistrict.value = state.district;
+                state.returnAddress = state.address; DOM.returnAddress.value = state.address;
+                state.returnAdults = state.adults; state.returnChildren = state.children;
+             }
+          }
+          if(id === 'hasExtraPoint') {
+            if(DOM.extraPointBlock) DOM.extraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block';
+          }
+          if(id === 'returnHasExtraPoint') {
+            if(DOM.returnExtraPointBlock) DOM.returnExtraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block';
+          }
+          if(id === 'extraSignboard') {
+            const sbText = document.getElementById('signboardText');
+            if(sbText) sbText.className = e.target.checked ? 'w-full mt-2 p-3 border' : 'hidden-block';
+          }
+          if(id.startsWith('return')) updateReturnPeopleLuggageOptions();
+          updatePeopleLuggageOptions();
+          calculatePrice();
+        }
+      });
+      el.addEventListener('input', (e) => {
+        const id = e.target.id;
+        if(id in state) state[id] = e.target.value;
+      });
     });
-    
-    ['timeHour','timeMinute','serviceType','airport','carType','payment','returnTimeHour','returnTimeMinute'].forEach(id => {
-      const el = document.getElementById(id); if(el) el.onchange = (e) => { 
-        state[id] = e.target.value; 
-        if(id==='timeHour'||id==='timeMinute') restrictTimeOptions();
-        if(id==='serviceType') document.getElementById('timeLabel').innerText = state.serviceType === '接機' ? '接機提示：請填寫航班表定抵台時間(接機請提供電子機票至官方LINE)' : '送機提示：請填寫從家裡/公司出發的時間';
-        calculatePrice(); 
+
+    document.getElementsByName('sn').forEach(el => {
+      el.onchange = () => { 
+        if(DOM.userRemarks) DOM.userRemarks.className = el.id === 'needsYes' ? 'w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base' : 'hidden-block'; 
       };
     });
-    
-    ['adults','children','infants','carryOn','checkedBag','returnAdults','returnChildren','returnInfants','returnCarryOn','returnCheckedBag'].forEach(id => {
-      const el = document.getElementById(id); if(el) el.onchange = (e) => {
-        if(id.startsWith('return')) state[id] = parseInt(e.target.value);
-        updatePeopleLuggageOptions(); updateReturnPeopleLuggageOptions(); calculatePrice();
-      };
-    });
-
-    if (DOM.noLuggage) DOM.noLuggage.onchange = updatePeopleLuggageOptions;
-    
-    DOM.needReturnTrip.onchange = (e) => {
-      state.needReturnTrip = e.target.checked;
-      if (e.target.checked) { DOM.returnSection.classList.remove('hidden-block'); syncReturnInfo(); }
-      else DOM.returnSection.classList.add('hidden-block');
-      calculatePrice();
-    };
-
-    DOM.hasExtraPoint.onchange = (e) => { state.hasExtraPoint = e.target.checked; DOM.extraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block'; calculatePrice(); };
-    if (DOM.returnHasExtraPoint) DOM.returnHasExtraPoint.onchange = (e) => { state.returnHasExtraPoint = e.target.checked; DOM.returnExtraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block'; calculatePrice(); };
-    DOM.extraSignboard.onchange = (e) => { state.extraSignboard = e.target.checked; DOM.signboardText.className = e.target.checked ? 'w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base' : 'hidden-block'; calculatePrice(); };
-    DOM.date.onchange = (e) => { state.date = e.target.value; restrictTimeOptions(); calculatePrice(); };
-    DOM.returnDate.onchange = (e) => { state.returnDate = e.target.value; calculatePrice(); };
-
-    document.getElementById('needsNo').addEventListener('change', () => { document.getElementById('userRemarks').classList.add('hidden-block'); state.userRemarks = ''; });
-    document.getElementById('needsYes').addEventListener('change', () => document.getElementById('userRemarks').classList.remove('hidden-block'));
   </script>
 </body>
 </html>
