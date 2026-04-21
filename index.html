@@ -406,15 +406,19 @@
       const aptPrefix = airport.replace('機場','');
       const userNorm = locString.replace(/\s+/g,'').replace('台灣','');
       const userZip = userNorm.match(/^(\d{3})/)?.[1] || "";
+      const areaMatch = userNorm.match(/[\u4e00-\u9fa5]{2,}(區|鄉|鎮|市)$/);
+      const userArea = areaMatch ? areaMatch[0] : "";
       
       const keys = Object.keys(state.priceMap).filter(k => k.split('_')[0].includes(aptPrefix));
       
       let match = keys.find(k => {
-        const parts = k.split('_');
-        return parts[1] === userZip && (userNorm.includes(parts[2]) || parts[2].includes(userNorm));
+        const val = state.priceMap[k];
+        if (val && val.zip && userZip && val.zip.toString() === userZip) return true;
+        if (val && val.region && userNorm.includes(val.region)) return true;
+        if (userZip && k.includes('_' + userZip)) return true;
+        if (userArea && k.includes(userArea)) return true;
+        return false;
       });
-      
-      if (!match && userZip) match = keys.find(k => k.split('_')[1] === userZip);
       
       return match ? state.priceMap[match] : null;
     }
