@@ -14,28 +14,35 @@
 </head>
 <body class="bg-gray-50 text-black font-sans">
 
+  <!-- 自訂提示 Modal -->
   <div id="custom-modal" class="hidden-block fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm text-center text-[#222]">
     <div class="bg-white w-full max-sm:w-full max-w-sm rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] scale-100 transition-transform">
-      <div id="modal-header" class="p-4 flex justify-between items-center text-white shrink-0 bg-[#0ABAB5]">
-        <div class="flex items-center gap-2 font-bold tracking-wider uppercase text-sm">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div id="modal-header" class="p-5 flex justify-between items-center text-white shrink-0 bg-[#0ABAB5]">
+        <div class="flex items-center gap-2 font-black tracking-wider uppercase text-sm">
+          <span id="modal-icon">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </span>
           <span id="modal-title">提示訊息</span>
         </div>
         <button onclick="closeModal()"><svg class="w-5 h-5 opacity-70 hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
       </div>
-      <div class="p-6 flex-1 overflow-y-auto text-left text-sm leading-relaxed font-bold whitespace-pre-wrap text-gray-700" id="modal-message"></div>
-      <div class="p-4 bg-gray-50 border-t border-gray-100 shrink-0">
-        <button id="modal-confirm-btn" class="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform shadow-md">確定</button>
+      <div class="p-8 flex-1 overflow-y-auto text-left text-sm leading-relaxed font-bold whitespace-pre-wrap text-gray-700" id="modal-message"></div>
+      <div class="p-4 bg-gray-50 border-t border-gray-100 shrink-0 flex gap-2">
+        <button id="modal-confirm-btn" class="w-full py-3 bg-[#0ABAB5] text-white font-black rounded-sm active:scale-95 transition-transform flex justify-center items-center gap-2 shadow-md">
+          確定
+        </button>
       </div>
     </div>
   </div>
 
+  <!-- 成功送出後過場 -->
   <div id="view-done" class="hidden-block min-h-screen bg-[#0ABAB5] flex-col items-center justify-center text-white text-center p-6">
      <svg class="w-20 h-20 mb-4 animate-pulse mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
      <h2 class="text-2xl font-black tracking-widest">預約已送出</h2>
      <p class="mt-4 font-bold opacity-90">正在返回 LINE 聊天室...</p>
   </div>
 
+  <!-- 外部瀏覽器畫面 -->
   <div id="view-success" class="hidden-block pb-10 text-[#222] min-h-screen bg-gray-50 flex-col">
     <header class="bg-[#0ABAB5] text-white p-4 sticky top-0 z-50 shadow-md flex justify-center items-center text-center">
       <h1 class="text-xl font-bold tracking-wider uppercase">預約完成</h1>
@@ -57,11 +64,13 @@
 
     <main class="max-w-md mx-auto mt-6 bg-white shadow-lg p-6 sm:p-8 sm:border border-gray-200">
       <form id="reservation-form" class="space-y-6">
+        <!-- 預約編號 -->
         <div class="bg-[#0ABAB5]/5 p-3 flex justify-between items-center border border-[#0ABAB5]/20">
           <span class="text-sm font-bold text-[#0ABAB5] flex items-center gap-2">預約編號</span>
           <span id="display-reservationId" class="font-mono text-sm font-bold text-[#0ABAB5]"></span>
         </div>
 
+        <!-- 乘車人資訊 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5] flex items-center gap-2">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> 乘車人資訊
@@ -91,6 +100,7 @@
           </div>
         </section>
 
+        <!-- 乘車資訊 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">乘車資訊</h2>
           <label class="block text-sm font-bold text-gray-700">乘車日期 (限 24 小時後預約)</label>
@@ -110,6 +120,7 @@
           <input type="text" id="flightNumber" class="w-full p-3 border uppercase font-mono rounded-sm outline-none focus:border-[#0ABAB5]" placeholder="航班編號 EX: BR123">
         </section>
 
+        <!-- 人數行李 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">車型與人數行李</h2>
           <select id="carType" class="w-full p-3 border font-bold rounded-sm bg-white"><option value="小車">小車</option><option value="大車">大車</option></select>
@@ -128,6 +139,7 @@
           </label>
         </section>
 
+        <!-- 回程預約 -->
         <div class="mt-8 p-4 border-2 border-solid border-[#0ABAB5] rounded-sm bg-white flex items-center justify-center shadow-sm">
           <label class="flex items-center gap-3 cursor-pointer font-black text-[#0ABAB5] text-lg">
             <input type="checkbox" id="needReturnTrip" class="w-6 h-6 accent-[#0ABAB5]"> 我需要同時預約回程
@@ -148,6 +160,7 @@
           <input type="text" id="returnDistrict" class="w-full p-3 border bg-gray-100 rounded-sm outline-none" readonly>
           <input type="text" id="returnAddress" class="w-full p-3 border bg-white font-bold rounded-sm" placeholder="回程詳細地址">
           
+          <!-- 回程加點 -->
           <div class="mt-2 p-3 border border-dashed border-[#0ABAB5] rounded-sm">
             <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
               <input type="checkbox" id="returnHasExtraPoint" class="w-5 h-5 accent-[#0ABAB5]"> 回程需加點服務
@@ -170,6 +183,7 @@
           </div>
         </section>
 
+        <!-- 費用明細 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">費用報價</h2>
           <select id="payment" class="w-full p-3 border font-bold rounded-sm bg-white"><option value="現金">現金</option><option value="轉帳">轉帳</option></select>
@@ -194,12 +208,14 @@
                 <span class="font-black text-lg text-white">預估總額</span>
                 <div class="text-right">
                   <span id="display-total" class="text-4xl font-black">$---</span>
+                  <div id="display-payment" class="text-xs text-white/70 mt-1 uppercase tracking-tighter text-right">付款：現金</div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
+        <!-- 備註與同意 -->
         <section class="space-y-4">
           <h2 class="text-lg font-bold border-b-2 border-[#0ABAB5] pb-2 text-[#0ABAB5]">【其他備註與特殊需求】</h2>
           <p class="text-[13px] font-bold text-gray-600 leading-relaxed text-justify">
@@ -217,6 +233,7 @@
           <textarea id="userRemarks" rows="3" class="w-full p-3 border rounded-sm outline-none hidden-block focus:border-[#0ABAB5] bg-white text-base" placeholder="請詳細說明您攜帶的物品與數量，或需要我們注意的事項（必填）"></textarea>
         </section>
 
+        <!-- 注意事項 -->
         <section class="mt-8 border-t-2 border-[#0ABAB5] pt-6 pb-4">
           <div class="bg-[#0ABAB5]/5 p-4 h-96 overflow-y-auto text-xs leading-relaxed justify-text border border-[#0ABAB5]/20 rounded-sm shadow-inner mb-4 text-gray-800">
             <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm">
@@ -282,6 +299,7 @@
       displayBasePrice: document.getElementById('display-basePrice'), 
       displayCarTypeName: document.getElementById('display-carType-name'), 
       displayRoute: document.getElementById('display-route'),
+      displayPayment: document.getElementById('display-payment'),
       userRemarks: document.getElementById('userRemarks'),
       extraPointBlock: document.getElementById('extra-point-block'),
       returnExtraPointBlock: document.getElementById('return-extra-point-block'),
@@ -404,20 +422,16 @@
     function findPriceData(airport, locString) {
       if (!locString || Object.keys(state.priceMap).length === 0) return null;
       const aptPrefix = airport.replace('機場','');
-      const userNorm = locString.replace(/\s+/g,'').replace('台灣','');
-      const userZip = userNorm.match(/^(\d{3})/)?.[1] || "";
-      const areaMatch = userNorm.match(/[\u4e00-\u9fa5]{2,}(區|鄉|鎮|市)$/);
-      const userArea = areaMatch ? areaMatch[0] : "";
       
+      // 去除所有空白進行比對
+      const cleanLoc = locString.replace(/\s+/g, '');
       const keys = Object.keys(state.priceMap).filter(k => k.split('_')[0].includes(aptPrefix));
       
       let match = keys.find(k => {
         const val = state.priceMap[k];
-        if (val && val.zip && userZip && val.zip.toString() === userZip) return true;
-        if (val && val.region && userNorm.includes(val.region)) return true;
-        if (userZip && k.includes('_' + userZip)) return true;
-        if (userArea && k.includes(userArea)) return true;
-        return false;
+        if (!val || !val.region) return false;
+        const cleanRegion = val.region.toString().replace(/\s+/g, '');
+        return cleanRegion !== '' && cleanLoc.includes(cleanRegion);
       });
       
       return match ? state.priceMap[match] : null;
@@ -425,34 +439,56 @@
 
     function calculatePrice() {
       const main = findPriceData(state.airport, state.district);
+      const extra = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
       const extract = (d, ct) => (ct === '大車' ? (d?.large || 0) : (d?.small || 0));
-      const p1 = extract(main, state.carType);
+      const p1 = extract(main, state.carType), p2 = extract(extra, state.carType);
+      const baseInfo = (state.hasExtraPoint && p2 > p1) ? { p: p2, n: state.extraDistrict } : { p: p1, n: state.district };
       const h = parseInt(state.timeHour);
       let exFee = (state.hasExtraPoint && state.district && state.extraDistrict) ? (state.district.substring(0,3) === state.extraDistrict.substring(0,3) ? 100 : 200) : 0;
       const fees = { pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0, infant: state.infants*200, signboard: state.extraSignboard?200:0, extra: exFee };
-      let total = p1 > 0 ? (p1 + Object.values(fees).reduce((a,b)=>a+b,0)) : null;
+      let total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : null;
 
+      let rBaseP = 0, rFees = {}, rCarType = '小車', rexFee = 0;
       if (state.needReturnTrip && state.returnDistrict) {
-        let rCarType = '小車';
         if ((state.returnAdults+state.returnChildren+state.returnInfants)>=5 || state.returnCheckedBag>=3) rCarType = '大車';
         const rData = findPriceData(state.airport, state.returnDistrict);
-        const rp1 = extract(rData, rCarType);
-        if (rp1 > 0) {
+        const rExData = state.returnHasExtraPoint ? findPriceData(state.airport, state.returnExtraDistrict) : null;
+        const rp1 = extract(rData, rCarType), rp2 = extract(rExData, rCarType);
+        const rBaseInfo = (state.returnHasExtraPoint && rp2 > rp1) ? { p: rp2, n: state.returnExtraDistrict } : { p: rp1, n: state.returnDistrict };
+        rBaseP = rBaseInfo.p;
+        
+        if (state.returnHasExtraPoint && state.returnDistrict && state.returnExtraDistrict) {
+            rexFee = (state.returnDistrict.substring(0,3) === state.returnExtraDistrict.substring(0,3) ? 100 : 200);
+        }
+        
+        if (rBaseP > 0) {
           const rh = parseInt(state.returnTimeHour);
-          const rfees = 200 + ((rh>=22||rh<6)?200:0) + (state.returnInfants*200);
-          if (total !== null) total += (rp1 + rfees);
+          rFees = { pickup: 200, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee };
+          if (total !== null) total += (rBaseP + Object.values(rFees).reduce((a,b)=>a+b,0));
         } else total = null;
       }
 
       DOM.displayCarTypeName.innerText = `基本車資 (${state.carType})`;
-      DOM.displayRoute.innerText = state.district ? `${state.district} → ${state.airport}` : '未選擇行程';
-      DOM.displayBasePrice.innerText = p1 ? `$${p1}` : '待報價';
-      DOM.displayTotal.innerText = total ? `$${total}` : '$---';
+      DOM.displayRoute.innerText = state.serviceType === '接機' ? `${state.airport} → ${baseInfo.n || '未選'}` : `${baseInfo.n || '未選'} → ${state.airport}`;
+      DOM.displayBasePrice.innerText = baseInfo.p ? `$${baseInfo.p}` : '待報價';
+      DOM.displayTotal.innerText = total ? `$${total}` : '待報價';
+      DOM.displayPayment.innerText = `付款：${state.payment}`;
+
       DOM.feesBlock.innerHTML = '';
-      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 去程接機服務費</span><span>+$200</span></div>`;
-      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 去程夜間加成</span><span>+$200</span></div>`;
-      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 安全座椅 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
-      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 去程加點服務</span><span>+$${fees.extra}</span></div>`;
+      const pre = state.needReturnTrip ? "去程 " : "";
+      if(fees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}接機服務費</span><span>+$200</span></div>`;
+      if(fees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}夜間加成 (22-06)</span><span>+$200</span></div>`;
+      if(fees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}安全座椅 x${state.infants}</span><span>+$${fees.infant}</span></div>`;
+      if(fees.signboard) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}機場舉牌服務</span><span>+$200</span></div>`;
+      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ ${pre}加點服務費</span><span>+$${fees.extra}</span></div>`;
+
+      if (state.needReturnTrip && rBaseP > 0) {
+        DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white font-bold text-sm mt-3 pt-3 border-t border-white/20"><span>回程基本車資 (${rCarType})</span><span>$${rBaseP}</span></div>`;
+        DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程接機服務費</span><span>+$200</span></div>`;
+        if(rFees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程夜間加成 (22-06)</span><span>+$200</span></div>`;
+        if(rFees.infant) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程安全座椅 x${state.returnInfants}</span><span>+$${rFees.infant}</span></div>`;
+        if(rFees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程加點服務費</span><span>+$${rFees.extra}</span></div>`;
+      }
     }
 
     function initGoogleMaps() {
@@ -466,6 +502,10 @@
         if (full.includes("香山")) { zip = "300"; city = "新竹市"; area = "香山區"; }
         else if (full.includes("北區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "北區"; }
         else if (full.includes("東區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "東區"; }
+        else if (full.includes("寶山")) { zip = "308"; city = "新竹縣"; area = "寶山鄉"; }
+        else if (full.includes("竹北")) { zip = "302"; city = "新竹縣"; area = "竹北市"; }
+        else if (full.includes("竹東")) { zip = "310"; city = "新竹縣"; area = "竹東鎮"; }
+        else if (full.includes("芎林")) { zip = "307"; city = "新竹縣"; area = "芎林鄉"; }
         
         const distStr = `${zip} ${city} ${area}`.trim(), addrStr = full.replace(/^\d{3,5}/, '').trim(); 
         const distEl = document.getElementById(dId);
@@ -496,6 +536,12 @@
       } catch(e) { console.warn('報價載入失敗'); }
     }
 
+    function initLiff() {
+      const s = document.createElement('script'); s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+      s.onload = () => window.liff.init({ liffId: LINE_LIFF_ID });
+      document.head.appendChild(s);
+    }
+
     function showAlert(msg) { DOM.modalMessage.innerText = msg; DOM.modal.classList.remove('hidden-block'); }
     function closeModal() { DOM.modal.classList.add('hidden-block'); }
     DOM.modalConfirmBtn.onclick = closeModal;
@@ -509,24 +555,91 @@
       if (!state.flightNumber) errs.push('請輸入航班編號');
       if (state.needReturnTrip && !state.returnDistrict) errs.push('請帶入回程地址');
       if (!document.getElementById('agreed').checked) errs.push('請勾選同意條款');
+      
+      const needsYes = document.getElementById('needsYes'), needsNo = document.getElementById('needsNo');
+      if (!needsYes.checked && !needsNo.checked) errs.push('請勾選【其他備註與特殊需求】');
+      if (needsYes.checked && !state.userRemarks.trim()) errs.push('請說明特殊需求');
+      
       if (errs.length > 0) return showAlert("請修正以下資訊：\n\n" + errs.map((e,i)=>`${i+1}. ${e}`).join('\n'));
 
       state.isSubmitting = true; DOM.submitBtn.innerText = '資料傳送中...';
+      
+      let totalStr = DOM.displayTotal.innerText;
+      let lineText = `【RS專車接送 線上預約單】\n` +
+                     `預約編號：${state.reservationId}\n` +
+                     `全名：${state.name} ${state.title}\n` +
+                     `電話：${state.phone}\n` +
+                     `日期：${state.date}\n` +
+                     `時間：${state.timeHour}:${state.timeMinute}\n` +
+                     `服務：${state.serviceType}\n` +
+                     `機場：${state.airport}\n` +
+                     `航班：${state.flightNumber}\n` +
+                     `地址：${state.address}\n`;
+
+      if (state.hasExtraPoint) {
+        lineText += `加點：${state.extraAddress}\n`;
+      }
+
+      lineText += `車型：${state.carType}\n` +
+                  `人數：大${state.adults},小${state.children},幼${state.infants}\n`;
+
+      if (state.infants > 0) {
+        lineText += `安全座椅：${state.infants}張 (4歲以下強制需要)\n`;
+      }
+      if (state.extraSignboard) {
+        lineText += `舉牌內容：${state.signboardText}\n`;
+      }
+      if (state.userRemarks && state.userRemarks.trim() !== '') {
+        lineText += `備註：${state.userRemarks.trim()}\n`;
+      }
+
+      const luggageText = DOM.noLuggage.checked ? '無行李' : `登機箱${state.carryOn},託運${state.checkedBag}`;
+      lineText += `行李：${luggageText}\n`;
+      
+      if (state.needReturnTrip) {
+        lineText += `\n【回程資訊】\n` +
+                    `回程日期：${state.returnDate}\n` +
+                    `回程時間：${state.returnTimeHour}:${state.returnTimeMinute}\n` +
+                    `回程航班：${state.returnFlightNumber}\n` +
+                    `回程地址：${state.returnDistrict} ${state.returnAddress}\n`;
+        
+        if (state.returnHasExtraPoint) {
+            lineText += `回程加點：${state.returnExtraDistrict} ${state.returnExtraAddress}\n`;
+        }
+
+        lineText += `回程人數：大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}\n` +
+                    `回程行李：登機箱${state.returnCarryOn},託運${state.returnCheckedBag}\n\n`;
+      }
+
+      lineText += `總額：${totalStr} (${state.payment})`;
+
+      const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
+      
       const payload = { action:'addReservation', data:{ 
         ...state, time: "'" + state.timeHour + ":" + state.timeMinute, 
-        mainAddressFull: state.district + state.address,
+        mainAddressFull: state.district + " " + state.address,
         passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
-        luggage: `登機:${state.carryOn},託運:${state.checkedBag}`, 
-        totalFee: DOM.displayTotal.innerText,
+        luggage: luggageText, 
+        totalFee: totalStr,
         timestamp: new Date().toLocaleString() 
       }};
 
       try {
         await fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
-        document.getElementById('view-form').classList.add('hidden-block');
-        document.getElementById('view-done').classList.remove('hidden-block');
-        document.getElementById('view-done').classList.add('flex');
-        setTimeout(() => window.location.reload(), 3000);
+        if (window.liff.isInClient()) {
+          await window.liff.sendMessages([
+            { type:'text', text:lineText },
+            { type:'text', text:secondMessage }
+          ]);
+          document.getElementById('view-form').classList.add('hidden-block');
+          document.getElementById('view-done').classList.remove('hidden-block');
+          document.getElementById('view-done').classList.add('flex');
+          setTimeout(() => window.liff.closeWindow(), 3000);
+        } else {
+          document.getElementById('view-form').classList.add('hidden-block');
+          document.getElementById('view-success').classList.remove('hidden-block');
+          document.getElementById('fallback-message').innerText = lineText + '\n\n' + secondMessage;
+        }
       } catch(err) { showAlert('傳送失敗，請檢查網路。'); state.isSubmitting=false; DOM.submitBtn.innerText='確認預約並送出'; }
     };
 
