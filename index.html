@@ -138,7 +138,7 @@
           </div>
           <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-bold text-gray-700">
             <div>登機箱<select id="carryOn" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>託運箱(21~29吋)<select id="checkedBag" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>托運箱(21~29吋)<select id="checkedBag" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
           <label class="flex items-center gap-2 cursor-pointer font-black text-[#0ABAB5] text-sm">
             <input type="checkbox" id="noLuggage" class="w-5 h-5 accent-[#0ABAB5]"> 無行李(如只有隨身軟性包包請務必勾選)
@@ -185,7 +185,7 @@
           </div>
           <div class="grid grid-cols-2 gap-2 text-center text-[11px] font-bold">
             <div>登機箱<select id="returnCarryOn" class="w-full p-3 border bg-white text-base"></select></div>
-            <div>託運箱(21~29吋)<select id="returnCheckedBag" class="w-full p-3 border bg-white text-base"></select></div>
+            <div>托運箱(21~29吋)<select id="returnCheckedBag" class="w-full p-3 border bg-white text-base"></select></div>
           </div>
         </section>
 
@@ -423,9 +423,9 @@
       const tp = state.adults + state.children + state.infants;
       let forced = false, reason = '';
       if (tp >= 5) { forced = true; reason = '人數達 5 人以上'; }
-      else if (state.checkedBag >= 3) { forced = true; reason = '託運行李達 3 件以上'; }
-      else if (state.checkedBag === 2 && state.carryOn >= 1) { forced = true; reason = '2託運+1登機需大車'; }
-      else if (tp === 3 && state.carryOn > 4) { forced = true; reason = '3人且超過4件登機箱'; }
+      else if (state.checkedBag >= 3) { forced = true; reason = '托運行李達 3 件以上'; }
+      else if (state.checkedBag === 2 && state.carryOn >= 1) { forced = true; reason = '2托運+1登機需大車'; }
+      else if (state.carryOn >= 5) { forced = true; reason = '登機箱達 5 件以上'; }
       
       if (forced) {
         state.carType = '大車'; DOM.carType.value = '大車'; DOM.carType.disabled = true;
@@ -529,7 +529,7 @@
 
       let rBaseP = 0, rFees = {}, rCarType = '小車', rexFee = 0;
       if (state.needReturnTrip && state.returnDistrict) {
-        if ((state.returnAdults+state.returnChildren+state.returnInfants)>=5 || state.returnCheckedBag>=3 || (state.returnCheckedBag===2 && state.returnCarryOn>=1) || (state.returnAdults+state.returnChildren+state.returnInfants === 3 && state.returnCarryOn > 4)) rCarType = '大車';
+        if ((state.returnAdults+state.returnChildren+state.returnInfants)>=5 || state.returnCheckedBag>=3 || (state.returnCheckedBag===2 && state.returnCarryOn>=1) || state.returnCarryOn >= 5) rCarType = '大車';
         const rData = findPriceData(state.airport, state.returnDistrict);
         const rExData = state.returnHasExtraPoint ? findPriceData(state.airport, state.returnExtraDistrict) : null;
         const rp1 = extract(rData, rCarType), rp2 = extract(rExData, rCarType);
@@ -682,7 +682,7 @@
         lineText += `備註：${state.userRemarks.trim()}\n`;
       }
 
-      const luggageText = DOM.noLuggage.checked ? '無行李' : `登機箱${state.carryOn},託運箱${state.checkedBag}`;
+      const luggageText = DOM.noLuggage.checked ? '無行李' : `登機箱${state.carryOn},托運箱${state.checkedBag}`;
       lineText += `行李：${luggageText}\n`;
       
       if (state.needReturnTrip) {
@@ -697,7 +697,7 @@
         }
 
         lineText += `回程人數：大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}\n` +
-                    `回程行李：登機箱${state.returnCarryOn},託運箱${state.returnCheckedBag}\n\n`;
+                    `回程行李：登機箱${state.returnCarryOn},托運箱${state.returnCheckedBag}\n\n`;
       }
 
       lineText += `總額：${totalStr} (${state.payment})`;
