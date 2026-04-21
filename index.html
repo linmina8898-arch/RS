@@ -442,7 +442,6 @@
         if (state.returnHasExtraPoint && state.returnDistrict && state.returnExtraDistrict) { rexFee = (state.returnDistrict.substring(0,3) === state.returnExtraDistrict.substring(0,3) ? 100 : 200); }
         if (rBaseP > 0) { 
           const rh = parseInt(state.returnTimeHour); 
-          // 修改：回程服務費逻辑：若去程是送機，回程自動計入接機費 (+200)
           const isReturnPickup = (state.serviceType === '送機');
           rFees = { pickup: isReturnPickup ? 200 : 0, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee }; 
           
@@ -476,14 +475,8 @@
       
       if (state.needReturnTrip && rBaseP > 0) { 
         DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white font-bold text-sm mt-3 pt-3 border-t border-white/20"><span>回程基本車資 (${rCarType})</span><span>$${rBaseP}</span></div>`; 
-        
-        // 修改：前端顯示回程接機費
-        if(rFees.pickup) {
-          DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程接機服務費</span><span>+$200</span></div>`; 
-        }
-
+        if(rFees.pickup) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程接機服務費</span><span>+$200</span></div>`; 
         if(rFees.night) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程夜間加成 (22-06)</span><span>+$200</span></div>`; 
-        
         if(rFees.infant) {
           DOM.feesBlock.innerHTML += `
             <div class="flex justify-between text-white/90 text-sm">
@@ -491,7 +484,6 @@
               <span>+$${rFees.infant}</span>
             </div>`;
         }
-        
         if(rFees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-sm"><span>└ 回程加點服務費</span><span>+$${rFees.extra}</span></div>`; 
       }
     }
@@ -515,6 +507,13 @@
       if (state.phone.replace(/\D/g, '').length !== 10) errs.push('電話需為10位數字');
       if (!state.district) errs.push('請從選單帶入地址');
       if (!state.flightNumber) errs.push('請輸入航班編號');
+      
+      // 行李驗證：若總行李為 0 且未勾選「無行李」，則報錯
+      const tl = state.carryOn + state.checkedBag;
+      if (tl === 0 && !DOM.noLuggage.checked) {
+        errs.push('行李總數為 0 時，請務必勾選「無行李」');
+      }
+
       if (state.extraSignboard && (!state.signboardText || !state.signboardText.trim())) errs.push('勾選舉牌服務時，請輸入舉牌內容');
       if (state.needReturnTrip) { 
         if (!state.returnDate) errs.push('請選擇回程日期'); 
@@ -532,6 +531,7 @@
       state.isSubmitting = true; DOM.submitBtn.innerText = '資料傳送中...';
       let totalStr = DOM.displayTotal.innerText;
       
+      // LINE 訊息明細文字，包含無行李備註
       let lineText = `【RS專車接送 線上預約單】\n` +
                      `預約編號：${state.reservationId || ''}\n` +
                      `全名：${state.name || ''} ${state.title || ''}\n` +
@@ -546,7 +546,9 @@
       lineText += `車型：${state.carType || ''}\n` +
                   `人數：大${state.adults},小${state.children},幼${state.infants}\n`;
       if (state.infants > 0) lineText += `安全座椅：${state.infants}張\n`;
-      lineText += `行李：登機${state.carryOn},托運${state.checkedBag}\n` +
+      
+      const currentLuggage = DOM.noLuggage.checked ? '無行李' : `登機${state.carryOn},托運${state.checkedBag}`;
+      lineText += `行李：${currentLuggage}\n` +
                   `去程費用：$${state.goingTotal}\n`;
       
       if (state.needReturnTrip) {
@@ -562,6 +564,10 @@
                     `回程費用：$${state.returnTotal}\n`;
       }
 
+      // 若勾選無行李，在明細備註中特別註明
+      let finalRemarks = (DOM.noLuggage.checked ? "【無行李】" : "") + (state.userRemarks || "");
+      if (finalRemarks) lineText += `備註：${finalRemarks}\n`;
+
       lineText += `\n預估總計：${totalStr} (${state.payment || ''})`;
 
       let secondMessage = `您的預約資料已成功送出！\n為確保您的行程細節與權益，客服專員正在為您進行訂單核對。\n\n📍 預約注意事項：\n• 訂單確認：\n須收到本公司的『預約確認回覆』後，才算正式完成預約。\n\n• 付款資訊：\n若您選擇轉帳，客服將於確認訂單時，一併提供專屬付款連結或帳號。\n\n感謝您的耐心等候，我們將盡快與您聯繫。`;
@@ -576,14 +582,14 @@
         mainAddressFull: (state.district || "") + " " + (state.address || ""),
         extraAddressFull: state.hasExtraPoint ? ((state.extraDistrict || "") + " " + (state.extraAddress || "")) : "",
         passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
-        luggage: `登機${state.carryOn},託運${state.checkedBag}`, 
+        luggage: currentLuggage, 
         safetySeat: state.infants,
         returnTime: state.needReturnTrip ? ("'" + state.returnTimeHour + ":" + state.returnTimeMinute) : "",
         returnAddressFull: state.needReturnTrip ? ((state.returnDistrict || "") + " " + (state.returnAddress || "")) : "",
         returnExtraAddressFull: (state.needReturnTrip && state.returnHasExtraPoint) ? ((state.returnExtraDistrict || "") + " " + (state.returnExtraAddress || "")) : "",
         returnPassengers: state.needReturnTrip ? `大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}` : "",
         returnLuggage: state.needReturnTrip ? `登機${state.returnCarryOn},託運${state.returnCheckedBag}` : "",
-        remarks: state.userRemarks,
+        remarks: finalRemarks,
         totalFee: totalStr,
         goingTotal: state.goingTotal,
         returnTotal: state.returnTotal,
