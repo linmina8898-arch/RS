@@ -269,7 +269,7 @@
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxCx6_deYs5muJNjONN1thrDGt-QAtsQET8InTKHBy70e0BOOPg5A24H8vliXObMSRkUA/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwO9nzhwQqRm4G1BMR6tzdvaU2SpjZggPvJ14gE_0dL4LPYmWftXAprEaiOMpYDjPST0A/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -425,18 +425,22 @@
 
       // --- 強制大車邏輯 (去程) ---
       const tp = state.adults + state.children + state.infants;
+      const totalLuggage = state.carryOn + state.checkedBag;
       let forced = false, reason = '';
       
       if (tp >= 4) { forced = true; reason = '人數總和達 4 位'; }
       else if (state.checkedBag > 2) { forced = true; reason = '托運箱超過 2 件'; }
       else if (state.carryOn > 3) { forced = true; reason = '登機箱超過 3 件'; }
+      else if (tp >= 3 && totalLuggage >= 3) { forced = true; reason = '人數達 3 位且行李總和達 3 件'; }
       
       // --- 強制大車邏輯 (回程) ---
       if (!forced && state.needReturnTrip) {
         const rtp = state.returnAdults + state.returnChildren + state.returnInfants;
+        const rTotalLuggage = state.returnCarryOn + state.returnCheckedBag;
         if (rtp >= 4) { forced = true; reason = '回程人數總和達 4 位'; }
         else if (state.returnCheckedBag > 2) { forced = true; reason = '回程托運箱超過 2 件'; }
         else if (state.returnCarryOn > 3) { forced = true; reason = '回程登機箱超過 3 件'; }
+        else if (rtp >= 3 && rTotalLuggage >= 3) { forced = true; reason = '回程人數達 3 位且行李總和達 3 件'; }
       }
       
       if (forced) {
@@ -563,7 +567,10 @@
       let rBaseP = 0, rFees = {}, rCarType = '小車', rexFee = 0;
       if (state.needReturnTrip && state.returnDistrict) {
         const rTp = state.returnAdults + state.returnChildren + state.returnInfants;
-        if (rTp >= 4 || state.returnCheckedBag > 2 || state.returnCarryOn > 3) rCarType = '大車';
+        const rTotalLuggage = state.returnCarryOn + state.returnCheckedBag;
+        
+        // 更新回程報價時的車型判定邏輯
+        if (rTp >= 4 || state.returnCheckedBag > 2 || state.returnCarryOn > 3 || (rTp >= 3 && rTotalLuggage >= 3)) rCarType = '大車';
         
         const rData = findPriceData(state.airport, state.returnDistrict);
         const rExData = state.returnHasExtraPoint ? findPriceData(state.airport, state.returnExtraDistrict) : null;
