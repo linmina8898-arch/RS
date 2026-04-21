@@ -288,7 +288,7 @@
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbw0WzFNe9Wz04VpcGEiNotHSUf1iz2mSVtNTX0r1hKT3Un-6NXvHj9YCVxKbGxXFjstcw/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxDLyoXjd32sICm2d3b5udNpKrnSObakbU3RxFX9D_fT_QB6GtV4vgSvfZX4GAULz1o7A/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -557,20 +557,31 @@
       if (!locString || Object.keys(state.priceMap).length === 0) return null;
       const aptPrefix = airport.replace('機場','');
       const userNorm = locString.replace(/\s+/g,'').replace('台灣','');
-      const userZip = userNorm.match(/^(\d{3})/)?.[1] || '';
-
-      const available = Object.keys(state.priceMap).filter(k => {
+      
+      // 比對邏輯：找出價格地圖中，有機場前綴且地區文字包含在用戶地址中的項目
+      const availableKeys = Object.keys(state.priceMap).filter(k => {
         const apt = k.split('_')[0];
         return apt.includes(aptPrefix) || aptPrefix.includes(apt);
-      }).map(k => ({
-        key: k,
-        norm: k.split('_')[1].replace(/\s+/g,'').replace('台灣',''),
-        zip: k.split('_')[1].match(/\d{3}/)?.[0] || ''
-      }));
+      });
 
-      let m = available.find(x => x.norm === userNorm);
-      if (!m && userZip) m = available.find(x => x.zip === userZip);
-      return m ? state.priceMap[m.key] : null;
+      // 1. 完全比對地區名稱
+      let bestKey = availableKeys.find(k => {
+          const regionName = k.split('_')[1];
+          return userNorm.includes(regionName) || regionName.includes(userNorm);
+      });
+
+      // 2. 如果沒找到，嘗試利用郵遞區號 (前三碼)
+      if (!bestKey) {
+        const userZip = userNorm.match(/^(\d{3})/)?.[1];
+        if (userZip) {
+           bestKey = availableKeys.find(k => {
+               const regionName = k.split('_')[1];
+               return regionName.includes(userZip);
+           });
+        }
+      }
+
+      return bestKey ? state.priceMap[bestKey] : null;
     }
 
     function calculatePrice() {
