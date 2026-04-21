@@ -256,7 +256,7 @@
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxDD1rBV6ZSbwTiR1wy58bJgB92QgRvEmxz6jmhoJrS_gNOLQ9z7o_FKvaC55CWddo9nA/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwO9nzhwQqRm4G1BMR6tzdvaU2SpjZggPvJ14gE_0dL4LPYmWftXAprEaiOMpYDjPST0A/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -423,16 +423,37 @@
       if (!locString || Object.keys(state.priceMap).length === 0) return null;
       const aptPrefix = airport.replace('機場','');
       
-      // 去除所有空白進行比對
-      const cleanLoc = locString.replace(/\s+/g, '');
-      const keys = Object.keys(state.priceMap).filter(k => k.split('_')[0].includes(aptPrefix));
+      // 去除所有空白與台灣字眼，進行最寬鬆的比對
+      const cleanLoc = locString.replace(/\s+/g, '').replace('台灣', '');
+      const userZip = locString.match(/^(\d{3})/)?.[1] || "";
       
-      let match = keys.find(k => {
+      // 只留下符合當前機場的選項
+      const availableKeys = Object.keys(state.priceMap).filter(k => k.split('_')[0].includes(aptPrefix));
+      
+      // 1. 優先：文字精準相互包含比對 (解決香山區等問題)
+      let match = availableKeys.find(k => {
         const val = state.priceMap[k];
-        if (!val || !val.region) return false;
-        const cleanRegion = val.region.toString().replace(/\s+/g, '');
-        return cleanRegion !== '' && cleanLoc.includes(cleanRegion);
+        if (val && val.region) {
+            const cleanRegion = val.region.toString().replace(/\s+/g, '');
+            if (cleanRegion !== '' && cleanLoc.includes(cleanRegion)) return true;
+        }
+        // 相容舊版或格式不一的 Key (將 Key 中的文字去空白後比對)
+        const keyContext = k.split('_').slice(1).join('').replace(/\s+/g, '').replace('台灣', '');
+        if (keyContext !== '' && (cleanLoc.includes(keyContext) || keyContext.includes(cleanLoc))) return true;
+        return false;
       });
+
+      // 2. 備案：如果文字比對失敗，降級使用郵遞區號(前3碼)進行比對
+      if (!match && userZip) {
+          match = availableKeys.find(k => {
+              const val = state.priceMap[k];
+              if (val && val.zip && val.zip.toString() === userZip) return true;
+              const keyContext = k.split('_').slice(1).join('').replace(/\s+/g, '');
+              const keyZip = keyContext.match(/^(\d{3})/)?.[1];
+              if (keyZip && keyZip === userZip) return true;
+              return false;
+          });
+      }
       
       return match ? state.priceMap[match] : null;
     }
@@ -450,7 +471,7 @@
 
       let rBaseP = 0, rFees = {}, rCarType = '小車', rexFee = 0;
       if (state.needReturnTrip && state.returnDistrict) {
-        if ((state.returnAdults+state.returnChildren+state.returnInfants)>=5 || state.returnCheckedBag>=3) rCarType = '大車';
+        if ((state.returnAdults+state.returnChildren+state.returnInfants)>=5 || state.returnCheckedBag>=3 || (state.returnCheckedBag===2 && state.returnCarryOn>=1)) rCarType = '大車';
         const rData = findPriceData(state.airport, state.returnDistrict);
         const rExData = state.returnHasExtraPoint ? findPriceData(state.airport, state.returnExtraDistrict) : null;
         const rp1 = extract(rData, rCarType), rp2 = extract(rExData, rCarType);
@@ -472,7 +493,11 @@
       DOM.displayRoute.innerText = state.serviceType === '接機' ? `${state.airport} → ${baseInfo.n || '未選'}` : `${baseInfo.n || '未選'} → ${state.airport}`;
       DOM.displayBasePrice.innerText = baseInfo.p ? `$${baseInfo.p}` : '待報價';
       DOM.displayTotal.innerText = total ? `$${total}` : '待報價';
-      DOM.displayPayment.innerText = `付款：${state.payment}`;
+      
+      // 修復這裡找不到 DOM 的問題
+      if (DOM.displayPayment) {
+        DOM.displayPayment.innerText = `付款：${state.payment}`;
+      }
 
       DOM.feesBlock.innerHTML = '';
       const pre = state.needReturnTrip ? "去程 " : "";
