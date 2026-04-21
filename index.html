@@ -203,7 +203,7 @@
             <label class="flex items-center gap-2 cursor-pointer py-1 font-bold text-gray-700">
               <input type="checkbox" id="extraSignboard" class="w-5 h-5 accent-[#0ABAB5]"> 舉牌服務 (+$200)
             </label>
-            <input type="text" id="signboardText" class="w-full mt-2 p-3 border rounded-sm hidden-block" placeholder="輸入舉牌內容">
+            <input type="text" id="signboardText" class="w-full mt-2 p-3 border rounded-sm hidden-block outline-none focus:border-[#0ABAB5] bg-white text-base" placeholder="請輸入欲舉牌之內容">
           </div>
 
           <div class="bg-[#0ABAB5] text-white p-6 border-t-8 border-white/20 rounded-sm shadow-xl font-mono">
@@ -255,9 +255,9 @@
             <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 【乘車注意事項】
             </h3>
-            <p><strong class="text-black">臨時加點：</strong> 司機無法私自增加停靠點(車輛皆有GPS）。如需臨時加點，請告知司機回報公司後方可執行。</p><br>
+            <p><strong class="text-black">臨時加點：</strong> 司機無法私自增加停靠點(車輛皆有GPS）。如需臨時加點，請告知司機回報公司後方開執行。</p><br>
             <p><strong class="text-black">預約車型：</strong> 請務必依「實際乘車人數」與「行李件數尺寸」預約合適車款。以免當天車輛乘載不下擔誤貴賓寶貴的時間。</p><br>
-            <p><strong class="text-black">行李與乘車規範：</strong> 全程請繫妥安全帶，座位及腳踏區僅限放隨身背包。若現場行李過多不符預約車型，公司有權拒載，且該趟行程恕不退費。</p><br>
+            <p><strong class="text-black">行李與乘車規範：</strong> 全程請繫妥安全帶，座位及腳踏區僅限放隨身背包。若現場行李過多不符預預約車型，公司有權拒載，且該趟行程恕不退費。</p><br>
             <p><strong class="text-black">車內禁食：</strong> 為維護乘車品質，顧及每位貴賓權益，車內全面禁止飲食、吸菸（包含電子菸、加熱菸）、吃檳榔。</p><br>
             <p><strong class="text-black">兒童安全座椅：</strong> 0~12歲（18公斤內）嬰幼兒依法須使用安全座椅。若未依需求加購導致違規，相關罰款將由乘客自行負擔。</p>
           </div>
@@ -472,6 +472,12 @@
       if (state.phone.replace(/\D/g, '').length !== 10) errs.push('電話需為10位數字');
       if (!state.district) errs.push('請從選單帶入地址');
       if (!state.flightNumber) errs.push('請輸入航班編號');
+      
+      // 修改：增加舉牌內容必填驗證
+      if (state.extraSignboard && (!state.signboardText || !state.signboardText.trim())) {
+        errs.push('勾選舉牌服務時，請輸入舉牌內容');
+      }
+
       if (state.needReturnTrip) { 
         if (!state.returnDate) errs.push('請選擇回程日期'); 
         if (!state.returnTimeHour || !state.returnTimeMinute) errs.push('請選擇回程時間'); 
@@ -509,7 +515,7 @@
                     `時間：${(state.returnTimeHour && state.returnTimeMinute) ? (state.returnTimeHour + ':' + state.returnTimeMinute) : ''}\n` +
                     `航班：${state.returnFlightNumber || ''}\n` +
                     `地址：${state.returnDistrict || ''} ${state.returnAddress || ''}\n`;
-        if (state.returnHasExtraPoint) lineText += `回程加點：${state.returnExtraDistrict || ''} ${state.returnExtraAddress || ''}\n`;
+        if (state.returnHasExtraPoint) lineText += `加點：${state.returnExtraDistrict || ''} ${state.returnExtraAddress || ''}\n`;
         lineText += `人數：大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}\n` +
                     `行李：登機${state.returnCarryOn},托運${state.returnCheckedBag}\n`;
       }
@@ -540,16 +546,26 @@
       }};
 
       try {
-        // 先確保資料成功傳送到 GAS
-        await fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
+        // 修改：優化 LINE 內部的回傳與關閉邏輯
+        fetch(GAS_WEBAPP_URL, { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'text/plain' },
+          body: JSON.stringify(payload) 
+        }).catch(e => console.log('GAS Skip wait'));
         
         if (window.liff && window.liff.isInClient()) {
+          // 在 LINE App 中開啟
           await window.liff.sendMessages([{ type:'text', text: lineText }, { type:'text', text: secondMessage }]);
+          
+          // 切換視窗顯示成功狀態
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-done').classList.remove('hidden-block');
           document.getElementById('view-done').classList.add('flex');
+          
+          // 3 秒後關閉視窗回到對話框
           setTimeout(() => window.liff.closeWindow(), 3000);
         } else {
+          // 外部瀏覽器開啟
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-success').classList.remove('hidden-block');
           document.getElementById('fallback-message').innerText = lineText + '\n\n' + secondMessage;
@@ -565,6 +581,7 @@
     document.getElementById('phone').oninput = (e) => { let v = e.target.value.replace(/\D/g, '').slice(0, 10); let formatted = v; if (v.length > 7) formatted = v.slice(0, 4) + '-' + v.slice(4, 7) + '-' + v.slice(7); else if (v.length > 4) formatted = v.slice(0, 4) + '-' + v.slice(4); e.target.value = formatted; state.phone = formatted; };
     document.querySelectorAll('input, select, textarea').forEach(el => { if (el.id === 'phone') return; el.addEventListener('change', (e) => { const id = e.target.id; if(id in state) { state[id] = e.target.type === 'checkbox' ? e.target.checked : e.target.value; if(id === 'date' || id === 'returnDate' || id === 'timeHour' || id === 'returnTimeHour') restrictTimeOptions(); if(id === 'serviceType') { const timeLabel = document.getElementById('timeLabel'); if(timeLabel) timeLabel.innerText = state.serviceType === '接機' ? '接機提示：請填寫航班表定抵台時間(接機請提供電子機票至官方LINE，客服幫您針對訂單內容做一個雙重確認)' : '送機提示：請填寫從家裡/公司出發的時間'; } if(id === 'needReturnTrip') { DOM.returnSection.className = e.target.checked ? 'space-y-4' : 'hidden-block'; if(e.target.checked) syncReturnInfo(); } if(id === 'hasExtraPoint') if(DOM.extraPointBlock) DOM.extraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block'; if(id === 'returnHasExtraPoint') if(DOM.returnExtraPointBlock) DOM.returnExtraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block'; if(id === 'extraSignboard') { const sbText = document.getElementById('signboardText'); if(sbText) sbText.className = e.target.checked ? 'w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base' : 'hidden-block'; } if(id.startsWith('return') || id === 'adults' || id === 'children' || id === 'infants' || id === 'checkedBag' || id === 'carryOn') { updateReturnPeopleLuggageOptions(); updatePeopleLuggageOptions(); } calculatePrice(); } }); el.addEventListener('input', (e) => { if(e.target.id in state) { state[e.target.id] = e.target.value; if(e.target.tagName === 'SELECT') { updateReturnPeopleLuggageOptions(); updatePeopleLuggageOptions(); calculatePrice(); } } }); });
     document.getElementsByName('sn').forEach(el => { el.onchange = () => { if(DOM.userRemarks) DOM.userRemarks.className = el.id === 'needsYes' ? 'w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base' : 'hidden-block'; }; });
+    initLiff();
   </script>
 </body>
 </html>
