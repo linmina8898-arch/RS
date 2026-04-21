@@ -533,7 +533,7 @@
                   `人數：大${state.adults},小${state.children},幼${state.infants}\n`;
       
       if (state.infants > 0) {
-        lineText += `安全座椅：${state.infants}張 (因應法規 0-4 歲幼童強制加購安全座椅)\n`;
+        lineText += `安全座椅：${state.infants}張\n`;
       }
 
       lineText += `行李：登機${state.carryOn},托運${state.checkedBag}\n`;
@@ -552,7 +552,7 @@
         lineText += `回程人數：大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}\n`;
         
         if (state.returnInfants > 0) {
-          lineText += `回程安全座椅：${state.returnInfants}張 (因應法規 0-4 歲幼童強制加購安全座椅)\n`;
+          lineText += `回程安全座椅：${state.returnInfants}張\n`;
         }
         
         lineText += `回程行李：登機${state.returnCarryOn},託運${state.returnCheckedBag}\n`;
