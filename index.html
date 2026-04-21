@@ -221,7 +221,7 @@
                   <div id="display-payment" class="text-xs text-white/70 mt-1 uppercase tracking-tighter text-right">付款：現金</div>
                 </div>
               </div>
-              <div class="mt-4 text-[12px] text-white/80 leading-relaxed font-bold">
+              <div class="mt-4 text-[10px] text-white/80 leading-relaxed font-bold">
                 ※ 上述金額為基礎預估，確切報價將由客服視您的實際需求與細節確認後告知。
               </div>
             </div>
@@ -252,7 +252,7 @@
             <h3 class="font-bold text-[#0ABAB5] mb-3 flex items-center gap-1 text-sm">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> 【乘車注意事項】
             </h3>
-            <p><strong class="text-black">臨時加點：</strong> 司機無法私自增加停靠點(車輛皆有GPS）。如需臨時加點，請告知司機回報公司後方可執行。</p><br>
+            <p><strong class="text-black">臨時加點：</strong> 司機無法私自增加停靠點(車輛皆有GPS）。如需臨時加點，請告知司機回報公司後方開執行。</p><br>
             <p><strong class="text-black">預約車型：</strong> 請務必依「實際乘車人數」與「行李件數尺寸」預約合適車款。以免當天車輛乘載不下擔誤貴賓寶貴的時間。</p><br>
             <p><strong class="text-black">行李與乘車規範：</strong> 全程請繫妥安全帶，座位及腳踏區僅限放隨身背包。若現場行李過多不符預約車型，公司有權拒載，且該趟行程恕不退費。</p><br>
             <p><strong class="text-black">車內禁食：</strong> 為維護乘車品質，顧及每位貴賓權益，車內全面禁止飲食、吸菸（包含電子菸、加熱菸）、吃檳榔。</p><br>
@@ -269,7 +269,7 @@
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwO9nzhwQqRm4G1BMR6tzdvaU2SpjZggPvJ14gE_0dL4LPYmWftXAprEaiOMpYDjPST0A/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxCx6_deYs5muJNjONN1thrDGt-QAtsQET8InTKHBy70e0BOOPg5A24H8vliXObMSRkUA/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -391,7 +391,10 @@
     }
 
     function updatePeopleLuggageOptions() {
+      // 讀取當前數值
       const a = parseInt(DOM.adults.value)||1, c = parseInt(DOM.children.value)||0, i = parseInt(DOM.infants.value)||0;
+      
+      // 更新選單限制
       const r = (el, os) => { 
         if(!el) return;
         const v = el.value, av = 6-os; el.innerHTML = ''; 
@@ -399,6 +402,7 @@
         el.value = v<=av ? v : (el.id==='adults'?'1':'0'); 
       };
       r(DOM.adults, c+i); r(DOM.children, a+i); r(DOM.infants, a+c);
+      
       state.adults = parseInt(DOM.adults.value); state.children = parseInt(DOM.children.value); state.infants = parseInt(DOM.infants.value);
       
       const coVal = DOM.carryOn.value, cbVal = DOM.checkedBag.value, co = parseInt(coVal)||0, cb = parseInt(cbVal)||0;
@@ -419,13 +423,21 @@
       }
       state.carryOn = parseInt(DOM.carryOn.value); state.checkedBag = parseInt(DOM.checkedBag.value);
 
+      // --- 強制大車邏輯 (去程) ---
       const tp = state.adults + state.children + state.infants;
       let forced = false, reason = '';
       
-      // 更新派車邏輯：任一條件符合即派大車
-      if (tp > 3) { forced = true; reason = '人數超過 3 位'; }
+      if (tp >= 4) { forced = true; reason = '人數總和達 4 位'; }
       else if (state.checkedBag > 2) { forced = true; reason = '托運箱超過 2 件'; }
       else if (state.carryOn > 3) { forced = true; reason = '登機箱超過 3 件'; }
+      
+      // --- 強制大車邏輯 (回程) ---
+      if (!forced && state.needReturnTrip) {
+        const rtp = state.returnAdults + state.returnChildren + state.returnInfants;
+        if (rtp >= 4) { forced = true; reason = '回程人數總和達 4 位'; }
+        else if (state.returnCheckedBag > 2) { forced = true; reason = '回程托運箱超過 2 件'; }
+        else if (state.returnCarryOn > 3) { forced = true; reason = '回程登機箱超過 3 件'; }
+      }
       
       if (forced) {
         state.carType = '大車'; DOM.carType.value = '大車'; DOM.carType.disabled = true;
@@ -440,6 +452,7 @@
       const a = parseInt(document.getElementById('returnAdults').value)||1;
       const c = parseInt(document.getElementById('returnChildren').value)||0;
       const i = parseInt(document.getElementById('returnInfants').value)||0;
+      
       const r = (el, os, isAdult) => {
         if(!el) return;
         const v = el.value, av = 6-os; el.innerHTML = '';
@@ -449,6 +462,7 @@
       r(document.getElementById('returnAdults'), c+i, true);
       r(document.getElementById('returnChildren'), a+i, false);
       r(document.getElementById('returnInfants'), a+c, false);
+      
       state.returnAdults = parseInt(document.getElementById('returnAdults').value);
       state.returnChildren = parseInt(document.getElementById('returnChildren').value);
       state.returnInfants = parseInt(document.getElementById('returnInfants').value);
@@ -463,6 +477,7 @@
       };
       rb(document.getElementById('returnCarryOn'), cb);
       rb(document.getElementById('returnCheckedBag'), co);
+      
       state.returnCarryOn = parseInt(document.getElementById('returnCarryOn').value);
       state.returnCheckedBag = parseInt(document.getElementById('returnCheckedBag').value);
     }
@@ -506,10 +521,8 @@
     function findPriceData(airport, locString) {
       if (!locString || Object.keys(state.priceMap).length === 0) return null;
       const aptPrefix = airport.replace('機場','');
-      
       const cleanLoc = locString.replace(/\s+/g, '').replace('台灣', '');
       const userZip = locString.match(/^(\d{3})/)?.[1] || "";
-      
       const availableKeys = Object.keys(state.priceMap).filter(k => k.split('_')[0].includes(aptPrefix));
       
       let match = availableKeys.find(k => {
@@ -533,7 +546,6 @@
               return false;
           });
       }
-      
       return match ? state.priceMap[match] : null;
     }
 
@@ -551,9 +563,7 @@
       let rBaseP = 0, rFees = {}, rCarType = '小車', rexFee = 0;
       if (state.needReturnTrip && state.returnDistrict) {
         const rTp = state.returnAdults + state.returnChildren + state.returnInfants;
-        
-        // 更新回程派車邏輯：任一條件符合即派大車
-        if (rTp > 3 || state.returnCheckedBag > 2 || state.returnCarryOn > 3) rCarType = '大車';
+        if (rTp >= 4 || state.returnCheckedBag > 2 || state.returnCarryOn > 3) rCarType = '大車';
         
         const rData = findPriceData(state.airport, state.returnDistrict);
         const rExData = state.returnHasExtraPoint ? findPriceData(state.airport, state.returnExtraDistrict) : null;
@@ -564,7 +574,6 @@
         if (state.returnHasExtraPoint && state.returnDistrict && state.returnExtraDistrict) {
             rexFee = (state.returnDistrict.substring(0,3) === state.returnExtraDistrict.substring(0,3) ? 100 : 200);
         }
-        
         if (rBaseP > 0) {
           const rh = parseInt(state.returnTimeHour);
           rFees = { pickup: 200, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee };
@@ -576,10 +585,7 @@
       DOM.displayRoute.innerText = state.serviceType === '接機' ? `${state.airport} → ${baseInfo.n || '未選'}` : `${baseInfo.n || '未選'} → ${state.airport}`;
       DOM.displayBasePrice.innerText = baseInfo.p ? `$${baseInfo.p}` : '待報價';
       DOM.displayTotal.innerText = total ? `$${total}` : '待報價';
-      
-      if (DOM.displayPayment) {
-        DOM.displayPayment.innerText = `付款：${state.payment}`;
-      }
+      if (DOM.displayPayment) DOM.displayPayment.innerText = `付款：${state.payment}`;
 
       DOM.feesBlock.innerHTML = '';
       const pre = state.needReturnTrip ? "去程 " : "";
@@ -660,93 +666,40 @@
       if (state.phone.replace(/\D/g, '').length !== 10) errs.push('電話需為10位數字');
       if (!state.district) errs.push('請從選單帶入地址');
       if (!state.flightNumber) errs.push('請輸入航班編號');
-      
       if (state.needReturnTrip) {
         if (!state.returnDate) errs.push('請選擇回程日期');
         if (!state.returnTimeHour || !state.returnTimeMinute) errs.push('請選擇回程時間');
         if (!state.returnFlightNumber) errs.push('請輸入回程航班編號');
         if (!state.returnDistrict) errs.push('請帶入回程地址');
       }
-      
       if (!document.getElementById('agreed').checked) errs.push('請勾選同意條款');
-      
       const needsYes = document.getElementById('needsYes'), needsNo = document.getElementById('needsNo');
       if (!needsYes.checked && !needsNo.checked) errs.push('請勾選【其他備註與特殊需求】');
       if (needsYes.checked && !state.userRemarks.trim()) errs.push('請說明特殊需求');
-      
       if (errs.length > 0) return showAlert("請修正以下資訊：\n\n" + errs.map((e,i)=>`${i+1}. ${e}`).join('\n'));
 
       state.isSubmitting = true; DOM.submitBtn.innerText = '資料傳送中...';
-      
       let totalStr = DOM.displayTotal.innerText;
-      let lineText = `【RS專車接送 線上預約單】\n` +
-                     `預約編號：${state.reservationId}\n` +
-                     `全名：${state.name} ${state.title}\n` +
-                     `電話：${state.phone}\n` +
-                     `日期：${state.date}\n` +
-                     `時間：${state.timeHour}:${state.timeMinute}\n` +
-                     `服務：${state.serviceType}\n` +
-                     `機場：${state.airport}\n` +
-                     `航班：${state.flightNumber}\n` +
-                     `地址：${state.address}\n`;
-
-      if (state.hasExtraPoint) {
-        lineText += `加點：${state.extraAddress}\n`;
-      }
-
-      lineText += `車型：${state.carType}\n` +
-                  `人數：大${state.adults},小${state.children},幼${state.infants}\n`;
-
-      if (state.infants > 0) {
-        lineText += `安全座椅：${state.infants}張 (4歲以下強制需要)\n`;
-      }
-      if (state.extraSignboard) {
-        lineText += `舉牌內容：${state.signboardText}\n`;
-      }
-      if (state.userRemarks && state.userRemarks.trim() !== '') {
-        lineText += `備註：${state.userRemarks.trim()}\n`;
-      }
-
+      let lineText = `【RS專車接送 線上預約單】\n預約編號：${state.reservationId}\n全名：${state.name} ${state.title}\n電話：${state.phone}\n日期：${state.date}\n時間：${state.timeHour}:${state.timeMinute}\n服務：${state.serviceType}\n機場：${state.airport}\n航班：${state.flightNumber}\n地址：${state.address}\n`;
+      if (state.hasExtraPoint) lineText += `加點：${state.extraAddress}\n`;
+      lineText += `車型：${state.carType}\n人數：大${state.adults},小${state.children},幼${state.infants}\n`;
+      if (state.infants > 0) lineText += `安全座椅：${state.infants}張 (4歲以下強制需要)\n`;
+      if (state.extraSignboard) lineText += `舉牌內容：${state.signboardText}\n`;
+      if (state.userRemarks && state.userRemarks.trim() !== '') lineText += `備註：${state.userRemarks.trim()}\n`;
       const luggageText = DOM.noLuggage.checked ? '無行李' : `登機箱${state.carryOn},托運箱${state.checkedBag}`;
       lineText += `行李：${luggageText}\n`;
-      
       if (state.needReturnTrip) {
-        lineText += `\n【回程資訊】\n` +
-                    `回程日期：${state.returnDate}\n` +
-                    `回程時間：${state.returnTimeHour}:${state.returnTimeMinute}\n` +
-                    `回程航班：${state.returnFlightNumber}\n` +
-                    `回程地址：${state.returnDistrict} ${state.returnAddress}\n`;
-        
-        if (state.returnHasExtraPoint) {
-            lineText += `回程加點：${state.returnExtraDistrict} ${state.returnExtraAddress}\n`;
-        }
-
-        lineText += `回程人數：大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}\n` +
-                    `回程行李：登機箱${state.returnCarryOn},托運箱${state.returnCheckedBag}\n\n`;
+        lineText += `\n【回程資訊】\n回程日期：${state.returnDate}\n回程時間：${state.returnTimeHour}:${state.returnTimeMinute}\n回程航班：${state.returnFlightNumber}\n回程地址：${state.returnDistrict} ${state.returnAddress}\n`;
+        if (state.returnHasExtraPoint) lineText += `回程加點：${state.returnExtraDistrict} ${state.returnExtraAddress}\n`;
+        lineText += `回程人數：大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}\n回程行李：登機箱${state.returnCarryOn},托運箱${state.returnCheckedBag}\n\n`;
       }
-
       lineText += `總額：${totalStr} (${state.payment})`;
-
       const secondMessage = `✅ 感謝您的線上預約！\n客服人員將會盡快與您聯繫確認細節，確認無誤即安排車輛。有任何問題請隨時與我們聯繫！`;
-      
-      const payload = { action:'addReservation', data:{ 
-        ...state, time: "'" + state.timeHour + ":" + state.timeMinute, 
-        mainAddressFull: state.district + " " + state.address,
-        passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
-        luggage: luggageText, 
-        totalFee: totalStr,
-        timestamp: new Date().toLocaleString() 
-      }};
-
-      // 傳送資料到 GAS (不阻塞主流程)
+      const payload = { action:'addReservation', data:{ ...state, time: "'" + state.timeHour + ":" + state.timeMinute, mainAddressFull: state.district + " " + state.address, passengers: `大${state.adults},小${state.children},幼${state.infants}`, luggage: luggageText, totalFee: totalStr, timestamp: new Date().toLocaleString() }};
       fetch(GAS_WEBAPP_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) }).catch(e => console.log(e));
-
       try {
         if (window.liff && window.liff.isInClient()) {
-          await window.liff.sendMessages([
-            { type:'text', text:lineText },
-            { type:'text', text:secondMessage }
-          ]);
+          await window.liff.sendMessages([{ type:'text', text:lineText }, { type:'text', text:secondMessage }]);
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-done').classList.remove('hidden-block');
           document.getElementById('view-done').classList.add('flex');
@@ -756,23 +709,15 @@
           document.getElementById('view-success').classList.remove('hidden-block');
           document.getElementById('fallback-message').innerText = lineText + '\n\n' + secondMessage;
         }
-      } catch(err) { 
-        showAlert('LINE 訊息傳送失敗，請稍後再試。'); 
-        state.isSubmitting=false; 
-        DOM.submitBtn.innerText='確認預約並送出'; 
-      }
+      } catch(err) { showAlert('LINE 訊息傳送失敗，請稍後再試。'); state.isSubmitting=false; DOM.submitBtn.innerText='確認預約並送出'; }
     };
 
     initSelectOptions(); loadPrices(); initGoogleMaps();
-    
     document.getElementById('phone').oninput = (e) => {
       let v = e.target.value.replace(/\D/g, '').slice(0, 10);
       let formatted = v;
-      if (v.length > 7) {
-        formatted = v.slice(0, 4) + '-' + v.slice(4, 7) + '-' + v.slice(7);
-      } else if (v.length > 4) {
-        formatted = v.slice(0, 4) + '-' + v.slice(4);
-      }
+      if (v.length > 7) formatted = v.slice(0, 4) + '-' + v.slice(4, 7) + '-' + v.slice(7);
+      else if (v.length > 4) formatted = v.slice(0, 4) + '-' + v.slice(4);
       e.target.value = formatted;
       state.phone = formatted;
     };
@@ -786,41 +731,30 @@
           if(id === 'date' || id === 'returnDate' || id === 'timeHour' || id === 'returnTimeHour') restrictTimeOptions();
           if(id === 'serviceType') {
             const timeLabel = document.getElementById('timeLabel');
-            if(timeLabel) {
-              timeLabel.innerText = state.serviceType === '接機' ? '接機提示：請填寫航班表定抵台時間(接機請提供電子機票至官方LINE，客服幫您針對訂單內容做一個雙重確認)' : '送機提示：請填寫從家裡/公司出發的時間';
-            }
+            if(timeLabel) timeLabel.innerText = state.serviceType === '接機' ? '接機提示：請填寫航班表定抵台時間(接機請提供電子機票至官方LINE，客服幫您針對訂單內容做一個雙重確認)' : '送機提示：請填寫從家裡/公司出發的時間';
           }
           if(id === 'needReturnTrip') {
              DOM.returnSection.className = e.target.checked ? 'space-y-4' : 'hidden-block';
-             if(e.target.checked) {
-                syncReturnInfo();
-             }
+             if(e.target.checked) syncReturnInfo();
           }
-          if(id === 'hasExtraPoint') {
-            if(DOM.extraPointBlock) DOM.extraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block';
-          }
-          if(id === 'returnHasExtraPoint') {
-            if(DOM.returnExtraPointBlock) DOM.returnExtraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block';
-          }
+          if(id === 'hasExtraPoint') if(DOM.extraPointBlock) DOM.extraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block';
+          if(id === 'returnHasExtraPoint') if(DOM.returnExtraPointBlock) DOM.returnExtraPointBlock.className = e.target.checked ? 'mt-4 space-y-2' : 'hidden-block';
           if(id === 'extraSignboard') {
             const sbText = document.getElementById('signboardText');
             if(sbText) sbText.className = e.target.checked ? 'w-full mt-2 p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base' : 'hidden-block';
           }
-          if(id.startsWith('return')) updateReturnPeopleLuggageOptions();
-          updatePeopleLuggageOptions();
+          if(id.startsWith('return') || id === 'adults' || id === 'children' || id === 'infants' || id === 'checkedBag' || id === 'carryOn') {
+            updateReturnPeopleLuggageOptions();
+            updatePeopleLuggageOptions();
+          }
           calculatePrice();
         }
       });
-      el.addEventListener('input', (e) => {
-        const id = e.target.id;
-        if(id in state) state[id] = e.target.value;
-      });
+      el.addEventListener('input', (e) => { if(e.target.id in state) state[e.target.id] = e.target.value; });
     });
 
     document.getElementsByName('sn').forEach(el => {
-      el.onchange = () => { 
-        if(DOM.userRemarks) DOM.userRemarks.className = el.id === 'needsYes' ? 'w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base' : 'hidden-block'; 
-      };
+      el.onchange = () => { if(DOM.userRemarks) DOM.userRemarks.className = el.id === 'needsYes' ? 'w-full p-3 border rounded-sm outline-none focus:border-[#0ABAB5] bg-white text-base' : 'hidden-block'; };
     });
   </script>
 </body>
