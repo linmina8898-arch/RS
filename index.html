@@ -220,7 +220,11 @@
           <div class="space-y-5">
               <div>
                   <label class="form-label">預約車型</label>
-                  <select id="carType" class="form-select"><option value="小車">小車</option><option value="大車">大車</option></select>
+                  <select id="carType" class="form-select">
+                      <option value="小車">小車</option>
+                      <option value="大車">大車</option>
+                      <option value="Alphard">Alphard</option>
+                  </select>
                   <p id="carType-msg" class="text-[12px] font-bold text-red-500 mt-2 bg-red-50 p-2 rounded-lg hidden-block"></p>
               </div>
 
@@ -481,7 +485,7 @@
   </div>
 
   <script>
-    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzZC1aFZ84cgVbdGhIhprYZ2PqN1y3c1zhE7N84VDM3TzmKuI5TnyroKIHyDKX2ZSIF6g/exec';
+    const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzYR4ZAe8N4nFaea7RtT0QvBX1oxq2Hx1wCDESpKKlPIg8MvAONs1mZn4rePArBIKDqyg/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
 
@@ -494,6 +498,7 @@
       needReturnTrip: false, returnDate: '', returnTimeHour: '', returnTimeMinute: '', returnFlightNumber: '',
       returnDistrict: '', returnAddress: '', returnHasExtraPoint: false, returnExtraDistrict: '', returnExtraAddress: '',
       returnAdults: 0, returnChildren: 0, returnInfants: 0, returnCarryOn: 0, returnCheckedBag: 0,
+      returnCarType: '',
       priceMap: {}, isSubmitting: false,
       goingTotal: 0, returnTotal: 0,
       returnAirport: '桃園機場'
@@ -606,7 +611,26 @@
       if (tl >= 4) reasons.push('行李總和超過 3 件');
       if (cb > 2 || (cb === 2 && co >= 1)) reasons.push('行李超過 2 托運 1 登機箱組合');
       if (tp === 2 && cb === 2 && co === 2) reasons.push('符合 2 人 2 托運 2 登機箱條件');
-      if (reasons.length > 0) { state.carType = '大車'; DOM.carType.value = '大車'; DOM.carType.disabled = true; DOM.carTypeMsg.innerText = `※ 因${reasons.join('、')}，系統已自動升級大車。`; DOM.carTypeMsg.classList.remove('hidden-block'); } else { DOM.carType.disabled = false; DOM.carTypeMsg.classList.add('hidden-block'); }
+      
+      let alphardInvalid = (tp > 4 || tl > 4);
+
+      if (reasons.length > 0 && state.carType === '小車') { state.carType = '大車'; DOM.carType.value = '大車'; }
+      if (alphardInvalid && state.carType === 'Alphard') { state.carType = '大車'; DOM.carType.value = '大車'; }
+      
+      Array.from(DOM.carType.options).forEach(opt => {
+        if (opt.value === '小車') opt.disabled = (reasons.length > 0);
+        if (opt.value === 'Alphard') opt.disabled = alphardInvalid;
+      });
+
+      if (reasons.length > 0 || alphardInvalid) { 
+        let msgs = [];
+        if (reasons.length > 0) msgs.push(`因${reasons.join('、')}自動升級大車`);
+        if (alphardInvalid) msgs.push(`Alphard限載 4 人 4 件`);
+        DOM.carTypeMsg.innerText = `※ ` + msgs.join('。'); 
+        DOM.carTypeMsg.classList.remove('hidden-block'); 
+      } else { 
+        DOM.carTypeMsg.classList.add('hidden-block'); 
+      }
       calculatePrice();
     }
 
@@ -663,7 +687,7 @@
     function calculatePrice() {
       const main = findPriceData(state.airport, state.district);
       const extra = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
-      const extract = (d, ct) => (ct === '大車' ? (d?.large || 0) : (d?.small || 0));
+      const extract = (d, ct) => (ct === 'Alphard' ? (d?.alphard || d?.Alphard || 0) : (ct === '大車' ? (d?.large || 0) : (d?.small || 0)));
       const p1 = extract(main, state.carType), p2 = extract(extra, state.carType);
       const baseInfo = (state.hasExtraPoint && p2 > p1) ? { p: p2, n: state.extraDistrict } : { p: p1, n: state.district };
       const h = parseInt(state.timeHour);
@@ -673,11 +697,17 @@
       let total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : 0;
       state.goingTotal = total;
 
-      let rBaseP = 0, rFees = {}, rCarType = '小車', rexFee = 0;
+      let rBaseP = 0, rFees = {}, rCarType = state.carType, rexFee = 0;
       if (state.needReturnTrip && state.returnDistrict) {
         const rTp = state.returnAdults + state.returnChildren + state.returnInfants;
         const rTl = state.returnCarryOn + state.returnCheckedBag;
-        if (rTp >= 4 || rTl >= 4 || state.returnCheckedBag > 2 || (state.returnCheckedBag === 2 && state.returnCarryOn >= 1) || (rTp === 2 && state.returnCheckedBag === 2 && state.returnCarryOn === 2)) rCarType = '大車';
+        if (rTp >= 4 || rTl >= 4 || state.returnCheckedBag > 2 || (state.returnCheckedBag === 2 && state.returnCarryOn >= 1) || (rTp === 2 && state.returnCheckedBag === 2 && state.returnCarryOn === 2)) {
+          if (rCarType === '小車') rCarType = '大車';
+        }
+        if (rCarType === 'Alphard' && (rTp > 4 || rTl > 4)) {
+          rCarType = '大車';
+        }
+        state.returnCarType = rCarType;
         
         const rData = findPriceData(state.returnAirport, state.returnDistrict);
         const rExData = state.returnHasExtraPoint ? findPriceData(state.returnAirport, state.returnExtraDistrict) : null;
@@ -816,29 +846,93 @@
 
       let secondMessage = `您的預約資料已成功送出！\n為確保您的行程細節與權益，客服專員正在為您進行訂單核對。\n\n📍 預約注意事項：\n• 訂單確認：\n須收到本公司的『預約確認回覆』後，才算正式完成預約。\n\n• 付款資訊：\n若您選擇轉帳，客服將於確認訂單時，一併提供專屬付款連結或帳號。\n\n感謝您的耐心等候，我們將盡快與您聯繫。`;
 
-      const payload = { action:'addReservation', data:{ 
-        ...state, 
-        hasExtraPoint: state.hasExtraPoint ? "是" : "",
-        extraSignboard: state.extraSignboard ? "是" : "",
-        needReturnTrip: state.needReturnTrip ? "是" : "",
-        returnHasExtraPoint: state.returnHasExtraPoint ? "是" : "",
-        time: "'" + state.timeHour + ":" + state.timeMinute, 
+      // 建立要送給後端的資料陣列
+      let reservations = [];
+      
+      // 第一包：去程資料
+      reservations.push({
+        timestamp: new Date().toLocaleString(),
+        reservationId: state.reservationId,
+        name: state.name,
+        title: state.title,
+        phone: state.phone,
+        email: state.email,
+        date: state.date,
+        time: "'" + state.timeHour + ":" + state.timeMinute,
+        serviceType: "去程 - " + state.serviceType,
+        airport: state.airport,
+        flightNumber: state.flightNumber,
         mainAddressFull: (state.district || "") + " " + (state.address || ""),
+        hasExtraPoint: state.hasExtraPoint ? "是" : "",
         extraAddressFull: state.hasExtraPoint ? ((state.extraDistrict || "") + " " + (state.extraAddress || "")) : "",
-        passengers: `大${state.adults},小${state.children},幼${state.infants}`, 
-        luggage: currentLuggage, 
+        carType: state.carType,
+        passengers: `大${state.adults},小${state.children},幼${state.infants}`,
+        luggage: currentLuggage,
         safetySeat: state.infants,
-        returnTime: state.needReturnTrip ? ("'" + state.returnTimeHour + ":" + state.returnTimeMinute) : "",
-        returnAddressFull: state.needReturnTrip ? ((state.returnDistrict || "") + " " + (state.returnAddress || "")) : "",
-        returnExtraAddressFull: (state.needReturnTrip && state.returnHasExtraPoint) ? ((state.returnExtraDistrict || "") + " " + (state.returnExtraAddress || "")) : "",
-        returnPassengers: state.needReturnTrip ? `大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}` : "",
-        returnLuggage: state.needReturnTrip ? `登機${state.returnCarryOn},託運${state.returnCheckedBag}` : "",
+        extraSignboard: state.extraSignboard ? "是" : "",
+        signboardText: state.signboardText,
+        needReturnTrip: state.needReturnTrip ? "有" : "",
+        // 去程這行不填回程專屬的獨立欄位，因為回程會有自己的獨立列
+        returnDate: "",
+        returnTime: "",
+        returnFlightNumber: "",
+        returnAddressFull: "",
+        returnHasExtraPoint: "",
+        returnExtraAddressFull: "",
+        returnPassengers: "",
+        returnLuggage: "",
         remarks: finalRemarks,
+        payment: state.payment,
         totalFee: totalStr,
         goingTotal: state.goingTotal,
-        returnTotal: state.returnTotal,
-        timestamp: new Date().toLocaleString() 
-      }};
+        returnTotal: 0
+      });
+
+      // 第二包：回程資料 (僅當勾選來回時建立)
+      if (state.needReturnTrip) {
+        const rtType = state.serviceType === '送機' ? '接機' : '送機';
+        reservations.push({
+          timestamp: new Date().toLocaleString(),
+          reservationId: state.reservationId, // 共用同一個單號
+          name: state.name,
+          title: state.title,
+          phone: state.phone,
+          email: state.email,
+          date: state.returnDate, // 直接填入 G欄
+          time: "'" + state.returnTimeHour + ":" + state.returnTimeMinute, // 填入 H欄
+          serviceType: "回程 - " + rtType, // 填入 I欄
+          airport: state.returnAirport,
+          flightNumber: state.returnFlightNumber,
+          mainAddressFull: (state.returnDistrict || "") + " " + (state.returnAddress || ""),
+          hasExtraPoint: state.returnHasExtraPoint ? "是" : "",
+          extraAddressFull: state.returnHasExtraPoint ? ((state.returnExtraDistrict || "") + " " + (state.returnExtraAddress || "")) : "",
+          carType: state.returnCarType || state.carType,
+          passengers: `大${state.returnAdults},小${state.returnChildren},幼${state.returnInfants}`,
+          luggage: `登機${state.returnCarryOn},託運${state.returnCheckedBag}`,
+          safetySeat: state.returnInfants,
+          extraSignboard: "", 
+          signboardText: "",
+          needReturnTrip: "有(此為回程單)",
+          returnDate: "",
+          returnTime: "",
+          returnFlightNumber: "",
+          returnAddressFull: "",
+          returnHasExtraPoint: "",
+          returnExtraAddressFull: "",
+          returnPassengers: "",
+          returnLuggage: "",
+          remarks: finalRemarks,
+          payment: state.payment,
+          totalFee: totalStr,
+          goingTotal: 0,
+          returnTotal: state.returnTotal // 回程費用放在 AH 欄
+        });
+      }
+
+      const payload = { 
+        action: 'addReservation', 
+        data: reservations 
+      };
 
       try {
         fetch(GAS_WEBAPP_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }).catch(e => console.log('GAS silent'));
