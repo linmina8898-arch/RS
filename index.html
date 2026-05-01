@@ -331,7 +331,7 @@
                   <span class="font-bold text-gray-700 text-sm">回程需加點服務</span>
                 </label>
                 <div id="return-extra-point-block" class="hidden-block mt-4 space-y-3 pl-2 border-l-2 border-[#0ABAB5]/20">
-                  <input type="text" id="returnExtraDistrict" class="form-input bg-gray-100/50 text-gray-500" readonly>
+                  <input type="text" id="returnExtraDistrict" class="form-input bg-gray-100/50 text-gray-500" readonly placeholder="加點區域 (自動帶入)">
                   <input type="text" id="returnExtraAddress" class="form-input" placeholder="回程加點地址">
                 </div>
               </div>
@@ -606,26 +606,33 @@
       state.carryOn = parseInt(DOM.carryOn.value); state.checkedBag = parseInt(DOM.checkedBag.value);
       const tp = state.adults + state.children + state.infants;
       const tl = state.carryOn + state.checkedBag;
-      let reasons = [];
-      if (tp >= 4) reasons.push('人數超過 3 位');
-      if (tl >= 4) reasons.push('行李總和超過 3 件');
-      if (cb > 2 || (cb === 2 && co >= 1)) reasons.push('行李超過 2 托運 1 登機箱組合');
-      if (tp === 2 && cb === 2 && co === 2) reasons.push('符合 2 人 2 托運 2 登機箱條件');
       
+      let smallInvalidReasons = [];
+      if (tp >= 4) smallInvalidReasons.push('人數超過 3 位');
+      if (tl >= 4) smallInvalidReasons.push('行李總和超過 3 件');
+      if (cb > 2 || (cb === 2 && co >= 1)) smallInvalidReasons.push('行李超過 2 托運 1 登機箱組合');
+      if (tp === 2 && cb === 2 && co === 2) smallInvalidReasons.push('符合 2 人 2 托運 2 登機箱條件');
+      
+      let smallInvalid = smallInvalidReasons.length > 0;
       let alphardInvalid = (tp > 4 || tl > 4);
 
-      if (reasons.length > 0 && state.carType === '小車') { state.carType = '大車'; DOM.carType.value = '大車'; }
+      if (smallInvalid && state.carType === '小車') { state.carType = '大車'; DOM.carType.value = '大車'; }
       if (alphardInvalid && state.carType === 'Alphard') { state.carType = '大車'; DOM.carType.value = '大車'; }
       
       Array.from(DOM.carType.options).forEach(opt => {
-        if (opt.value === '小車') opt.disabled = (reasons.length > 0);
+        if (opt.value === '小車') opt.disabled = smallInvalid;
         if (opt.value === 'Alphard') opt.disabled = alphardInvalid;
       });
 
-      if (reasons.length > 0 || alphardInvalid) { 
-        let msgs = [];
-        if (reasons.length > 0) msgs.push(`因${reasons.join('、')}自動升級大車`);
-        if (alphardInvalid) msgs.push(`Alphard限載 4 人 4 件`);
+      let msgs = [];
+      if (smallInvalid && state.carType === '大車') {
+          msgs.push(`因${smallInvalidReasons.join('、')}自動升級大車`);
+      }
+      if (alphardInvalid) {
+          msgs.push(`Alphard限載 4 人 4 件`);
+      }
+
+      if (msgs.length > 0) { 
         DOM.carTypeMsg.innerText = `※ ` + msgs.join('。'); 
         DOM.carTypeMsg.classList.remove('hidden-block'); 
       } else { 
@@ -645,12 +652,6 @@
       if (state.needReturnTrip) {
         DOM.returnDistrict.value = state.district; DOM.returnAddress.value = state.address;
         state.returnDistrict = state.district; state.returnAddress = state.address;
-        
-        const returnHasExtraPointCheckbox = document.getElementById('returnHasExtraPoint');
-        if (returnHasExtraPointCheckbox) { returnHasExtraPointCheckbox.checked = state.hasExtraPoint; state.returnHasExtraPoint = state.hasExtraPoint; }
-        DOM.returnExtraDistrict.value = state.extraDistrict; state.returnExtraDistrict = state.extraDistrict;
-        DOM.returnExtraAddress.value = state.extraAddress; state.returnExtraAddress = state.extraAddress;
-        if (DOM.returnExtraPointBlock) { DOM.returnExtraPointBlock.classList.toggle('hidden-block', !state.returnHasExtraPoint); }
         
         state.returnAirport = state.airport;
         DOM.returnAirport.value = state.airport;
@@ -859,7 +860,7 @@
         email: state.email,
         date: state.date,
         time: "'" + state.timeHour + ":" + state.timeMinute,
-        serviceType: "去程 - " + state.serviceType,
+        serviceType: state.serviceType,
         airport: state.airport,
         flightNumber: state.flightNumber,
         mainAddressFull: (state.district || "") + " " + (state.address || ""),
@@ -900,7 +901,7 @@
           email: state.email,
           date: state.returnDate, // 直接填入 G欄
           time: "'" + state.returnTimeHour + ":" + state.returnTimeMinute, // 填入 H欄
-          serviceType: "回程 - " + rtType, // 填入 I欄
+          serviceType: rtType, // 填入 I欄
           airport: state.returnAirport,
           flightNumber: state.returnFlightNumber,
           mainAddressFull: (state.returnDistrict || "") + " " + (state.returnAddress || ""),
@@ -975,7 +976,6 @@
           }
           if(id === 'hasExtraPoint') {
              if(DOM.extraPointBlock) DOM.extraPointBlock.classList.toggle('hidden-block', !e.target.checked);
-             if(state.needReturnTrip) syncReturnInfo();
           }
           if(id === 'returnHasExtraPoint') {
               if(DOM.returnExtraPointBlock) DOM.returnExtraPointBlock.classList.toggle('hidden-block', !e.target.checked);
