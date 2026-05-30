@@ -45,6 +45,181 @@
     .hidden-block { display: none !important; }
     /* 平滑過渡 */
     .transition-height { transition: all 0.3s ease-in-out; }
+    .wizard-mode { padding-bottom: 132px; }
+    .wizard-mode .form-input,
+    .wizard-mode .form-select {
+      font-weight: 400;
+    }
+    .wizard-mode .form-label {
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .wizard-mode .section-title {
+      font-size: 17px;
+      font-weight: 800;
+    }
+    .wizard-hero {
+      margin: 4px 0 14px;
+    }
+    .wizard-eyebrow {
+      color: #0a948f;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .wizard-title {
+      color: #1f2937;
+      font-size: 25px;
+      line-height: 1.22;
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    .wizard-copy {
+      color: #64748b;
+      font-size: 14px;
+      line-height: 1.55;
+      margin-top: 8px;
+    }
+    .wizard-stepper {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .wizard-step-line {
+      height: 6px;
+      border-radius: 99px;
+      background: #dbe6ea;
+    }
+    .wizard-step-line.active {
+      background: #0ABAB5;
+    }
+    .wizard-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .wizard-tab {
+      border: 1px solid #d7e3e7;
+      background: #fff;
+      color: #5b6b78;
+      border-radius: 99px;
+      padding: 9px 12px;
+      font-weight: 600;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .wizard-tab.active {
+      color: #fff;
+      background: #0ABAB5;
+      border-color: #0ABAB5;
+    }
+    .wizard-time-note {
+      color: #7a8a96;
+      font-size: 11px;
+      line-height: 1.35;
+      margin: 6px 0 0 2px;
+    }
+    .wizard-mode #timeLabel {
+      color: #087f7b !important;
+      background: #e7fbfa !important;
+      border: 1px solid #b9eeeb;
+      font-weight: 500 !important;
+    }
+    .wizard-quote {
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      transform: translateX(-50%);
+      z-index: 80;
+      width: min(430px, 100vw);
+      background: #0ABAB5;
+      color: #fff;
+      border-radius: 20px 20px 0 0;
+      padding: 13px 16px 16px;
+      box-shadow: 0 -10px 30px rgba(10, 186, 181, .24);
+    }
+    .wizard-detail-toggle {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.42);
+      border-radius: 12px;
+      background: rgba(255,255,255,.14);
+      color: #fff;
+      padding: 9px 11px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      text-align: left;
+    }
+    .wizard-detail-toggle small {
+      display: block;
+      margin-top: 2px;
+      color: rgba(255,255,255,.76);
+      font-size: 11px;
+      font-weight: 400;
+    }
+    .wizard-detail-panel {
+      display: none;
+      margin-bottom: 10px;
+      padding: 10px 11px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, .12);
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+    .wizard-detail-panel.open {
+      display: block;
+    }
+    .wizard-total-row {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .wizard-total-label {
+      display: block;
+      color: rgba(255,255,255,.72);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .wizard-total {
+      display: block;
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 900;
+    }
+    .wizard-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .wizard-btn {
+      border: 0;
+      border-radius: 13px;
+      font-weight: 800;
+      padding: 13px 16px;
+      font-size: 15px;
+      white-space: nowrap;
+    }
+    .wizard-btn.secondary {
+      color: #fff;
+      background: rgba(255,255,255,.14);
+      border: 1px solid rgba(255,255,255,.38);
+    }
+    .wizard-btn.primary {
+      background: #fff;
+      color: #079d98;
+    }
+    .wizard-mode .legacy-receipt {
+      display: none !important;
+    }
+    .wizard-mode #submit-btn {
+      display: none !important;
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-gray-800 font-sans antialiased selection:bg-[#0ABAB5]/20 selection:text-[#0ABAB5]">
@@ -566,6 +741,179 @@
       returnSignboardWrapper: document.getElementById('return-signboard-wrapper')
     };
 
+    const wizard = { currentStep: 1, ready: false };
+
+    function setupWizardLayout() {
+      const form = document.getElementById('reservation-form');
+      const viewForm = document.getElementById('view-form');
+      if (!form || wizard.ready) return;
+
+      viewForm.classList.add('wizard-mode');
+
+      form.insertAdjacentHTML('afterbegin', `
+        <div class="wizard-hero">
+          <div class="wizard-eyebrow" id="wizard-eyebrow">STEP 1 / 快速估價</div>
+          <div class="wizard-title" id="wizard-title">先確認路線與金額，再填聯絡資料</div>
+          <div class="wizard-copy" id="wizard-copy">把影響價格的欄位集中在前面，看到預估總額後再進入預約資料。</div>
+          <div class="wizard-stepper" aria-label="預約步驟">
+            <div class="wizard-step-line active" data-step-line="1"></div>
+            <div class="wizard-step-line" data-step-line="2"></div>
+            <div class="wizard-step-line" data-step-line="3"></div>
+          </div>
+        </div>
+        <div class="wizard-tabs">
+          <button type="button" class="wizard-tab active" data-step-tab="1">快速估價</button>
+          <button type="button" class="wizard-tab" data-step-tab="2">乘客資料</button>
+          <button type="button" class="wizard-tab" data-step-tab="3">確認送出</button>
+        </div>
+      `);
+
+      const reservationBadge = DOM.displayId.closest('div');
+      const contactCard = document.getElementById('name').closest('section');
+      const contactFields = contactCard.querySelector('.space-y-4');
+      const addressBlock = DOM.district.closest('.pt-2');
+      const tripCard = DOM.date.closest('section');
+      const flightBlock = document.getElementById('flightNumber').closest('div');
+      const luggageCard = DOM.carType.closest('section');
+      const returnToggle = DOM.needReturnTrip.closest('label');
+      const feeCard = DOM.displayTotal.closest('section');
+      const receipt = DOM.displayTotal.closest('.bg-\\[\\#0ABAB5\\]');
+      const remarksCard = DOM.userRemarks.closest('section');
+      const noticeSection = DOM.submitBtn.closest('section');
+
+      if (addressBlock && tripCard) tripCard.querySelector('.space-y-4').appendChild(addressBlock);
+      if (flightBlock && contactFields) contactFields.appendChild(flightBlock);
+      if (receipt) receipt.classList.add('legacy-receipt');
+
+      const minuteNote = document.createElement('p');
+      minuteNote.className = 'wizard-time-note';
+      minuteNote.textContent = '分鐘以每 5 分鐘為一個單位';
+      DOM.timeMinute.closest('.flex').after(minuteNote);
+
+      [
+        [tripCard, 1],
+        [luggageCard, 1],
+        [returnToggle, 1],
+        [DOM.returnSection, 1],
+        [contactCard, 2],
+        [feeCard, 2],
+        [reservationBadge, 3],
+        [remarksCard, 3],
+        [noticeSection, 3]
+      ].forEach(([el, step]) => {
+        if (el) el.dataset.wizardStep = String(step);
+      });
+
+      document.body.insertAdjacentHTML('beforeend', `
+        <aside class="wizard-quote" id="wizard-quote">
+          <button type="button" class="wizard-detail-toggle" id="wizard-detail-toggle">
+            <span>費用明細<small>點開查看車資、加點與急單費</small></span>
+            <span class="w-7 h-7 rounded-full bg-white/20 grid place-items-center">⌃</span>
+          </button>
+          <div class="wizard-detail-panel" id="wizard-detail-panel"></div>
+          <div class="wizard-total-row">
+            <div>
+              <span class="wizard-total-label">預估總額</span>
+              <strong class="wizard-total" id="wizard-total">$---</strong>
+            </div>
+            <div class="wizard-actions">
+              <button type="button" class="wizard-btn secondary hidden-block" id="wizard-back-btn">上一步</button>
+              <button type="button" class="wizard-btn primary" id="wizard-next-btn">下一步</button>
+            </div>
+          </div>
+        </aside>
+      `);
+
+      document.querySelectorAll('[data-step-tab]').forEach(tab => {
+        tab.addEventListener('click', () => goWizardStep(parseInt(tab.dataset.stepTab, 10)));
+      });
+      document.getElementById('wizard-back-btn').addEventListener('click', () => goWizardStep(wizard.currentStep - 1));
+      document.getElementById('wizard-next-btn').addEventListener('click', handleWizardNext);
+      document.getElementById('wizard-detail-toggle').addEventListener('click', () => {
+        document.getElementById('wizard-detail-panel').classList.toggle('open');
+      });
+
+      wizard.ready = true;
+      goWizardStep(1);
+      syncWizardQuote();
+    }
+
+    function validateWizardStep(step) {
+      const errs = [];
+      if (step === 1) {
+        if (!state.district) errs.push('請先帶入接送地址');
+        if (!state.date) errs.push('請選擇乘車日期');
+        if (!state.timeHour || !state.timeMinute) errs.push('請選擇乘車時間');
+        if (state.hasExtraPoint && !state.extraAddress.trim()) errs.push('勾選加點服務時，請輸入加點地址');
+        if (state.needReturnTrip) {
+          if (!state.returnDate) errs.push('請選擇回程日期');
+          if (!state.returnTimeHour || !state.returnTimeMinute) errs.push('請選擇回程時間');
+          if (!state.returnDistrict) errs.push('請帶入回程地址');
+          if (state.returnHasExtraPoint && !state.returnExtraAddress.trim()) errs.push('勾選回程加點服務時，請輸入回程加點地址');
+        }
+      }
+      if (step === 2) {
+        if (!state.name.trim()) errs.push('請輸入真實姓名');
+        if (state.phone.replace(/\D/g, '').length !== 10) errs.push('聯絡電話需為10位數字');
+        if (!state.flightNumber) errs.push('請輸入航班編號');
+        if (state.extraSignboard && (!state.signboardText || !state.signboardText.trim())) errs.push('勾選舉牌服務時，請輸入舉牌內容');
+        if (state.needReturnTrip && state.returnExtraSignboard && (!state.returnSignboardText || !state.returnSignboardText.trim())) errs.push('勾選回程舉牌服務時，請輸入回程舉牌內容');
+      }
+      return errs;
+    }
+
+    function handleWizardNext() {
+      if (wizard.currentStep < 3) {
+        const errs = validateWizardStep(wizard.currentStep);
+        if (errs.length > 0) return showAlert("請修正以下資訊：\n\n" + errs.map((e,i)=>`${i+1}. ${e}`).join('\n'));
+        goWizardStep(wizard.currentStep + 1);
+      } else {
+        DOM.submitBtn.click();
+      }
+    }
+
+    function goWizardStep(step) {
+      wizard.currentStep = Math.max(1, Math.min(3, step));
+      const meta = {
+        1: ['STEP 1 / 快速估價', '先確認路線與金額，再填聯絡資料', '把影響價格的欄位集中在前面，看到預估總額後再進入預約資料。'],
+        2: ['STEP 2 / 乘客資料', '填寫聯絡資料與航班資訊', '價格確認後，再留下客服核對訂單所需的資料。'],
+        3: ['STEP 3 / 確認送出', '確認訂單內容與注意事項', '最後檢查特殊需求與乘車規範，確認後送出預約。']
+      }[wizard.currentStep];
+
+      document.getElementById('wizard-eyebrow').textContent = meta[0];
+      document.getElementById('wizard-title').textContent = meta[1];
+      document.getElementById('wizard-copy').textContent = meta[2];
+
+      document.querySelectorAll('[data-wizard-step]').forEach(el => {
+        el.classList.toggle('hidden-block', parseInt(el.dataset.wizardStep, 10) !== wizard.currentStep);
+      });
+      if (DOM.returnSection && wizard.currentStep === 1 && !state.needReturnTrip) {
+        DOM.returnSection.classList.add('hidden-block');
+      }
+      document.querySelectorAll('[data-step-tab]').forEach(tab => {
+        tab.classList.toggle('active', parseInt(tab.dataset.stepTab, 10) === wizard.currentStep);
+      });
+      document.querySelectorAll('[data-step-line]').forEach(line => {
+        line.classList.toggle('active', parseInt(line.dataset.stepLine, 10) <= wizard.currentStep);
+      });
+
+      document.getElementById('wizard-back-btn').classList.toggle('hidden-block', wizard.currentStep === 1);
+      document.getElementById('wizard-next-btn').textContent = wizard.currentStep === 3 ? '確認送出' : '下一步';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      syncWizardQuote();
+    }
+
+    function syncWizardQuote() {
+      const total = document.getElementById('wizard-total');
+      const details = document.getElementById('wizard-detail-panel');
+      if (!total || !details) return;
+      total.textContent = DOM.displayTotal.innerText || '$---';
+      const base = DOM.displayBasePrice.innerText && DOM.displayBasePrice.innerText !== '待報價'
+        ? `<div class="flex justify-between text-white/90 text-[13px]"><span>${DOM.displayCarTypeName.innerText}</span><span>${DOM.displayBasePrice.innerText}</span></div>`
+        : '';
+      details.innerHTML = base + (DOM.feesBlock.innerHTML || '<div class="text-white/80 text-[13px]">尚無費用明細</div>');
+    }
+
     function updateSignboardUI() {
       const isMainDropoff = state.serviceType === '送機';
       const mainFee = isMainDropoff ? 100 : 200;
@@ -879,6 +1227,7 @@
             </div>`;
         }
       }
+      syncWizardQuote();
     }
 
     function initGoogleMaps() {
@@ -1078,7 +1427,7 @@
       } catch(err) { showAlert('傳送失敗，請檢查網路連線。'); state.isSubmitting=false; DOM.submitBtn.innerHTML='<span>確認預約並送出</span><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'; }
     };
 
-    initSelectOptions(); loadPrices(); initGoogleMaps();
+    setupWizardLayout(); initSelectOptions(); loadPrices(); initGoogleMaps();
     document.getElementById('phone').oninput = (e) => { let v = e.target.value.replace(/\D/g, '').slice(0, 10); let formatted = v; if (v.length > 7) formatted = v.slice(0, 4) + '-' + v.slice(4, 7) + '-' + v.slice(7); else if (v.length > 4) formatted = v.slice(0, 4) + '-' + v.slice(4); e.target.value = formatted; state.phone = formatted; };
     DOM.noLuggage.addEventListener('change', () => {
       updatePeopleLuggageOptions();
