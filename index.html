@@ -1105,7 +1105,10 @@
           }
           if(id === 'needReturnTrip') {
              DOM.returnSection.classList.toggle('hidden-block', !e.target.checked);
-             if(e.target.checked) syncReturnInfo();
+             if(e.target.checked) {
+               syncReturnInfo();
+               setTimeout(syncReturnInfo, 0);
+             }
           }
           if(id === 'hasExtraPoint') {
              if(DOM.extraPointBlock) DOM.extraPointBlock.classList.toggle('hidden-block', !e.target.checked);
