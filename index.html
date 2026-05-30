@@ -45,7 +45,7 @@
     .hidden-block { display: none !important; }
     /* 平滑過渡 */
     .transition-height { transition: all 0.3s ease-in-out; }
-    .wizard-mode { padding-bottom: 132px; }
+    .wizard-mode { padding-bottom: 180px; }
     .wizard-mode .form-input,
     .wizard-mode .form-select {
       font-weight: 400;
@@ -69,12 +69,13 @@
     }
     .wizard-title {
       color: #1f2937;
-      font-size: 25px;
+      font-size: 20px;
       line-height: 1.22;
-      font-weight: 900;
+      font-weight: 800;
       letter-spacing: 0;
     }
     .wizard-copy {
+      display: none;
       color: #64748b;
       font-size: 14px;
       line-height: 1.55;
@@ -136,8 +137,13 @@
       background: #0ABAB5;
       color: #fff;
       border-radius: 20px 20px 0 0;
-      padding: 13px 16px 16px;
+      padding: 10px 14px 14px;
       box-shadow: 0 -10px 30px rgba(10, 186, 181, .24);
+      pointer-events: none;
+    }
+    .wizard-quote button,
+    .wizard-detail-panel {
+      pointer-events: auto;
     }
     .wizard-detail-toggle {
       width: 100%;
@@ -145,8 +151,8 @@
       border-radius: 12px;
       background: rgba(255,255,255,.14);
       color: #fff;
-      padding: 9px 11px;
-      font-size: 13px;
+      padding: 8px 10px;
+      font-size: 12px;
       font-weight: 700;
       margin-bottom: 10px;
       display: flex;
@@ -188,7 +194,7 @@
     }
     .wizard-total {
       display: block;
-      font-size: 30px;
+      font-size: 23px;
       line-height: 1;
       font-weight: 900;
     }
@@ -201,8 +207,8 @@
       border: 0;
       border-radius: 13px;
       font-weight: 800;
-      padding: 13px 16px;
-      font-size: 15px;
+      padding: 11px 14px;
+      font-size: 13px;
       white-space: nowrap;
     }
     .wizard-btn.secondary {
@@ -219,6 +225,44 @@
     }
     .wizard-mode #submit-btn {
       display: none !important;
+    }
+    .wizard-mode #reservation-form::after {
+      content: "";
+      display: block;
+      height: 190px;
+    }
+    .wizard-mode [data-wizard-step],
+    .wizard-mode #needReturnTrip {
+      scroll-margin-bottom: 210px;
+    }
+    .car-choice-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .car-choice {
+      border: 1px solid #dbe6ea;
+      background: #f8fbfc;
+      color: #334155;
+      border-radius: 12px;
+      padding: 11px 8px;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.2;
+      text-align: center;
+      transition: .2s ease;
+    }
+    .car-choice.active {
+      border-color: #0ABAB5;
+      background: #0ABAB5;
+      color: #fff;
+      box-shadow: 0 6px 16px rgba(10, 186, 181, .2);
+    }
+    .car-choice:disabled {
+      opacity: .42;
+      background: #f1f5f9;
+      color: #94a3b8;
+      box-shadow: none;
     }
   </style>
 </head>
@@ -790,6 +834,24 @@
       minuteNote.textContent = '分鐘以每 5 分鐘為一個單位';
       DOM.timeMinute.closest('.flex').after(minuteNote);
 
+      DOM.carType.classList.add('hidden-block');
+      DOM.carType.insertAdjacentHTML('afterend', `
+        <div class="car-choice-grid" id="car-choice-grid">
+          <button type="button" class="car-choice" data-car-type="小車">小車</button>
+          <button type="button" class="car-choice" data-car-type="大車">大車</button>
+          <button type="button" class="car-choice" data-car-type="Alphard">New Alphard 40</button>
+        </div>
+      `);
+      document.querySelectorAll('[data-car-type]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (btn.disabled) return;
+          state.carType = btn.dataset.carType;
+          DOM.carType.value = state.carType;
+          DOM.carType.dispatchEvent(new Event('change', { bubbles: true }));
+          syncCarTypeButtons();
+        });
+      });
+
       [
         [tripCard, 1],
         [luggageCard, 1],
@@ -836,6 +898,15 @@
       wizard.ready = true;
       goWizardStep(1);
       syncWizardQuote();
+      syncCarTypeButtons();
+    }
+
+    function syncCarTypeButtons() {
+      document.querySelectorAll('[data-car-type]').forEach(btn => {
+        const option = Array.from(DOM.carType.options).find(opt => opt.value === btn.dataset.carType);
+        btn.disabled = !!option?.disabled;
+        btn.classList.toggle('active', DOM.carType.value === btn.dataset.carType);
+      });
     }
 
     function validateWizardStep(step) {
@@ -1008,6 +1079,7 @@
         if (opt.value === '小車') opt.disabled = smallInvalid;
         if (opt.value === 'Alphard') opt.disabled = alphardInvalid;
       });
+      syncCarTypeButtons();
 
       let msgs = [];
       if (smallInvalid && state.carType === '大車') {
