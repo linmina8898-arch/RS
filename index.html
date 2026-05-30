@@ -144,9 +144,13 @@
             <div class="mt-4 p-4 bg-gray-50 rounded-xl border border-dashed border-[#0ABAB5]/40 transition-all">
               <label class="flex items-center gap-3 cursor-pointer select-none">
                 <input type="checkbox" id="hasExtraPoint" class="custom-checkbox"> 
-                <span class="font-bold text-gray-700 text-sm">需加點服務 <span class="text-[#0ABAB5] text-xs font-normal ml-1">(同區+$100 / 跨區+$200)</span></span>
+                <span class="font-bold text-gray-700 text-sm">
+                  需加點服務
+                  <span class="block text-[#0ABAB5] text-xs font-normal mt-1">基本車款：同區 +$100 / 跨區 +$200</span>
+                  <span class="block text-[#0ABAB5] text-xs font-normal mt-0.5">Alphard：同區 +$200 / 跨區 +$400</span>
+                </span>
               </label>
-              <p class="text-[11px] text-red-500 font-medium ml-8 mt-1">※ 實際加點順序由本公司規劃安排</p>
+              <p class="text-[11px] text-red-500 font-medium ml-8 mt-1">※ 加點順序以本公司實際安排路線為主。若為反方向加點、明顯繞行或跨多縣市加點，費用將依客服確認後報價為主。</p>
               
               <div id="extra-point-block" class="hidden-block mt-4 space-y-3 pl-2 border-l-2 border-[#0ABAB5]/20">
                 <input type="text" id="extraDistrict" class="form-input bg-gray-100/50 text-gray-500" readonly placeholder="加點區域 (自動帶入)">
@@ -165,7 +169,7 @@
           
           <div class="space-y-4">
               <div>
-                  <label class="form-label">乘車日期 <span class="text-xs font-normal text-gray-400">（系統僅提供 24 小時後之預約服務）</span></label>
+                  <label class="form-label">乘車日期 <span class="text-xs font-normal text-gray-400">（24 小時內預約需等待客服確認車輛）</span></label>
                   <input type="date" id="date" class="form-input">
               </div>
               
@@ -601,10 +605,11 @@
       DOM.returnTimeMinute.add(new Option('分', '', true, true));
       DOM.returnTimeMinute.options[0].disabled = true;
       for(let i=0; i<12; i++) { DOM.timeMinute.add(new Option((i*5).toString().padStart(2,'0'))); DOM.returnTimeMinute.add(new Option((i*5).toString().padStart(2,'0'))); }
-      const min = new Date(Date.now() + 24*3600*1000 + 10*60*1000);
+      const min = new Date(Date.now() + 10*60*1000);
+      min.setMinutes(Math.ceil(min.getMinutes() / 5) * 5, 0, 0);
       const minDStr = `${min.getFullYear()}-${String(min.getMonth()+1).padStart(2,'0')}-${String(min.getDate()).padStart(2,'0')}`;
       DOM.date.min = minDStr; DOM.date.value = minDStr; state.date = minDStr;
-      DOM.timeHour.value = String(min.getHours()).padStart(2,'0'); DOM.timeMinute.value = String(Math.ceil(min.getMinutes()/5)*5).padStart(2,'0');
+      DOM.timeHour.value = String(min.getHours()).padStart(2,'0'); DOM.timeMinute.value = String(min.getMinutes()).padStart(2,'0');
       state.timeHour = DOM.timeHour.value; state.timeMinute = DOM.timeMinute.value;
       
       updateSignboardUI();
@@ -612,14 +617,15 @@
     }
 
     function restrictTimeOptions() {
-      const min = new Date(Date.now() + 24*3600*1000 + 10*60*1000);
+      const min = new Date(Date.now() + 10*60*1000);
+      min.setMinutes(Math.ceil(min.getMinutes() / 5) * 5, 0, 0);
       const limitD = `${min.getFullYear()}-${String(min.getMonth()+1).padStart(2,'0')}-${String(min.getDate()).padStart(2,'0')}`;
       const h = min.getHours(), m = min.getMinutes();
       const processDropdowns = (dateVal, hourDOM, minDOM, stateHourKey, stateMinKey) => {
         if (dateVal === limitD) {
           Array.from(hourDOM.options).forEach(o => { if(o.value) o.disabled = parseInt(o.value) < h; });
           if (hourDOM.value && parseInt(hourDOM.value) < h) { hourDOM.value = String(h).padStart(2, '0'); state[stateHourKey] = hourDOM.value; }
-          if (hourDOM.value && parseInt(hourDOM.value) === h) { Array.from(minDOM.options).forEach(o => { if(o.value) o.disabled = parseInt(o.value) < m; }); if (minDOM.value && parseInt(minDOM.value) < m) { minDOM.value = String(Math.ceil(m/5)*5).padStart(2, '0'); state[stateMinKey] = minDOM.value; } } else { Array.from(minDOM.options).forEach(o => o.disabled = false); }
+          if (hourDOM.value && parseInt(hourDOM.value) === h) { Array.from(minDOM.options).forEach(o => { if(o.value) o.disabled = parseInt(o.value) < m; }); if (minDOM.value && parseInt(minDOM.value) < m) { minDOM.value = String(m).padStart(2, '0'); state[stateMinKey] = minDOM.value; } } else { Array.from(minDOM.options).forEach(o => o.disabled = false); }
         } else { Array.from(hourDOM.options).forEach(o => o.disabled = false); Array.from(minDOM.options).forEach(o => o.disabled = false); }
       };
       processDropdowns(state.date, DOM.timeHour, DOM.timeMinute, 'timeHour', 'timeMinute');
@@ -716,6 +722,30 @@
       return match ? state.priceMap[match] : null;
     }
 
+    function getRideDateTime(date, hour, minute) {
+      if (!date || hour === '' || minute === '') return null;
+      const rideAt = new Date(`${date}T${hour}:${minute}:00`);
+      return Number.isNaN(rideAt.getTime()) ? null : rideAt;
+    }
+
+    function getShortNoticeFee(date, hour, minute) {
+      const rideAt = getRideDateTime(date, hour, minute);
+      if (!rideAt) return { amount: 0, label: '' };
+
+      const diffHours = (rideAt.getTime() - Date.now()) / 36e5;
+      if (diffHours >= 0 && diffHours < 12) return { amount: 500, label: '12小時內急單服務費' };
+      if (diffHours >= 12 && diffHours < 24) return { amount: 200, label: '24小時內急單服務費' };
+      return { amount: 0, label: '' };
+    }
+
+    function getExtraPointFee(carType, fromDistrict, toDistrict, hasManualAddress) {
+      if (!fromDistrict && !toDistrict && !hasManualAddress) return 0;
+      if (!fromDistrict || !toDistrict) return carType === 'Alphard' ? 400 : 200;
+      const sameArea = fromDistrict.substring(0, 3) === toDistrict.substring(0, 3);
+      if (carType === 'Alphard') return sameArea ? 200 : 400;
+      return sameArea ? 100 : 200;
+    }
+
     function calculatePrice() {
       const main = findPriceData(state.airport, state.district);
       const extra = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
@@ -723,9 +753,11 @@
       const p1 = extract(main, state.carType), p2 = extract(extra, state.carType);
       const baseInfo = (state.hasExtraPoint && p2 > p1) ? { p: p2, n: state.extraDistrict } : { p: p1, n: state.district };
       const h = parseInt(state.timeHour);
-      let exFee = (state.hasExtraPoint && state.district && state.extraDistrict) ? (state.district.substring(0,3) === state.extraDistrict.substring(0,3) ? 100 : 200) : 0;
+      let exFee = state.hasExtraPoint ? getExtraPointFee(state.carType, state.district, state.extraDistrict, !!state.extraAddress.trim()) : 0;
+      const extraNeedsConfirm = state.hasExtraPoint && state.extraAddress.trim() && !state.extraDistrict;
+      const shortNotice = getShortNoticeFee(state.date, state.timeHour, state.timeMinute);
       const signboardFee = state.extraSignboard ? (state.serviceType === '送機' ? 100 : 200) : 0;
-      const fees = { pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0, infant: state.infants*200, signboard: signboardFee, extra: exFee };
+      const fees = { pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0, infant: state.infants*200, signboard: signboardFee, extra: exFee, shortNotice: shortNotice.amount };
       
       let total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : 0;
       state.goingTotal = total;
@@ -749,12 +781,14 @@
         const rp1 = extract(rData, rCarType), rp2 = extract(rExData, rCarType);
         const rBaseInfo = (state.returnHasExtraPoint && rp2 > rp1) ? { p: rp2, n: state.returnExtraDistrict } : { p: rp1, n: state.returnDistrict };
         rBaseP = rBaseInfo.p;
-        if (state.returnHasExtraPoint && state.returnDistrict && state.returnExtraDistrict) { rexFee = (state.returnDistrict.substring(0,3) === state.returnExtraDistrict.substring(0,3) ? 100 : 200); }
+        const rExtraNeedsConfirm = state.returnHasExtraPoint && state.returnExtraAddress.trim() && !state.returnExtraDistrict;
+        if (state.returnHasExtraPoint) { rexFee = getExtraPointFee(rCarType, state.returnDistrict, state.returnExtraDistrict, !!state.returnExtraAddress.trim()); }
         if (rBaseP > 0) { 
           const rh = parseInt(state.returnTimeHour); 
           const isReturnPickup = (state.serviceType === '送機');
+          const rShortNotice = getShortNoticeFee(state.returnDate, state.returnTimeHour, state.returnTimeMinute);
           const rSignboardFee = state.returnExtraSignboard ? (rtType === '送機' ? 100 : 200) : 0;
-          rFees = { pickup: isReturnPickup ? 200 : 0, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee, signboard: rSignboardFee }; 
+          rFees = { pickup: isReturnPickup ? 200 : 0, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee, signboard: rSignboardFee, shortNotice: rShortNotice.amount, extraNeedsConfirm: rExtraNeedsConfirm }; 
           
           let returnTotal = rBaseP + Object.values(rFees).reduce((a,b)=>a+b,0);
           state.returnTotal = returnTotal;
@@ -782,7 +816,20 @@
       }
 
       if(fees.signboard) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-[13px]"><span>└ ${pre}${state.serviceType}舉牌服務</span><span>+$${fees.signboard}</span></div>`;
-      if(fees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-[13px]"><span>└ ${pre}加點服務費</span><span>+$${fees.extra}</span></div>`;
+      if(fees.extra) {
+        DOM.feesBlock.innerHTML += `
+          <div class="flex justify-between text-white/90 text-[13px] items-start">
+            <span>└ ${pre}加點服務費${extraNeedsConfirm ? '<br><span class="text-[10px] text-white/60 pl-3 leading-tight block mt-1">加點地址未能自動判斷區域，暫以跨區加點計算，實際費用以客服確認為準</span>' : ''}</span>
+            <span>+$${fees.extra}</span>
+          </div>`;
+      }
+      if(fees.shortNotice) {
+        DOM.feesBlock.innerHTML += `
+          <div class="flex justify-between text-white/90 text-[13px] items-start">
+            <span>└ ${pre}${shortNotice.label}<br><span class="text-[10px] text-white/60 pl-3 leading-tight block mt-1">需等待客服確認是否有車輛可提供</span></span>
+            <span>+$${fees.shortNotice}</span>
+          </div>`;
+      }
       
       if (state.needReturnTrip && rBaseP > 0) { 
         DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white font-bold text-sm mt-3 pt-3 border-t border-white/20"><span>回程基本 (${rCarType})</span><span>$${rBaseP}</span></div>`; 
@@ -796,7 +843,21 @@
             </div>`;
         }
         if(rFees.signboard) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-[13px]"><span>└ 回程${rtType}舉牌服務</span><span>+$${rFees.signboard}</span></div>`; 
-        if(rFees.extra) DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white/90 text-[13px]"><span>└ 回程加點服務費</span><span>+$${rFees.extra}</span></div>`; 
+        if(rFees.extra) {
+          DOM.feesBlock.innerHTML += `
+            <div class="flex justify-between text-white/90 text-[13px] items-start">
+              <span>└ 回程加點服務費${rFees.extraNeedsConfirm ? '<br><span class="text-[10px] text-white/60 pl-3 leading-tight block mt-1">加點地址未能自動判斷區域，暫以跨區加點計算，實際費用以客服確認為準</span>' : ''}</span>
+              <span>+$${rFees.extra}</span>
+            </div>`;
+        }
+        if(rFees.shortNotice) {
+          const rShortNoticeLabel = getShortNoticeFee(state.returnDate, state.returnTimeHour, state.returnTimeMinute).label;
+          DOM.feesBlock.innerHTML += `
+            <div class="flex justify-between text-white/90 text-[13px] items-start">
+              <span>└ 回程${rShortNoticeLabel}<br><span class="text-[10px] text-white/60 pl-3 leading-tight block mt-1">需等待客服確認是否有車輛可提供</span></span>
+              <span>+$${rFees.shortNotice}</span>
+            </div>`;
+        }
       }
     }
 
@@ -819,6 +880,9 @@
       if (state.phone.replace(/\D/g, '').length !== 10) errs.push('聯絡電話需為10位數字');
       if (!state.district) errs.push('請從選單帶入接送地址');
       if (!state.flightNumber) errs.push('請輸入航班編號');
+      const goRideAt = getRideDateTime(state.date, state.timeHour, state.timeMinute);
+      if (goRideAt && goRideAt.getTime() < Date.now()) errs.push('乘車時間不得早於目前時間');
+      if (state.hasExtraPoint && !state.extraAddress.trim()) errs.push('勾選加點服務時，請輸入加點地址');
       
       const tl = state.carryOn + state.checkedBag;
       if (tl === 0 && !DOM.noLuggage.checked) {
@@ -834,6 +898,9 @@
         if (!state.returnFlightNumber) errs.push('請輸入回程航班編號'); 
         if (!state.returnDistrict) errs.push('請帶入回程地址'); 
         if (state.returnDate && state.date && state.returnDate <= state.date) errs.push('回程日期必須晚於去程日期');
+        const returnRideAt = getRideDateTime(state.returnDate, state.returnTimeHour, state.returnTimeMinute);
+        if (returnRideAt && returnRideAt.getTime() < Date.now()) errs.push('回程時間不得早於目前時間');
+        if (state.returnHasExtraPoint && !state.returnExtraAddress.trim()) errs.push('勾選回程加點服務時，請輸入回程加點地址');
       }
       if (!document.getElementById('agreed').checked) errs.push('請勾選同意乘車注意事項');
       const needsYes = document.getElementById('needsYes'), needsNo = document.getElementById('needsNo');
