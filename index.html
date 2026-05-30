@@ -746,6 +746,10 @@
       return sameArea ? 100 : 200;
     }
 
+    function sumFeeItems(fees) {
+      return Object.values(fees).reduce((sum, fee) => sum + (Number(fee) || 0), 0);
+    }
+
     function calculatePrice() {
       const main = findPriceData(state.airport, state.district);
       const extra = state.hasExtraPoint ? findPriceData(state.airport, state.extraDistrict) : null;
@@ -759,10 +763,11 @@
       const signboardFee = state.extraSignboard ? (state.serviceType === '送機' ? 100 : 200) : 0;
       const fees = { pickup: state.serviceType==='接機'?200:0, night: (h>=22||h<6)?200:0, infant: state.infants*200, signboard: signboardFee, extra: exFee, shortNotice: shortNotice.amount };
       
-      let total = baseInfo.p > 0 ? (baseInfo.p + Object.values(fees).reduce((a,b)=>a+b,0)) : 0;
+      let total = baseInfo.p > 0 ? (baseInfo.p + sumFeeItems(fees)) : 0;
       state.goingTotal = total;
 
       let rBaseP = 0, rFees = {}, rCarType = state.carType, rexFee = 0;
+      let rExtraNeedsConfirm = false;
       const rtType = state.serviceType === '送機' ? '接機' : '送機';
 
       if (state.needReturnTrip && state.returnDistrict) {
@@ -781,16 +786,16 @@
         const rp1 = extract(rData, rCarType), rp2 = extract(rExData, rCarType);
         const rBaseInfo = (state.returnHasExtraPoint && rp2 > rp1) ? { p: rp2, n: state.returnExtraDistrict } : { p: rp1, n: state.returnDistrict };
         rBaseP = rBaseInfo.p;
-        const rExtraNeedsConfirm = state.returnHasExtraPoint && state.returnExtraAddress.trim() && !state.returnExtraDistrict;
+        rExtraNeedsConfirm = state.returnHasExtraPoint && state.returnExtraAddress.trim() && !state.returnExtraDistrict;
         if (state.returnHasExtraPoint) { rexFee = getExtraPointFee(rCarType, state.returnDistrict, state.returnExtraDistrict, !!state.returnExtraAddress.trim()); }
         if (rBaseP > 0) { 
           const rh = parseInt(state.returnTimeHour); 
           const isReturnPickup = (state.serviceType === '送機');
           const rShortNotice = getShortNoticeFee(state.returnDate, state.returnTimeHour, state.returnTimeMinute);
           const rSignboardFee = state.returnExtraSignboard ? (rtType === '送機' ? 100 : 200) : 0;
-          rFees = { pickup: isReturnPickup ? 200 : 0, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee, signboard: rSignboardFee, shortNotice: rShortNotice.amount, extraNeedsConfirm: rExtraNeedsConfirm }; 
+          rFees = { pickup: isReturnPickup ? 200 : 0, night: (rh>=22||rh<6)?200:0, infant: state.returnInfants*200, extra: rexFee, signboard: rSignboardFee, shortNotice: rShortNotice.amount }; 
           
-          let returnTotal = rBaseP + Object.values(rFees).reduce((a,b)=>a+b,0);
+          let returnTotal = rBaseP + sumFeeItems(rFees);
           state.returnTotal = returnTotal;
           total += returnTotal;
         } else state.returnTotal = 0;
@@ -846,7 +851,7 @@
         if(rFees.extra) {
           DOM.feesBlock.innerHTML += `
             <div class="flex justify-between text-white/90 text-[13px] items-start">
-              <span>└ 回程加點服務費${rFees.extraNeedsConfirm ? '<br><span class="text-[10px] text-white/60 pl-3 leading-tight block mt-1">加點地址未能自動判斷區域，暫以跨區加點計算，實際費用以客服確認為準</span>' : ''}</span>
+              <span>└ 回程加點服務費${rExtraNeedsConfirm ? '<br><span class="text-[10px] text-white/60 pl-3 leading-tight block mt-1">加點地址未能自動判斷區域，暫以跨區加點計算，實際費用以客服確認為準</span>' : ''}</span>
               <span>+$${rFees.extra}</span>
             </div>`;
         }
@@ -1060,6 +1065,11 @@
 
     initSelectOptions(); loadPrices(); initGoogleMaps();
     document.getElementById('phone').oninput = (e) => { let v = e.target.value.replace(/\D/g, '').slice(0, 10); let formatted = v; if (v.length > 7) formatted = v.slice(0, 4) + '-' + v.slice(4, 7) + '-' + v.slice(7); else if (v.length > 4) formatted = v.slice(0, 4) + '-' + v.slice(4); e.target.value = formatted; state.phone = formatted; };
+    DOM.noLuggage.addEventListener('change', () => {
+      updatePeopleLuggageOptions();
+      if (state.needReturnTrip) syncReturnInfo();
+      calculatePrice();
+    });
     
     document.querySelectorAll('input, select, textarea').forEach(el => { 
       if (el.id === 'phone') return; 
