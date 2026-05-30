@@ -45,7 +45,7 @@
     .hidden-block { display: none !important; }
     /* 平滑過渡 */
     .transition-height { transition: all 0.3s ease-in-out; }
-    .wizard-mode { padding-bottom: 180px; }
+    .wizard-mode { padding-bottom: 132px; }
     .wizard-mode .form-input,
     .wizard-mode .form-select {
       font-weight: 400;
@@ -59,7 +59,7 @@
       font-weight: 800;
     }
     .wizard-hero {
-      margin: 4px 0 14px;
+      margin: 4px 0 10px;
     }
     .wizard-eyebrow {
       color: #0a948f;
@@ -69,9 +69,9 @@
     }
     .wizard-title {
       color: #1f2937;
-      font-size: 20px;
-      line-height: 1.22;
-      font-weight: 800;
+      font-size: 18px;
+      line-height: 1.25;
+      font-weight: 700;
       letter-spacing: 0;
     }
     .wizard-copy {
@@ -115,12 +115,7 @@
       background: #0ABAB5;
       border-color: #0ABAB5;
     }
-    .wizard-time-note {
-      color: #7a8a96;
-      font-size: 11px;
-      line-height: 1.35;
-      margin: 6px 0 0 2px;
-    }
+    .wizard-time-note { display: none; }
     .wizard-mode #timeLabel {
       color: #087f7b !important;
       background: #e7fbfa !important;
@@ -137,7 +132,7 @@
       background: #0ABAB5;
       color: #fff;
       border-radius: 20px 20px 0 0;
-      padding: 10px 14px 14px;
+      padding: 7px 12px 10px;
       box-shadow: 0 -10px 30px rgba(10, 186, 181, .24);
       pointer-events: none;
     }
@@ -151,20 +146,21 @@
       border-radius: 12px;
       background: rgba(255,255,255,.14);
       color: #fff;
-      padding: 8px 10px;
+      padding: 6px 9px;
       font-size: 12px;
       font-weight: 700;
-      margin-bottom: 10px;
+      margin-bottom: 7px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       text-align: left;
     }
     .wizard-detail-toggle small {
-      display: block;
-      margin-top: 2px;
+      display: inline;
+      margin-top: 0;
+      margin-left: 6px;
       color: rgba(255,255,255,.76);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 400;
     }
     .wizard-detail-panel {
@@ -194,7 +190,7 @@
     }
     .wizard-total {
       display: block;
-      font-size: 23px;
+      font-size: 18px;
       line-height: 1;
       font-weight: 900;
     }
@@ -207,8 +203,8 @@
       border: 0;
       border-radius: 13px;
       font-weight: 800;
-      padding: 11px 14px;
-      font-size: 13px;
+      padding: 9px 11px;
+      font-size: 12px;
       white-space: nowrap;
     }
     .wizard-btn.secondary {
@@ -229,11 +225,11 @@
     .wizard-mode #reservation-form::after {
       content: "";
       display: block;
-      height: 190px;
+      height: 140px;
     }
     .wizard-mode [data-wizard-step],
     .wizard-mode #needReturnTrip {
-      scroll-margin-bottom: 210px;
+      scroll-margin-bottom: 160px;
     }
     .car-choice-grid {
       display: grid;
@@ -825,8 +821,10 @@
       const remarksCard = DOM.userRemarks.closest('section');
       const noticeSection = DOM.submitBtn.closest('section');
 
-      if (addressBlock && tripCard) tripCard.querySelector('.space-y-4').appendChild(addressBlock);
-      if (flightBlock && contactFields) contactFields.appendChild(flightBlock);
+      const tripFields = tripCard.querySelector('.space-y-4');
+      const serviceGrid = document.getElementById('serviceType').closest('.grid');
+      if (addressBlock && tripCard) tripFields.appendChild(addressBlock);
+      if (flightBlock && serviceGrid) serviceGrid.insertAdjacentElement('afterend', flightBlock);
       if (receipt) receipt.classList.add('legacy-receipt');
 
       const minuteNote = document.createElement('p');
@@ -839,7 +837,7 @@
         <div class="car-choice-grid" id="car-choice-grid">
           <button type="button" class="car-choice" data-car-type="小車">小車</button>
           <button type="button" class="car-choice" data-car-type="大車">大車</button>
-          <button type="button" class="car-choice" data-car-type="Alphard">New Alphard 40</button>
+          <button type="button" class="car-choice" data-car-type="Alphard">New Alphard</button>
         </div>
       `);
       document.querySelectorAll('[data-car-type]').forEach(btn => {
@@ -869,7 +867,7 @@
       document.body.insertAdjacentHTML('beforeend', `
         <aside class="wizard-quote" id="wizard-quote">
           <button type="button" class="wizard-detail-toggle" id="wizard-detail-toggle">
-            <span>費用明細<small>點開查看車資、加點與急單費</small></span>
+            <span>費用明細<small>車資 / 加點 / 急單費</small></span>
             <span class="w-7 h-7 rounded-full bg-white/20 grid place-items-center">⌃</span>
           </button>
           <div class="wizard-detail-panel" id="wizard-detail-panel"></div>
@@ -915,6 +913,7 @@
         if (!state.district) errs.push('請先帶入接送地址');
         if (!state.date) errs.push('請選擇乘車日期');
         if (!state.timeHour || !state.timeMinute) errs.push('請選擇乘車時間');
+        if (!state.flightNumber) errs.push('請輸入航班編號');
         if (state.hasExtraPoint && !state.extraAddress.trim()) errs.push('勾選加點服務時，請輸入加點地址');
         if (state.needReturnTrip) {
           if (!state.returnDate) errs.push('請選擇回程日期');
@@ -926,7 +925,6 @@
       if (step === 2) {
         if (!state.name.trim()) errs.push('請輸入真實姓名');
         if (state.phone.replace(/\D/g, '').length !== 10) errs.push('聯絡電話需為10位數字');
-        if (!state.flightNumber) errs.push('請輸入航班編號');
         if (state.extraSignboard && (!state.signboardText || !state.signboardText.trim())) errs.push('勾選舉牌服務時，請輸入舉牌內容');
         if (state.needReturnTrip && state.returnExtraSignboard && (!state.returnSignboardText || !state.returnSignboardText.trim())) errs.push('勾選回程舉牌服務時，請輸入回程舉牌內容');
       }
