@@ -695,6 +695,15 @@
         const returnType = state.serviceType === '送機' ? '接機' : '送機';
         DOM.returnServiceTypeDisplay.value = returnType;
 
+        state.returnHasExtraPoint = state.hasExtraPoint;
+        state.returnExtraDistrict = state.extraDistrict;
+        state.returnExtraAddress = state.extraAddress;
+        const returnHasExtraPointEl = document.getElementById('returnHasExtraPoint');
+        if (returnHasExtraPointEl) returnHasExtraPointEl.checked = state.hasExtraPoint;
+        if (DOM.returnExtraDistrict) DOM.returnExtraDistrict.value = state.extraDistrict;
+        if (DOM.returnExtraAddress) DOM.returnExtraAddress.value = state.extraAddress;
+        if (DOM.returnExtraPointBlock) DOM.returnExtraPointBlock.classList.toggle('hidden-block', !state.hasExtraPoint);
+
         state.returnAdults = state.adults; state.returnChildren = state.children; state.returnInfants = state.infants; 
         state.returnCarryOn = state.carryOn; state.returnCheckedBag = state.checkedBag;
         
@@ -1094,6 +1103,7 @@
           }
           if(id === 'hasExtraPoint') {
              if(DOM.extraPointBlock) DOM.extraPointBlock.classList.toggle('hidden-block', !e.target.checked);
+             if(state.needReturnTrip) syncReturnInfo();
           }
           if(id === 'returnHasExtraPoint') {
               if(DOM.returnExtraPointBlock) DOM.returnExtraPointBlock.classList.toggle('hidden-block', !e.target.checked);
@@ -1108,6 +1118,10 @@
           }
           
           if(id === 'address') {
+             if(state.needReturnTrip) syncReturnInfo();
+          }
+
+          if(id === 'extraAddress' || id === 'extraDistrict') {
              if(state.needReturnTrip) syncReturnInfo();
           }
 
