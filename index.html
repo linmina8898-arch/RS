@@ -687,6 +687,12 @@
 
     function syncReturnInfo() {
       if (state.needReturnTrip) {
+        state.district = DOM.district.value;
+        state.address = DOM.address.value;
+        state.hasExtraPoint = document.getElementById('hasExtraPoint').checked;
+        state.extraDistrict = DOM.extraDistrict.value;
+        state.extraAddress = DOM.extraAddress.value;
+
         DOM.returnDistrict.value = state.district; DOM.returnAddress.value = state.address;
         state.returnDistrict = state.district; state.returnAddress = state.address;
         
@@ -1138,6 +1144,10 @@
       el.addEventListener('input', (e) => { 
         if(e.target.id in state) { 
           state[e.target.id] = e.target.value; 
+          if((e.target.id === 'extraAddress' || e.target.id === 'address') && state.needReturnTrip) {
+            syncReturnInfo();
+            calculatePrice();
+          }
           if(e.target.tagName === 'SELECT') { 
             if(!e.target.id.startsWith('return') && state.needReturnTrip) syncReturnInfo(); 
             updateReturnPeopleLuggageOptions(); 
