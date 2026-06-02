@@ -260,6 +260,27 @@
       color: #94a3b8;
       box-shadow: none;
     }
+    .return-advanced-toggle {
+      width: 100%;
+      border: 1px solid #b9eeeb;
+      background: #e7fbfa;
+      color: #087f7b;
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .return-advanced-toggle small {
+      display: block;
+      margin-top: 2px;
+      color: #5b8f8c;
+      font-size: 11px;
+      font-weight: 400;
+      text-align: left;
+    }
   </style>
 </head>
 <body class="bg-slate-100 text-gray-800 font-sans antialiased selection:bg-[#0ABAB5]/20 selection:text-[#0ABAB5]">
@@ -507,7 +528,7 @@
           
           <div class="bg-[#0ABAB5]/10 p-3.5 rounded-xl border border-[#0ABAB5]/20 flex items-start gap-3">
               <svg class="w-5 h-5 text-[#0ABAB5] shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <p class="text-xs font-bold text-gray-700 leading-relaxed">系統已自動同步去程的人數、行李與地址。若回程資訊不同，請直接修改下方欄位。</p>
+              <p class="text-xs font-medium text-gray-700 leading-relaxed">系統已自動同步去程地址、加點、人數與行李。若回程資訊不同，再展開修改。</p>
           </div>
           
           <div class="space-y-4">
@@ -537,6 +558,12 @@
                   <input type="text" id="returnFlightNumber" class="form-input uppercase font-mono" placeholder="回程航班編號">
               </div>
 
+              <button type="button" id="return-advanced-toggle" class="return-advanced-toggle">
+                <span>回程資訊不同，點我修改<small>地址、加點、人數與行李已先同步去程</small></span>
+                <span id="return-advanced-icon">⌄</span>
+              </button>
+
+              <div id="return-advanced-fields" class="hidden-block space-y-4">
               <div>
                   <label class="form-label">回程地址</label>
                   <input type="text" id="returnDistrict" class="form-input bg-gray-100/50 text-gray-500 mb-3" readonly>
@@ -595,6 +622,7 @@
                         <select id="returnCheckedBag" class="form-select !bg-white !px-2 !py-1 text-center"></select>
                     </div>
                   </div>
+              </div>
               </div>
           </div>
         </section>
@@ -892,6 +920,7 @@
       document.getElementById('wizard-detail-toggle').addEventListener('click', () => {
         document.getElementById('wizard-detail-panel').classList.toggle('open');
       });
+      document.getElementById('return-advanced-toggle')?.addEventListener('click', toggleReturnAdvanced);
 
       wizard.ready = true;
       goWizardStep(1);
@@ -945,7 +974,7 @@
       wizard.currentStep = Math.max(1, Math.min(3, step));
       const meta = {
         1: ['STEP 1 / 快速估價', '先確認路線與金額，再填聯絡資料', '把影響價格的欄位集中在前面，看到預估總額後再進入預約資料。'],
-        2: ['STEP 2 / 乘客資料', '填寫聯絡資料與航班資訊', '價格確認後，再留下客服核對訂單所需的資料。'],
+        2: ['STEP 2 / 乘客資料', '填寫聯絡資料', '價格確認後，再留下客服核對訂單所需的資料。'],
         3: ['STEP 3 / 確認送出', '確認訂單內容與注意事項', '最後檢查特殊需求與乘車規範，確認後送出預約。']
       }[wizard.currentStep];
 
@@ -981,6 +1010,19 @@
         ? `<div class="flex justify-between text-white/90 text-[13px]"><span>${DOM.displayCarTypeName.innerText}</span><span>${DOM.displayBasePrice.innerText}</span></div>`
         : '';
       details.innerHTML = base + (DOM.feesBlock.innerHTML || '<div class="text-white/80 text-[13px]">尚無費用明細</div>');
+    }
+
+    function setReturnAdvancedOpen(isOpen) {
+      const fields = document.getElementById('return-advanced-fields');
+      const icon = document.getElementById('return-advanced-icon');
+      if (!fields) return;
+      fields.classList.toggle('hidden-block', !isOpen);
+      if (icon) icon.textContent = isOpen ? '⌃' : '⌄';
+    }
+
+    function toggleReturnAdvanced() {
+      const fields = document.getElementById('return-advanced-fields');
+      setReturnAdvancedOpen(fields?.classList.contains('hidden-block'));
     }
 
     function updateSignboardUI() {
@@ -1527,6 +1569,7 @@
              if(e.target.checked) {
                syncReturnInfo();
                setTimeout(syncReturnInfo, 0);
+               setReturnAdvancedOpen(false);
              }
           }
           if(id === 'hasExtraPoint') {
