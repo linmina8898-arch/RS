@@ -374,6 +374,7 @@
             <div class="space-y-3">
                 <input type="text" id="district" class="form-input bg-gray-100/50 text-gray-500" readonly placeholder="郵遞區號 縣市 區域 (自動帶入)">
                 <input type="text" id="address" class="form-input" placeholder="請輸入完整地址並點選 Google 建議">
+                <p id="address-manual-note" class="hidden-block text-[11px] leading-relaxed text-[#087f7b] bg-[#0ABAB5]/10 border border-[#0ABAB5]/20 rounded-lg px-3 py-2">※ 因非點選 Google 建議地址，實際車資需以客服確認為主。</p>
             </div>
 
             <!-- 加點服務 -->
@@ -391,6 +392,7 @@
               <div id="extra-point-block" class="hidden-block mt-4 space-y-3 pl-2 border-l-2 border-[#0ABAB5]/20">
                 <input type="text" id="extraDistrict" class="form-input bg-gray-100/50 text-gray-500" readonly placeholder="加點區域 (自動帶入)">
                 <input type="text" id="extraAddress" class="form-input" placeholder="請輸入加點詳細地址">
+                <p id="extraAddress-manual-note" class="hidden-block text-[11px] leading-relaxed text-[#087f7b] bg-[#0ABAB5]/10 border border-[#0ABAB5]/20 rounded-lg px-3 py-2">※ 因非點選 Google 建議地址，實際車資需以客服確認為主。</p>
               </div>
             </div>
           </div>
@@ -568,6 +570,7 @@
                   <label class="form-label">回程地址</label>
                   <input type="text" id="returnDistrict" class="form-input bg-gray-100/50 text-gray-500 mb-3" readonly>
                   <input type="text" id="returnAddress" class="form-input" placeholder="回程詳細地址">
+                  <p id="returnAddress-manual-note" class="hidden-block text-[11px] leading-relaxed text-[#087f7b] bg-[#0ABAB5]/10 border border-[#0ABAB5]/20 rounded-lg px-3 py-2 mt-2">※ 因非點選 Google 建議地址，實際車資需以客服確認為主。</p>
               </div>
               
               <!-- 回程加點 -->
@@ -579,6 +582,7 @@
                 <div id="return-extra-point-block" class="hidden-block mt-4 space-y-3 pl-2 border-l-2 border-[#0ABAB5]/20">
                   <input type="text" id="returnExtraDistrict" class="form-input bg-gray-100/50 text-gray-500" readonly placeholder="加點區域 (自動帶入)">
                   <input type="text" id="returnExtraAddress" class="form-input" placeholder="回程加點地址">
+                  <p id="returnExtraAddress-manual-note" class="hidden-block text-[11px] leading-relaxed text-[#087f7b] bg-[#0ABAB5]/10 border border-[#0ABAB5]/20 rounded-lg px-3 py-2">※ 因非點選 Google 建議地址，實際車資需以客服確認為主。</p>
                 </div>
               </div>
 
@@ -746,15 +750,18 @@
     const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzYR4ZAe8N4nFaea7RtT0QvBX1oxq2Hx1wCDESpKKlPIg8MvAONs1mZn4rePArBIKDqyg/exec';
     const GOOGLE_MAPS_API_KEY = 'AIzaSyAxYym5ZR8puPb0iiycHdwzTJTKH0Aears';
     const LINE_LIFF_ID = '2009792282-jfKXBZiE';
+    let liffReadyPromise = Promise.resolve(null);
 
     const state = {
       reservationId: '', name: '', title: '先生', phone: '', email: '',
       district: '', address: '', hasExtraPoint: false, extraDistrict: '', extraAddress: '',
+      addressNeedsConfirm: false, extraAddressNeedsConfirm: false,
       date: '', timeHour: '', timeMinute: '', serviceType: '送機', airport: '桃園機場', flightNumber: '',
       carType: '小車', adults: 0, children: 0, infants: 0, carryOn: 0, checkedBag: 0,
       payment: '現金', extraSignboard: false, signboardText: '', userRemarks: '', agreed: false,
       needReturnTrip: false, returnDate: '', returnTimeHour: '', returnTimeMinute: '', returnFlightNumber: '',
       returnDistrict: '', returnAddress: '', returnHasExtraPoint: false, returnExtraDistrict: '', returnExtraAddress: '',
+      returnAddressNeedsConfirm: false, returnExtraAddressNeedsConfirm: false,
       returnExtraSignboard: false, returnSignboardText: '',
       returnAdults: 0, returnChildren: 0, returnInfants: 0, returnCarryOn: 0, returnCheckedBag: 0,
       returnCarType: '',
@@ -939,6 +946,14 @@
     function validateWizardStep(step) {
       const errs = [];
       if (step === 1) {
+        applyManualAddressEstimate('address', 'district');
+        if (state.hasExtraPoint) applyManualAddressEstimate('extraAddress', 'extraDistrict');
+        if (state.needReturnTrip) {
+          applyManualAddressEstimate('returnAddress', 'returnDistrict');
+          if (state.returnHasExtraPoint) applyManualAddressEstimate('returnExtraAddress', 'returnExtraDistrict');
+        }
+        if (state.needReturnTrip) syncReturnInfo();
+        calculatePrice();
         if (!state.district) errs.push('請先帶入接送地址');
         if (!state.date) errs.push('請選擇乘車日期');
         if (!state.timeHour || !state.timeMinute) errs.push('請選擇乘車時間');
@@ -1145,6 +1160,102 @@
       state.returnAdults = parseInt(document.getElementById('returnAdults').value); state.returnChildren = parseInt(document.getElementById('returnChildren').value); state.returnInfants = parseInt(document.getElementById('returnInfants').value); state.returnCarryOn = parseInt(document.getElementById('returnCarryOn').value); state.returnCheckedBag = parseInt(document.getElementById('returnCheckedBag').value);
     }
 
+    const MANUAL_ADDRESS_NOTE = '因非點選 Google 建議地址，實際車資需以客服確認為主';
+
+    function manualConfirmKey(districtId) {
+      return {
+        district: 'addressNeedsConfirm',
+        extraDistrict: 'extraAddressNeedsConfirm',
+        returnDistrict: 'returnAddressNeedsConfirm',
+        returnExtraDistrict: 'returnExtraAddressNeedsConfirm'
+      }[districtId];
+    }
+
+    function manualAddressNoteId(districtId) {
+      return {
+        district: 'address-manual-note',
+        extraDistrict: 'extraAddress-manual-note',
+        returnDistrict: 'returnAddress-manual-note',
+        returnExtraDistrict: 'returnExtraAddress-manual-note'
+      }[districtId];
+    }
+
+    function updateManualAddressNote(districtId) {
+      const confirmKey = manualConfirmKey(districtId);
+      const noteId = manualAddressNoteId(districtId);
+      const noteEl = noteId ? document.getElementById(noteId) : null;
+      if (noteEl && confirmKey) noteEl.classList.toggle('hidden-block', !state[confirmKey]);
+    }
+
+    function inferDistrictFromAddressText(text) {
+      const clean = (text || '').replace(/\s+/g, '');
+      if (!clean) return '';
+      const cityRules = [
+        { city: '新竹市', zip: '300', areas: ['東區', '北區', '香山區'] },
+        { city: '新竹縣', areas: [
+          ['竹北市', '302'], ['芎林鄉', '307'], ['寶山鄉', '308'], ['竹東鎮', '310'],
+          ['關西鎮', '306'], ['新埔鎮', '305'], ['湖口鄉', '303'], ['新豐鄉', '304'],
+          ['橫山鄉', '312'], ['北埔鄉', '314'], ['峨眉鄉', '315'], ['尖石鄉', '313'], ['五峰鄉', '311']
+        ] },
+        { city: '苗栗縣', areas: [
+          ['竹南鎮', '350'], ['頭份市', '351'], ['三灣鄉', '352'], ['南庄鄉', '353'],
+          ['獅潭鄉', '354'], ['後龍鎮', '356'], ['通霄鎮', '357'], ['苑裡鎮', '358'],
+          ['苗栗市', '360'], ['造橋鄉', '361'], ['頭屋鄉', '362'], ['公館鄉', '363'],
+          ['大湖鄉', '364'], ['泰安鄉', '365'], ['銅鑼鄉', '366'], ['三義鄉', '367'],
+          ['西湖鄉', '368'], ['卓蘭鎮', '369']
+        ] },
+        { city: '桃園市', areas: [
+          ['中壢區', '320'], ['平鎮區', '324'], ['龍潭區', '325'], ['楊梅區', '326'],
+          ['新屋區', '327'], ['觀音區', '328'], ['桃園區', '330'], ['龜山區', '333'],
+          ['八德區', '334'], ['大溪區', '335'], ['復興區', '336'], ['大園區', '337'], ['蘆竹區', '338']
+        ] }
+      ];
+
+      for (const rule of cityRules) {
+        if (!clean.includes(rule.city) && !rule.areas?.some(a => clean.includes(Array.isArray(a) ? a[0] : a))) continue;
+        if (rule.city === '新竹市') {
+          const area = rule.areas.find(a => clean.includes(a));
+          return area ? `${rule.zip} ${rule.city} ${area}` : rule.city;
+        }
+        const areaData = rule.areas.find(a => clean.includes(a[0]));
+        return areaData ? `${areaData[1]} ${rule.city} ${areaData[0]}` : rule.city;
+      }
+      return '';
+    }
+
+    function applyManualAddressEstimate(addressId, districtId) {
+      const addrEl = document.getElementById(addressId);
+      const distEl = document.getElementById(districtId);
+      if (!addrEl || !distEl) return;
+      const confirmKey = manualConfirmKey(districtId);
+      const inferred = inferDistrictFromAddressText(addrEl.value);
+      if (inferred) {
+        distEl.value = inferred;
+        state[districtId] = inferred;
+        if (confirmKey) state[confirmKey] = true;
+      } else {
+        distEl.value = '';
+        state[districtId] = '';
+        if (confirmKey) state[confirmKey] = false;
+      }
+      updateManualAddressNote(districtId);
+    }
+
+    function markGoogleAddressSelected(districtId) {
+      const confirmKey = manualConfirmKey(districtId);
+      if (confirmKey) state[confirmKey] = false;
+      updateManualAddressNote(districtId);
+    }
+
+    function getManualAddressNotice() {
+      const names = [];
+      if (state.addressNeedsConfirm) names.push('接送地址');
+      if (state.extraAddressNeedsConfirm) names.push('加點地址');
+      if (state.returnAddressNeedsConfirm) names.push('回程地址');
+      if (state.returnExtraAddressNeedsConfirm) names.push('回程加點地址');
+      return names.length ? `${names.join('、')}：${MANUAL_ADDRESS_NOTE}。` : '';
+    }
+
     function syncReturnInfo() {
       if (state.needReturnTrip) {
         state.district = DOM.district.value;
@@ -1155,6 +1266,8 @@
 
         DOM.returnDistrict.value = state.district; DOM.returnAddress.value = state.address;
         state.returnDistrict = state.district; state.returnAddress = state.address;
+        state.returnAddressNeedsConfirm = state.addressNeedsConfirm;
+        updateManualAddressNote('returnDistrict');
         
         state.returnAirport = state.airport;
         DOM.returnAirport.value = state.airport;
@@ -1164,11 +1277,13 @@
         state.returnHasExtraPoint = state.hasExtraPoint;
         state.returnExtraDistrict = state.extraDistrict;
         state.returnExtraAddress = state.extraAddress;
+        state.returnExtraAddressNeedsConfirm = state.extraAddressNeedsConfirm;
         const returnHasExtraPointEl = document.getElementById('returnHasExtraPoint');
         if (returnHasExtraPointEl) returnHasExtraPointEl.checked = state.hasExtraPoint;
         if (DOM.returnExtraDistrict) DOM.returnExtraDistrict.value = state.extraDistrict;
         if (DOM.returnExtraAddress) DOM.returnExtraAddress.value = state.extraAddress;
         if (DOM.returnExtraPointBlock) DOM.returnExtraPointBlock.classList.toggle('hidden-block', !state.hasExtraPoint);
+        updateManualAddressNote('returnExtraDistrict');
 
         state.returnAdults = state.adults; state.returnChildren = state.children; state.returnInfants = state.infants; 
         state.returnCarryOn = state.carryOn; state.returnCheckedBag = state.checkedBag;
@@ -1310,6 +1425,13 @@
             <span>+$${fees.shortNotice}</span>
           </div>`;
       }
+      const manualAddressNotice = getManualAddressNotice();
+      if (manualAddressNotice) {
+        DOM.feesBlock.innerHTML += `
+          <div class="text-[11px] text-white/70 leading-snug border-t border-white/20 pt-3">
+            ※ ${manualAddressNotice}
+          </div>`;
+      }
       
       if (state.needReturnTrip && rBaseP > 0) { 
         DOM.feesBlock.innerHTML += `<div class="flex justify-between text-white font-bold text-sm mt-3 pt-3 border-t border-white/20"><span>回程基本 (${rCarType})</span><span>$${rBaseP}</span></div>`; 
@@ -1343,19 +1465,46 @@
     }
 
     function initGoogleMaps() {
-      const parse = (place, dId, aId) => { const comps = place.address_components || []; const full = (place.formatted_address || "").replace('台灣','').trim(); let zip = (comps.find(c=>c.types.includes('postal_code'))?.long_name || "").substring(0,3); let city = (comps.find(c=>c.types.includes('administrative_area_level_1'))?.long_name || "").replace('台灣','').trim(); let area = (comps.find(c=>c.types.includes('sublocality_level_1')) || comps.find(c=>c.types.includes('locality')))?.long_name || ""; if (full.includes("香山")) { zip = "300"; city = "新竹市"; area = "香山區"; } else if (full.includes("北區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "北區"; } else if (full.includes("東區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "東區"; } else if (full.includes("寶山")) { zip = "308"; city = "新竹縣"; area = "寶山鄉"; } else if (full.includes("竹北")) { zip = "302"; city = "新竹縣"; area = "竹北市"; } else if (full.includes("竹東")) { zip = "310"; city = "新竹縣"; area = "竹東鎮"; } else if (full.includes("芎林")) { zip = "307"; city = "新竹縣"; area = "芎林鄉"; } const distStr = `${zip} ${city} ${area}`.trim(), addrStr = full.replace(/^\d{3,5}/, '').trim(); const distEl = document.getElementById(dId); const addrEl = document.getElementById(aId); if(distEl) distEl.value = distStr; if(addrEl) addrEl.value = addrStr; state[dId] = distStr; state[aId] = addrStr; if(state.needReturnTrip) syncReturnInfo(); calculatePrice(); };
+      const parse = (place, dId, aId) => { const comps = place.address_components || []; const full = (place.formatted_address || "").replace('台灣','').trim(); let zip = (comps.find(c=>c.types.includes('postal_code'))?.long_name || "").substring(0,3); let city = (comps.find(c=>c.types.includes('administrative_area_level_1'))?.long_name || "").replace('台灣','').trim(); let area = (comps.find(c=>c.types.includes('sublocality_level_1')) || comps.find(c=>c.types.includes('locality')))?.long_name || ""; if (full.includes("香山")) { zip = "300"; city = "新竹市"; area = "香山區"; } else if (full.includes("北區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "北區"; } else if (full.includes("東區") && (full.includes("新竹") || city.includes("新竹"))) { zip = "300"; city = "新竹市"; area = "東區"; } else if (full.includes("寶山")) { zip = "308"; city = "新竹縣"; area = "寶山鄉"; } else if (full.includes("竹北")) { zip = "302"; city = "新竹縣"; area = "竹北市"; } else if (full.includes("竹東")) { zip = "310"; city = "新竹縣"; area = "竹東鎮"; } else if (full.includes("芎林")) { zip = "307"; city = "新竹縣"; area = "芎林鄉"; } const distStr = `${zip} ${city} ${area}`.trim(), addrStr = full.replace(/^\d{3,5}/, '').trim(); const distEl = document.getElementById(dId); const addrEl = document.getElementById(aId); if(distEl) distEl.value = distStr; if(addrEl) addrEl.value = addrStr; state[dId] = distStr; state[aId] = addrStr; markGoogleAddressSelected(dId); if(state.needReturnTrip) syncReturnInfo(); calculatePrice(); };
       const initAC = (inputId, dId) => { const input = document.getElementById(inputId); if(!input) return; const ac = new window.google.maps.places.Autocomplete(input, { types:['geocode','establishment'], componentRestrictions:{country:'tw'} }); ac.addListener('place_changed', () => { const place = ac.getPlace(); if (place && place.formatted_address) parse(place, dId, inputId); }); };
       if (!window.google) { const s = document.createElement('script'); s.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places&language=zh-TW`; s.onload = () => { initAC('address','district'); initAC('returnAddress','returnDistrict'); initAC('extraAddress','extraDistrict'); initAC('returnExtraAddress','returnExtraDistrict'); }; document.head.appendChild(s); } else { initAC('address','district'); initAC('returnAddress','returnDistrict'); initAC('extraAddress','extraDistrict'); initAC('returnExtraAddress','returnExtraDistrict'); }
     }
 
     async function loadPrices() { try { const res = await fetch(`${GAS_WEBAPP_URL}?action=getPrices&t=${Date.now()}`); const d = await res.json(); if (d.status === 'success') { state.priceMap = d.prices; calculatePrice(); } } catch(e) { console.warn('報價載入失敗'); } }
-    function initLiff() { const s = document.createElement('script'); s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js'; s.onload = () => window.liff.init({ liffId: LINE_LIFF_ID }); document.head.appendChild(s); }
+    function initLiff() {
+      liffReadyPromise = new Promise((resolve) => {
+        const boot = () => {
+          if (!window.liff) return resolve(null);
+          window.liff.init({ liffId: LINE_LIFF_ID })
+            .then(() => resolve(window.liff))
+            .catch((err) => {
+              console.warn('LIFF 初始化失敗', err);
+              resolve(null);
+            });
+        };
+        if (window.liff) return boot();
+        const s = document.createElement('script');
+        s.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+        s.onload = boot;
+        s.onerror = () => resolve(null);
+        document.head.appendChild(s);
+      });
+      return liffReadyPromise;
+    }
     function showAlert(msg) { DOM.modalMessage.innerText = msg; DOM.modal.classList.remove('hidden-block'); }
     function closeModal() { DOM.modal.classList.add('hidden-block'); }
     DOM.modalConfirmBtn.onclick = closeModal;
 
     document.getElementById('reservation-form').onsubmit = async (e) => {
       e.preventDefault();
+      applyManualAddressEstimate('address', 'district');
+      if (state.hasExtraPoint) applyManualAddressEstimate('extraAddress', 'extraDistrict');
+      if (state.needReturnTrip) {
+        applyManualAddressEstimate('returnAddress', 'returnDistrict');
+        if (state.returnHasExtraPoint) applyManualAddressEstimate('returnExtraAddress', 'returnExtraDistrict');
+      }
+      if (state.needReturnTrip) syncReturnInfo();
+      calculatePrice();
       let errs = [];
       if (!state.name.trim()) errs.push('請輸入真實姓名');
       if (state.phone.replace(/\D/g, '').length !== 10) errs.push('聯絡電話需為10位數字');
@@ -1429,6 +1578,8 @@
       }
 
       let finalRemarks = (DOM.noLuggage.checked ? "【無行李】" : "") + (state.userRemarks || "");
+      const manualAddressNoticeForOrder = getManualAddressNotice();
+      if (manualAddressNoticeForOrder) finalRemarks += (finalRemarks ? "\n" : "") + `【地址提醒】${manualAddressNoticeForOrder}`;
       if (finalRemarks) lineText += `備註：${finalRemarks}\n`;
 
       lineText += `\n預估總計：${totalStr} (${state.payment || ''})`;
@@ -1525,8 +1676,17 @@
 
       try {
         fetch(GAS_WEBAPP_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }).catch(e => console.log('GAS silent'));
-        if (window.liff && window.liff.isInClient()) {
-          await window.liff.sendMessages([{ type:'text', text: lineText }, { type:'text', text: secondMessage }]);
+        const liffClient = await liffReadyPromise;
+        if (liffClient && liffClient.isInClient()) {
+          try {
+            await liffClient.sendMessages([{ type:'text', text: lineText }, { type:'text', text: secondMessage }]);
+          } catch (lineErr) {
+            console.error('LINE 明細送出失敗', lineErr);
+            showAlert('預約資料已送出，但 LINE 對話明細傳送失敗。\n\n請確認 LIFF 權限是否開啟 chat_message.write，並請客服協助核對此筆訂單。\n\n錯誤：' + (lineErr.message || lineErr.toString()));
+            state.isSubmitting = false;
+            DOM.submitBtn.innerHTML='<span>確認預約並送出</span><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+            return;
+          }
           document.getElementById('view-form').classList.add('hidden-block');
           document.getElementById('view-done').classList.remove('hidden-block');
           document.getElementById('view-done').classList.add('flex');
@@ -1589,11 +1749,25 @@
           }
           
           if(id === 'address') {
+             applyManualAddressEstimate('address', 'district');
              if(state.needReturnTrip) syncReturnInfo();
           }
 
-          if(id === 'extraAddress' || id === 'extraDistrict') {
+          if(id === 'extraAddress') {
+             applyManualAddressEstimate('extraAddress', 'extraDistrict');
              if(state.needReturnTrip) syncReturnInfo();
+          }
+
+          if(id === 'extraDistrict') {
+             if(state.needReturnTrip) syncReturnInfo();
+          }
+
+          if(id === 'returnAddress') {
+             applyManualAddressEstimate('returnAddress', 'returnDistrict');
+          }
+
+          if(id === 'returnExtraAddress') {
+             applyManualAddressEstimate('returnExtraAddress', 'returnExtraDistrict');
           }
 
           if(id.startsWith('return') || id === 'adults' || id === 'children' || id === 'infants' || id === 'checkedBag' || id === 'carryOn') {
@@ -1609,10 +1783,15 @@
       el.addEventListener('input', (e) => { 
         if(e.target.id in state) { 
           state[e.target.id] = e.target.value; 
+          if(e.target.id === 'address') applyManualAddressEstimate('address', 'district');
+          if(e.target.id === 'extraAddress') applyManualAddressEstimate('extraAddress', 'extraDistrict');
+          if(e.target.id === 'returnAddress') applyManualAddressEstimate('returnAddress', 'returnDistrict');
+          if(e.target.id === 'returnExtraAddress') applyManualAddressEstimate('returnExtraAddress', 'returnExtraDistrict');
           if((e.target.id === 'extraAddress' || e.target.id === 'address') && state.needReturnTrip) {
             syncReturnInfo();
             calculatePrice();
           }
+          if(e.target.id === 'returnAddress' || e.target.id === 'returnExtraAddress') calculatePrice();
           if(e.target.tagName === 'SELECT') { 
             if(!e.target.id.startsWith('return') && state.needReturnTrip) syncReturnInfo(); 
             updateReturnPeopleLuggageOptions(); 
