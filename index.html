@@ -366,7 +366,10 @@
                 </select>
               </div>
               <input type="tel" id="phone" class="form-input font-mono" placeholder="聯絡電話 (例: 0912-345-678)" maxlength="12">
-              <input type="email" id="email" class="form-input" placeholder="電子信箱 Email (必填)">
+              <div>
+                <input type="email" id="email" class="form-input" placeholder="電子信箱 Email (必填)">
+                <p class="mt-2 ml-1 text-[11px] leading-relaxed text-gray-500">LINE 無法聯繫時將以 Email 確認資料</p>
+              </div>
           </div>
 
           <div class="pt-2">
@@ -960,11 +963,13 @@
         if (!state.date) errs.push('請選擇乘車日期');
         if (!state.timeHour || !state.timeMinute) errs.push('請選擇乘車時間');
         if (!state.flightNumber) errs.push('請輸入航班編號');
+        if ((state.adults + state.children + state.infants) < 1) errs.push('乘車人數至少需 1 位');
         if (state.hasExtraPoint && !state.extraAddress.trim()) errs.push('勾選加點服務時，請輸入加點地址');
         if (state.needReturnTrip) {
           if (!state.returnDate) errs.push('請選擇回程日期');
           if (!state.returnTimeHour || !state.returnTimeMinute) errs.push('請選擇回程時間');
           if (!state.returnDistrict) errs.push('請帶入回程地址');
+          if ((state.returnAdults + state.returnChildren + state.returnInfants) < 1) errs.push('回程乘車人數至少需 1 位');
           if (state.returnHasExtraPoint && !state.returnExtraAddress.trim()) errs.push('勾選回程加點服務時，請輸入回程加點地址');
         }
       }
@@ -1518,16 +1523,23 @@
       return liffReadyPromise;
     }
 
-    async function getLiffUserId() {
+    async function getLiffSubmitContext() {
+      const context = {
+        lineUserId: '',
+        lineSource: '一般網址/非LINE內開啟'
+      };
       try {
         const liffClient = await liffReadyPromise;
-        if (!liffClient || !liffClient.isLoggedIn()) return '';
-        const profile = await liffClient.getProfile();
-        return profile?.userId || '';
+        if (!liffClient) return context;
+        context.lineSource = liffClient.isInClient() ? 'LINE App LIFF內開啟' : '外部瀏覽器/電腦版LINE';
+        if (liffClient.isLoggedIn()) {
+          const profile = await liffClient.getProfile();
+          context.lineUserId = profile?.userId || '';
+        }
       } catch (err) {
-        console.warn('LIFF userId 取得失敗', err);
-        return '';
+        console.warn('LIFF 送出來源取得失敗', err);
       }
+      return context;
     }
 
     function showAlert(msg) { DOM.modalMessage.innerText = msg; DOM.modal.classList.remove('hidden-block'); }
@@ -1571,6 +1583,7 @@
       if (state.phone.replace(/\D/g, '').length !== 10) errs.push('聯絡電話需為10位數字');
       if (!state.district) errs.push('請從選單帶入接送地址');
       if (!state.flightNumber) errs.push('請輸入航班編號');
+      if ((state.adults + state.children + state.infants) < 1) errs.push('乘車人數至少需 1 位');
       const goRideAt = getRideDateTime(state.date, state.timeHour, state.timeMinute);
       if (goRideAt && goRideAt.getTime() < Date.now()) errs.push('乘車時間不得早於目前時間');
       if (state.hasExtraPoint && !state.extraAddress.trim()) errs.push('勾選加點服務時，請輸入加點地址');
@@ -1589,6 +1602,7 @@
         if (!state.returnFlightNumber) errs.push('請輸入回程航班編號'); 
         if (!state.returnDistrict) errs.push('請帶入回程地址'); 
         if (state.returnDate && state.date && state.returnDate <= state.date) errs.push('回程日期必須晚於去程日期');
+        if ((state.returnAdults + state.returnChildren + state.returnInfants) < 1) errs.push('回程乘車人數至少需 1 位');
         const returnRideAt = getRideDateTime(state.returnDate, state.returnTimeHour, state.returnTimeMinute);
         if (returnRideAt && returnRideAt.getTime() < Date.now()) errs.push('回程時間不得早於目前時間');
         if (state.returnHasExtraPoint && !state.returnExtraAddress.trim()) errs.push('勾選回程加點服務時，請輸入回程加點地址');
@@ -1731,11 +1745,21 @@
         });
       }
 
+      const liffSubmitContext = await getLiffSubmitContext();
+      const emailServiceType = state.needReturnTrip
+        ? `${state.serviceType}+回程${state.serviceType === '送機' ? '接機' : '送機'}`
+        : state.serviceType;
       const payload = { 
         action: 'addReservation', 
         data: reservations,
-        lineUserId: await getLiffUserId(),
-        lineMessages: [lineText, secondMessage]
+        lineUserId: liffSubmitContext.lineUserId,
+        lineSource: liffSubmitContext.lineSource,
+        lineMessages: [lineText, secondMessage],
+        emailNotify: {
+          date: state.date,
+          serviceType: emailServiceType,
+          name: state.name
+        }
       };
 
       try {
