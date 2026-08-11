@@ -756,12 +756,14 @@
       reservationId: '', name: '', title: '先生', phone: '', email: '',
       district: '', address: '', hasExtraPoint: false, extraDistrict: '', extraAddress: '',
       addressNeedsConfirm: false, extraAddressNeedsConfirm: false,
+      addressGoogleSelected: false, extraAddressGoogleSelected: false,
       date: '', timeHour: '', timeMinute: '', serviceType: '送機', airport: '桃園機場', flightNumber: '',
       carType: '小車', adults: 0, children: 0, infants: 0, carryOn: 0, checkedBag: 0,
       payment: '現金', extraSignboard: false, signboardText: '', userRemarks: '', agreed: false,
       needReturnTrip: false, returnDate: '', returnTimeHour: '', returnTimeMinute: '', returnFlightNumber: '',
       returnDistrict: '', returnAddress: '', returnHasExtraPoint: false, returnExtraDistrict: '', returnExtraAddress: '',
       returnAddressNeedsConfirm: false, returnExtraAddressNeedsConfirm: false,
+      returnAddressGoogleSelected: false, returnExtraAddressGoogleSelected: false,
       returnExtraSignboard: false, returnSignboardText: '',
       returnAdults: 0, returnChildren: 0, returnInfants: 0, returnCarryOn: 0, returnCheckedBag: 0,
       returnCarType: '',
@@ -1171,6 +1173,15 @@
       }[districtId];
     }
 
+    function googleSelectedKey(districtId) {
+      return {
+        district: 'addressGoogleSelected',
+        extraDistrict: 'extraAddressGoogleSelected',
+        returnDistrict: 'returnAddressGoogleSelected',
+        returnExtraDistrict: 'returnExtraAddressGoogleSelected'
+      }[districtId];
+    }
+
     function manualAddressNoteId(districtId) {
       return {
         district: 'address-manual-note',
@@ -1228,14 +1239,20 @@
       const distEl = document.getElementById(districtId);
       if (!addrEl || !distEl) return;
       const confirmKey = manualConfirmKey(districtId);
+      const googleKey = googleSelectedKey(districtId);
       const inferred = inferDistrictFromAddressText(addrEl.value);
       if (inferred) {
-        distEl.value = inferred;
-        state[districtId] = inferred;
-        if (confirmKey) state[confirmKey] = true;
+        if (!state[googleKey]) {
+          distEl.value = inferred;
+          state[districtId] = inferred;
+          if (confirmKey) state[confirmKey] = true;
+        } else if (confirmKey) {
+          state[confirmKey] = false;
+        }
       } else {
         distEl.value = '';
         state[districtId] = '';
+        if (googleKey) state[googleKey] = false;
         if (confirmKey) state[confirmKey] = false;
       }
       updateManualAddressNote(districtId);
@@ -1243,8 +1260,15 @@
 
     function markGoogleAddressSelected(districtId) {
       const confirmKey = manualConfirmKey(districtId);
+      const googleKey = googleSelectedKey(districtId);
+      if (googleKey) state[googleKey] = true;
       if (confirmKey) state[confirmKey] = false;
       updateManualAddressNote(districtId);
+    }
+
+    function markAddressManuallyEdited(districtId) {
+      const googleKey = googleSelectedKey(districtId);
+      if (googleKey) state[googleKey] = false;
     }
 
     function getManualAddressNotice() {
@@ -1267,6 +1291,7 @@
         DOM.returnDistrict.value = state.district; DOM.returnAddress.value = state.address;
         state.returnDistrict = state.district; state.returnAddress = state.address;
         state.returnAddressNeedsConfirm = state.addressNeedsConfirm;
+        state.returnAddressGoogleSelected = state.addressGoogleSelected;
         updateManualAddressNote('returnDistrict');
         
         state.returnAirport = state.airport;
@@ -1278,6 +1303,7 @@
         state.returnExtraDistrict = state.extraDistrict;
         state.returnExtraAddress = state.extraAddress;
         state.returnExtraAddressNeedsConfirm = state.extraAddressNeedsConfirm;
+        state.returnExtraAddressGoogleSelected = state.extraAddressGoogleSelected;
         const returnHasExtraPointEl = document.getElementById('returnHasExtraPoint');
         if (returnHasExtraPointEl) returnHasExtraPointEl.checked = state.hasExtraPoint;
         if (DOM.returnExtraDistrict) DOM.returnExtraDistrict.value = state.extraDistrict;
@@ -1491,12 +1517,47 @@
       });
       return liffReadyPromise;
     }
+
+    async function getLiffUserId() {
+      try {
+        const liffClient = await liffReadyPromise;
+        if (!liffClient || !liffClient.isLoggedIn()) return '';
+        const profile = await liffClient.getProfile();
+        return profile?.userId || '';
+      } catch (err) {
+        console.warn('LIFF userId 取得失敗', err);
+        return '';
+      }
+    }
+
     function showAlert(msg) { DOM.modalMessage.innerText = msg; DOM.modal.classList.remove('hidden-block'); }
     function closeModal() { DOM.modal.classList.add('hidden-block'); }
     DOM.modalConfirmBtn.onclick = closeModal;
 
+    function setSubmittingState(isSubmitting) {
+      state.isSubmitting = isSubmitting;
+      DOM.submitBtn.disabled = isSubmitting;
+      DOM.submitBtn.classList.toggle('opacity-60', isSubmitting);
+      DOM.submitBtn.classList.toggle('pointer-events-none', isSubmitting);
+      const wizardNextBtn = document.getElementById('wizard-next-btn');
+      if (wizardNextBtn) {
+        wizardNextBtn.disabled = isSubmitting;
+        wizardNextBtn.classList.toggle('opacity-60', isSubmitting);
+        wizardNextBtn.textContent = isSubmitting ? '資料傳送中...' : (wizard.currentStep === 3 ? '確認送出' : '下一步');
+      }
+      DOM.submitBtn.innerHTML = isSubmitting
+        ? '資料傳送中...'
+        : '<span>確認預約並送出</span><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+    }
+
     document.getElementById('reservation-form').onsubmit = async (e) => {
       e.preventDefault();
+      if (state.isSubmitting) return;
+      const submitStorageKey = `rs-submitted-${state.reservationId}`;
+      if (sessionStorage.getItem(submitStorageKey)) {
+        showAlert('此預約已送出，請勿重複提交。\n\n若 LINE 對話沒有出現預約明細，請直接聯繫客服核對訂單。');
+        return;
+      }
       applyManualAddressEstimate('address', 'district');
       if (state.hasExtraPoint) applyManualAddressEstimate('extraAddress', 'extraDistrict');
       if (state.needReturnTrip) {
@@ -1538,7 +1599,8 @@
       if (needsYes.checked && !state.userRemarks.trim()) errs.push('請於輸入框說明特殊需求');
       if (errs.length > 0) return showAlert("請修正以下資訊：\n\n" + errs.map((e,i)=>`${i+1}. ${e}`).join('\n'));
 
-      state.isSubmitting = true; DOM.submitBtn.innerHTML = '資料傳送中...';
+      setSubmittingState(true);
+      sessionStorage.setItem(submitStorageKey, 'pending');
       let totalStr = DOM.displayTotal.innerText;
       
       let lineText = `【RS專車接送 線上預約單】\n` +
@@ -1671,20 +1733,21 @@
 
       const payload = { 
         action: 'addReservation', 
-        data: reservations 
+        data: reservations,
+        lineUserId: await getLiffUserId(),
+        lineMessages: [lineText, secondMessage]
       };
 
       try {
-        fetch(GAS_WEBAPP_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }).catch(e => console.log('GAS silent'));
+        await fetch(GAS_WEBAPP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+        sessionStorage.setItem(submitStorageKey, 'sent');
         const liffClient = await liffReadyPromise;
         if (liffClient && liffClient.isInClient()) {
           try {
             await liffClient.sendMessages([{ type:'text', text: lineText }, { type:'text', text: secondMessage }]);
           } catch (lineErr) {
             console.error('LINE 明細送出失敗', lineErr);
-            showAlert('預約資料已送出，但 LINE 對話明細傳送失敗。\n\n請確認 LIFF 權限是否開啟 chat_message.write，並請客服協助核對此筆訂單。\n\n錯誤：' + (lineErr.message || lineErr.toString()));
-            state.isSubmitting = false;
-            DOM.submitBtn.innerHTML='<span>確認預約並送出</span><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+            showAlert('預約資料已送出，但 LINE 對話明細傳送失敗。\n\n請不要重複送出，客服仍可在表單中查到此筆訂單。\n\n請確認 LIFF 權限是否開啟 chat_message.write。\n\n錯誤：' + (lineErr.message || lineErr.toString()));
             return;
           }
           document.getElementById('view-form').classList.add('hidden-block');
@@ -1696,7 +1759,11 @@
           document.getElementById('view-success').classList.remove('hidden-block');
           document.getElementById('fallback-message').innerText = lineText + '\n\n' + secondMessage;
         }
-      } catch(err) { showAlert('傳送失敗，請檢查網路連線。'); state.isSubmitting=false; DOM.submitBtn.innerHTML='<span>確認預約並送出</span><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>'; }
+      } catch(err) {
+        sessionStorage.removeItem(submitStorageKey);
+        showAlert('傳送失敗，請檢查網路連線。');
+        setSubmittingState(false);
+      }
     };
 
     setupWizardLayout(); initSelectOptions(); loadPrices(); initGoogleMaps();
@@ -1783,10 +1850,22 @@
       el.addEventListener('input', (e) => { 
         if(e.target.id in state) { 
           state[e.target.id] = e.target.value; 
-          if(e.target.id === 'address') applyManualAddressEstimate('address', 'district');
-          if(e.target.id === 'extraAddress') applyManualAddressEstimate('extraAddress', 'extraDistrict');
-          if(e.target.id === 'returnAddress') applyManualAddressEstimate('returnAddress', 'returnDistrict');
-          if(e.target.id === 'returnExtraAddress') applyManualAddressEstimate('returnExtraAddress', 'returnExtraDistrict');
+          if(e.target.id === 'address') {
+            markAddressManuallyEdited('district');
+            applyManualAddressEstimate('address', 'district');
+          }
+          if(e.target.id === 'extraAddress') {
+            markAddressManuallyEdited('extraDistrict');
+            applyManualAddressEstimate('extraAddress', 'extraDistrict');
+          }
+          if(e.target.id === 'returnAddress') {
+            markAddressManuallyEdited('returnDistrict');
+            applyManualAddressEstimate('returnAddress', 'returnDistrict');
+          }
+          if(e.target.id === 'returnExtraAddress') {
+            markAddressManuallyEdited('returnExtraDistrict');
+            applyManualAddressEstimate('returnExtraAddress', 'returnExtraDistrict');
+          }
           if((e.target.id === 'extraAddress' || e.target.id === 'address') && state.needReturnTrip) {
             syncReturnInfo();
             calculatePrice();
